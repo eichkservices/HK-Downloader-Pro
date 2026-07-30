@@ -216,7 +216,83 @@ document.addEventListener('DOMContentLoaded', () => {
   async function analyzeUrl(link) {
     setAnalyzing(true);
     try {
-      // 1. Try Backend Node API first
+      const type = identifyLinkType(link);
+      
+      // For YouTube and Instagram, resolve multiple qualities in parallel!
+      if (type === 'youtube' || type === 'instagram') {
+        const presetsToFetch = [
+          { key: '1080', preset: QUALITY_PRESETS['1080'] || { videoQuality: '1080', downloadMode: 'auto' }, label: 'Video (1080p)', ext: 'mp4' },
+          { key: '720',  preset: QUALITY_PRESETS['720'] || { videoQuality: '720', downloadMode: 'auto' },  label: 'Video (720p)',  ext: 'mp4' },
+          { key: '480',  preset: QUALITY_PRESETS['480'] || { videoQuality: '480', downloadMode: 'auto' },  label: 'Video (480p)',  ext: 'mp4' },
+          { key: 'audio-mp3', preset: QUALITY_PRESETS['audio-mp3'] || { videoQuality: 'max', downloadMode: 'audio', audioFormat: 'mp3' }, label: 'Audio Track (MP3)', ext: 'mp3' }
+        ];
+
+        const promises = presetsToFetch.map(async (item) => {
+          // 1. Try Backend Node API first
+          try {
+            const resp = await fetch('/api/analyze', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ inputUrl: link, preset: item.preset })
+            });
+            const contentType = resp.headers.get('content-type') || '';
+            if (resp.ok && contentType.includes('application/json')) {
+              const data = await resp.json();
+              if (data.formats && data.formats.length > 0) {
+                const format = data.formats[0];
+                return {
+                  ...format,
+                  note: item.label,
+                  ext: item.ext,
+                  title: data.title,
+                  thumbnail: data.thumbnail
+                };
+              }
+            }
+          } catch (e) {}
+
+          // 2. Client-side Cloudflare Pages Fallback
+          try {
+            const clientData = await resolveClientSide(link, item.preset);
+            if (clientData.formats && clientData.formats.length > 0) {
+              const format = clientData.formats[0];
+              return {
+                ...format,
+                note: item.label,
+                ext: item.ext,
+                title: clientData.title,
+                thumbnail: clientData.thumbnail
+              };
+            }
+          } catch (e) {}
+
+          return null;
+        });
+
+        const results = await Promise.all(promises);
+        const validFormats = results.filter(r => r !== null);
+
+        if (validFormats.length === 0) {
+          throw new Error('All download formats failed to resolve.');
+        }
+
+        // Combine them into a single formats object
+        const combinedData = {
+          title: validFormats[0].title || 'Media Video',
+          thumbnail: validFormats[0].thumbnail || '',
+          type: type,
+          formats: validFormats.map(f => ({
+            directUrl: f.directUrl,
+            note: f.note,
+            ext: f.ext,
+            sizeBytes: f.sizeBytes || f.size || 0
+          }))
+        };
+        openFormatModal(combinedData);
+        return;
+      }
+
+      // Standard single resolution for other links (TikTok, direct links, etc.)
       try {
         const resp = await fetch('/api/analyze', {
           method: 'POST',
@@ -231,7 +307,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } catch (e) {}
 
-      // 2. Client-side Cloudflare Pages Fallback
       const clientData = await resolveClientSide(link, selectedPreset);
       openFormatModal(clientData);
 
@@ -555,11 +630,21 @@ document.addEventListener('DOMContentLoaded', () => {
             ${sizeText ? `<div class="option-size">${sizeText}</div>` : ''}
           </div>
         </div>
-        <button class="btn-dl-item">Download</button>
+        <div class="option-actions">
+          <a href="${f.directUrl || f.token}" class="btn-fast-dl" target="_blank" rel="noopener">Save to Device</a>
+          <button class="btn-dl-item">Save to Library</button>
+        </div>
       `;
 
       item.querySelector('.btn-dl-item').addEventListener('click', () => {
         startDownload(f.token || f.directUrl, filename, data.title, data.thumbnail, f.sizeBytes, f);
+        formatModal.classList.add('hidden');
+        urlInput.value = '';
+        updateButtonText();
+      });
+
+      // Clear search when clicking Save to Device too
+      item.querySelector('.btn-fast-dl').addEventListener('click', () => {
         formatModal.classList.add('hidden');
         urlInput.value = '';
         updateButtonText();
