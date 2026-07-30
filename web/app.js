@@ -324,11 +324,11 @@ document.addEventListener('DOMContentLoaded', () => {
     return { title, thumbnail };
   }
 
-  const COBALT_PUBLIC_INSTANCES = [
-    "https://cobalt.canine.tools",
-    "https://cobalt.meowing.de",
-    "https://cobalt.mgytr.top",
-    "https://cobalt.tools"
+  const COBALT_STATIC_FALLBACKS = [
+    "https://api.cobalt.liubquanti.click",
+    "https://cobaltapi.cjs.nz",
+    "https://rue-cobalt.xenon.zone",
+    "https://lime.clxxped.lol"
   ];
 
   async function resolveCobaltSingle(link, displayType, instanceUrl, preset) {
@@ -382,10 +382,33 @@ document.addEventListener('DOMContentLoaded', () => {
     if (instanceUrl) {
       instances.push(instanceUrl);
     }
-    instances.push(...COBALT_PUBLIC_INSTANCES);
+
+    try {
+      const dirResp = await fetch('https://cobalt.directory/api/working?type=api', { signal: AbortSignal.timeout(3000) });
+      if (dirResp.ok) {
+        const dirData = await dirResp.json();
+        const service = displayType.toLowerCase();
+        const serviceEndpoints = dirData.data?.[service] || [];
+        instances.push(...serviceEndpoints);
+        if (dirData.data) {
+          for (const s in dirData.data) {
+            if (s !== service) {
+              instances.push(...dirData.data[s]);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // fallback
+    }
+
+    const uniqueInstances = Array.from(new Set(instances));
+    if (uniqueInstances.length === 0 || (uniqueInstances.length === 1 && uniqueInstances[0] === instanceUrl)) {
+      uniqueInstances.push(...COBALT_STATIC_FALLBACKS);
+    }
 
     const errors = [];
-    for (const instance of instances) {
+    for (const instance of uniqueInstances) {
       try {
         return await resolveCobaltSingle(link, displayType, instance, preset);
       } catch (e) {
