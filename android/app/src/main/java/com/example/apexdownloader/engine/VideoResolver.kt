@@ -305,17 +305,15 @@ private class DesktopServerResolver : Resolver {
     }
 }
 
-/** A self-hosted Cobalt instance, if configured in Settings. Cobalt's old
- *  public API was shut down Nov 2024 -- there's no public pre-hosted option,
- *  so this only does anything once the user points it at their own instance. */
 private class CobaltResolver : Resolver {
     override val name = "cobalt"
     private val client = NetworkClient.client
-    private val publicInstances = listOf(
-        "https://cobalt.canine.tools",
-        "https://cobalt.meowing.de",
-        "https://cobalt.mgytr.top",
-        "https://cobalt.tools"
+
+    private val staticFallbacks = listOf(
+        "https://api.cobalt.liubquanti.click",
+        "https://apicobalt.mgytr.top",
+        "https://subito-c.meowing.de",
+        "https://lime.clxxped.lol"
     )
 
     private fun buildRequest(url: String, cleanCobaltUrl: String, ctx: ResolverContext): Request {
@@ -382,10 +380,51 @@ private class CobaltResolver : Resolver {
         if (!ctx.cobaltInstanceUrl.isNullOrEmpty()) {
             instances.add(ctx.cobaltInstanceUrl)
         }
-        instances.addAll(publicInstances)
+
+        // Fetch dynamically from cobalt.directory tracker
+        try {
+            val dirRequest = Request.Builder()
+                .url("https://cobalt.directory/api/working?type=api")
+                .build()
+            client.newCall(dirRequest).execute().use { response ->
+                if (response.isSuccessful) {
+                    val bodyStr = response.body?.string() ?: ""
+                    val dirData = JSONObject(bodyStr).optJSONObject("data")
+                    if (dirData != null) {
+                        val service = type.lowercase()
+                        val serviceArr = dirData.optJSONArray(service)
+                        if (serviceArr != null) {
+                            for (i in 0 until serviceArr.length()) {
+                                instances.add(serviceArr.getString(i))
+                            }
+                        }
+                        // Fallback: add all other services' APIs as well
+                        val keys = dirData.keys()
+                        while (keys.hasNext()) {
+                            val k = keys.next()
+                            if (k != service) {
+                                val otherArr = dirData.optJSONArray(k)
+                                if (otherArr != null) {
+                                    for (i in 0 until otherArr.length()) {
+                                        instances.add(otherArr.getString(i))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore & fallback to static
+        }
+
+        val uniqueInstances = instances.distinct().toMutableList()
+        if (uniqueInstances.isEmpty() || (uniqueInstances.size == 1 && uniqueInstances[0] == ctx.cobaltInstanceUrl)) {
+            uniqueInstances.addAll(staticFallbacks)
+        }
 
         val failures = mutableListOf<String>()
-        for (instance in instances) {
+        for (instance in uniqueInstances) {
             val cleanCobaltUrl = instance.trimEnd('/')
             try {
                 when (val outcome = resolveSingle(url, type, cleanCobaltUrl, ctx)) {

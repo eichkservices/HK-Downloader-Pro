@@ -77,11 +77,11 @@ async function resolveYoutubeMetadata(link) {
   return { title, thumbnail };
 }
 
-const COBALT_PUBLIC_INSTANCES = [
-  "https://cobalt.canine.tools",
-  "https://cobalt.meowing.de",
-  "https://cobalt.mgytr.top",
-  "https://cobalt.tools"
+const COBALT_STATIC_FALLBACKS = [
+  "https://api.cobalt.liubquanti.click",
+  "https://apicobalt.mgytr.top",
+  "https://subito-c.meowing.de",
+  "https://lime.clxxped.lol"
 ];
 
 async function resolveCobaltSingle(link, displayType, instanceUrl, preset) {
@@ -134,10 +134,37 @@ async function resolveCobalt(link, displayType, cobaltInstanceUrl, preset) {
   if (cobaltInstanceUrl) {
     instances.push(cobaltInstanceUrl);
   }
-  instances.push(...COBALT_PUBLIC_INSTANCES);
+
+  // Fetch active working endpoints from cobalt.directory dynamically at runtime!
+  try {
+    const dirResp = await fetch('https://cobalt.directory/api/working?type=api', { signal: AbortSignal.timeout(3000) });
+    if (dirResp.ok) {
+      const dirData = await dirResp.json();
+      const service = displayType.toLowerCase();
+      // Try endpoints for the specific service first
+      const serviceEndpoints = dirData.data?.[service] || [];
+      instances.push(...serviceEndpoints);
+      // Fallback: add all other working endpoints to maximize chance of success
+      if (dirData.data) {
+        for (const s in dirData.data) {
+          if (s !== service) {
+            instances.push(...dirData.data[s]);
+          }
+        }
+      }
+    }
+  } catch (e) {
+    // If cobalt.directory is down or times out, fallback to hardcoded list
+  }
+
+  // De-duplicate endpoints while preserving order
+  const uniqueInstances = Array.from(new Set(instances));
+  if (uniqueInstances.length === 0 || (uniqueInstances.length === 1 && uniqueInstances[0] === cobaltInstanceUrl)) {
+    uniqueInstances.push(...COBALT_STATIC_FALLBACKS);
+  }
 
   const errors = [];
-  for (const instance of instances) {
+  for (const instance of uniqueInstances) {
     try {
       return await resolveCobaltSingle(link, displayType, instance, preset);
     } catch (e) {
