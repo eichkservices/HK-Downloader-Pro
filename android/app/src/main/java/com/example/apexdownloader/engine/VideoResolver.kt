@@ -84,6 +84,7 @@ object VideoResolver {
     // ---- The actual chain, in static priority order per type ----
     private val cloudStorageResolver = CloudStorageResolver()
     private val tikTokPublicApiResolver = TikTokPublicApiResolver()
+    private val cloudflarePagesResolver = CloudflarePagesResolver()
     private val desktopServerResolver = DesktopServerResolver()
     private val cobaltResolver = CobaltResolver()
     private val localDirectLinkResolver = LocalDirectLinkResolver()
@@ -91,9 +92,9 @@ object VideoResolver {
     private fun chainFor(type: String): List<Resolver> {
         val base = when (type) {
             "google-drive", "dropbox" -> listOf(cloudStorageResolver)
-            "tiktok" -> listOf(tikTokPublicApiResolver, desktopServerResolver, cobaltResolver)
+            "tiktok" -> listOf(tikTokPublicApiResolver, cloudflarePagesResolver, desktopServerResolver, cobaltResolver)
             "direct-link" -> listOf(localDirectLinkResolver)
-            in videoPlatformTypes -> listOf(desktopServerResolver, cobaltResolver)
+            in videoPlatformTypes -> listOf(cloudflarePagesResolver, desktopServerResolver, cobaltResolver)
             else -> listOf(localDirectLinkResolver)
         }
         // Adaptive reorder: whichever backend won last time for this type
@@ -394,6 +395,68 @@ private class LocalDirectLinkResolver : Resolver {
         return ResolveOutcome.Success(title, "", formats)
     }
 }
+
+/** Resolves video links through the Cloudflare Pages custom backend. */
+private class CloudflarePagesResolver : Resolver {
+    override val name = "cloudflare-pages"
+    private val client = NetworkClient.client
+
+    override suspend fun resolve(url: String, type: String, ctx: ResolverContext): ResolveOutcome {
+        val endpoint = "https://hk-downloader-pro2.pages.dev/api/analyze"
+        return try {
+            val jsonReq = JSONObject().apply {
+                put("inputUrl", url)
+            }.toString()
+            val requestBody = jsonReq.toRequestBody("application/json".toMediaTypeOrNull())
+            val request = Request.Builder()
+                .url(endpoint)
+                .post(requestBody)
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return ResolveOutcome.Failed("HTTP ${response.code}")
+                val data = JSONObject(response.body?.string() ?: "")
+                val title = data.optString("title", "Universal Video")
+                val thumbnail = data.optString("thumbnail", "")
+
+                val formatsList = mutableListOf<VideoFormat>()
+                val formatsArr = data.optJSONArray("formats")
+                if (formatsArr != null) {
+                    for (i in 0 until formatsArr.length()) {
+                        val fObj = formatsArr.getJSONObject(i)
+                        val directUrl = fObj.optString("directUrl")
+                        val token = fObj.optString("token")
+                        // If directUrl is empty, fallback to token or construct download URL
+                        val formatId = if (directUrl.isNotEmpty()) {
+                            "cobalt|$directUrl"
+                        } else if (token.isNotEmpty()) {
+                            "cobalt|https://hk-downloader-pro2.pages.dev/api/download?token=$token"
+                        } else {
+                            ""
+                        }
+                        if (formatId.isNotEmpty()) {
+                            val ext = fObj.optString("ext", "mp4")
+                            val note = fObj.optString("note", "Download")
+                            val sizeBytes = fObj.optLong("sizeBytes", -1L).takeIf { it > 0 }
+                                ?: fObj.optLong("size", -1L).takeIf { it > 0 }
+                            formatsList.add(VideoFormat(formatId, note, ext, sizeBytes = sizeBytes))
+                        }
+                    }
+                }
+                if (formatsList.isEmpty()) {
+                    ResolveOutcome.Failed("no formats resolved")
+                } else {
+                    ResolveOutcome.Success(title, thumbnail, formatsList)
+                }
+            }
+        } catch (e: Exception) {
+            ResolveOutcome.Failed(e.message ?: "unreachable")
+        }
+    }
+}
+
 
 data class VideoFormat(
     val formatId: String,
