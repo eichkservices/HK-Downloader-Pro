@@ -102,26 +102,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const navItems           = document.querySelectorAll('.nav-item');
   const tabPages           = {
     downloader: document.getElementById('tabDownloader'),
-    library:    document.getElementById('tabLibrary'),
-    settings:   document.getElementById('tabSettings')
+    library:    document.getElementById('tabLibrary')
   };
-
-  // Cobalt instance URL, persisted in localStorage
-  const cobaltInstanceInput = document.getElementById('cobaltInstanceInput');
-  const btnSaveCobaltInstance = document.getElementById('btnSaveCobaltInstance');
-  const cobaltSaveStatus = document.getElementById('cobaltSaveStatus');
-  if (cobaltInstanceInput) {
-    cobaltInstanceInput.value = getCobaltInstanceUrl();
-  }
-  if (btnSaveCobaltInstance) {
-    btnSaveCobaltInstance.addEventListener('click', () => {
-      localStorage.setItem('cobaltInstanceUrl', cobaltInstanceInput.value.trim());
-      if (cobaltSaveStatus) {
-        cobaltSaveStatus.classList.remove('hidden');
-        setTimeout(() => cobaltSaveStatus.classList.add('hidden'), 2000);
-      }
-    });
-  }
 
   const libraryItems = [];
   let currentActiveBlobUrl = '';
@@ -342,11 +324,14 @@ document.addEventListener('DOMContentLoaded', () => {
     return { title, thumbnail };
   }
 
-  async function resolveCobalt(link, displayType, preset) {
-    const instanceUrl = getCobaltInstanceUrl();
-    if (!instanceUrl) {
-      throw new Error(`No Cobalt instance configured (add one in Settings to use ${displayType})`);
-    }
+  const COBALT_PUBLIC_INSTANCES = [
+    "https://cobalt.canine.tools",
+    "https://cobalt.meowing.de",
+    "https://cobalt.mgytr.top",
+    "https://cobalt.tools"
+  ];
+
+  async function resolveCobaltSingle(link, displayType, instanceUrl, preset) {
     const p = preset || QUALITY_PRESETS['1080'];
     const payload = { url: link, videoQuality: p.videoQuality, downloadMode: p.downloadMode };
     if (p.downloadMode === 'audio') {
@@ -358,6 +343,9 @@ document.addEventListener('DOMContentLoaded', () => {
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(payload)
     });
+    if (!resp.ok) {
+      throw new Error(`HTTP ${resp.status}`);
+    }
     const data = await resp.json();
 
     if (data.status === 'tunnel' || data.status === 'redirect') {
@@ -385,7 +373,26 @@ document.addEventListener('DOMContentLoaded', () => {
     if (data.status === 'error') {
       throw new Error(`Cobalt error (${data.error?.code || 'unknown'})`);
     }
-    throw new Error('unexpected response from Cobalt instance');
+    throw new Error('unexpected response');
+  }
+
+  async function resolveCobalt(link, displayType, preset) {
+    const instanceUrl = getCobaltInstanceUrl();
+    const instances = [];
+    if (instanceUrl) {
+      instances.push(instanceUrl);
+    }
+    instances.push(...COBALT_PUBLIC_INSTANCES);
+
+    const errors = [];
+    for (const instance of instances) {
+      try {
+        return await resolveCobaltSingle(link, displayType, instance, preset);
+      } catch (e) {
+        errors.push(`${instance}: ${e.message}`);
+      }
+    }
+    throw new Error(`All Cobalt instances failed: ${errors.join('; ')}`);
   }
 
   function resolveDirectLink(link) {

@@ -110,27 +110,7 @@
         </section>
       </div>
 
-      <!-- 3. Settings Tab Page -->
-      <div id="tabSettings" class="tab-page hidden">
-        <section class="section-container">
-          <h2 class="section-title">Settings</h2>
-          <div class="settings-card">
-            <h3 class="settings-card-title">Cobalt Instance (Advanced, Optional)</h3>
-            <p class="settings-card-desc">
-              Downloads work automatically -- this app resolves videos through its own server, so
-              you don't need to fill this in. This field only matters if the server is briefly
-              unavailable, as a personal backup, or if you specifically want to use your own
-              self-hosted Cobalt instance instead of the built-in one.
-            </p>
-            <input id="cobaltInstanceInput" class="settings-input" type="text" placeholder="e.g. https://cobalt.mydomain.com" autocomplete="off" spellcheck="false">
-            <button id="btnSaveCobaltInstance" class="btn-start-download settings-save-btn">Save</button>
-            <p id="cobaltSaveStatus" class="settings-save-status hidden">Saved.</p>
-          </div>
-        </section>
-      </div>
-    </div>
-
-    <!-- Bottom Navigation Bar (3 Tabs: Downloader, Library & Settings) -->
+    <!-- Bottom Navigation Bar (2 Tabs: Downloader & Library) -->
     <nav class="bottom-nav">
       <button class="nav-item active" data-tab="downloader">
         <div class="nav-icon">
@@ -144,13 +124,6 @@
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
         </div>
         <span>Library</span>
-      </button>
-
-      <button class="nav-item" data-tab="settings">
-        <div class="nav-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-        </div>
-        <span>Settings</span>
       </button>
     </nav>
   </div>

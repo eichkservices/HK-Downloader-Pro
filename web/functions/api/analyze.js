@@ -77,21 +77,28 @@ async function resolveYoutubeMetadata(link) {
   return { title, thumbnail };
 }
 
-async function resolveCobalt(link, displayType, cobaltInstanceUrl, preset) {
-  if (!cobaltInstanceUrl) {
-    throw new Error(`No Cobalt instance configured on the server (set COBALT_INSTANCE_URL in Cloudflare Pages env vars)`);
-  }
+const COBALT_PUBLIC_INSTANCES = [
+  "https://cobalt.canine.tools",
+  "https://cobalt.meowing.de",
+  "https://cobalt.mgytr.top",
+  "https://cobalt.tools"
+];
+
+async function resolveCobaltSingle(link, displayType, instanceUrl, preset) {
   const p = preset || { videoQuality: '1080', downloadMode: 'auto' };
   const payload = { url: link, videoQuality: p.videoQuality, downloadMode: p.downloadMode };
   if (p.downloadMode === 'audio') {
     payload.audioFormat = p.audioFormat;
     if (p.audioBitrate) payload.audioBitrate = p.audioBitrate;
   }
-  const resp = await fetch(cobaltInstanceUrl.replace(/\/+$/, '') + '/', {
+  const resp = await fetch(instanceUrl.replace(/\/+$/, '') + '/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
     body: JSON.stringify(payload)
   });
+  if (!resp.ok) {
+    throw new Error(`HTTP ${resp.status}`);
+  }
   const data = await resp.json();
 
   if (data.status === 'tunnel' || data.status === 'redirect') {
@@ -119,7 +126,25 @@ async function resolveCobalt(link, displayType, cobaltInstanceUrl, preset) {
   if (data.status === 'error') {
     throw new Error(`Cobalt error (${data.error?.code || 'unknown'})`);
   }
-  throw new Error('unexpected response from Cobalt instance');
+  throw new Error('unexpected response');
+}
+
+async function resolveCobalt(link, displayType, cobaltInstanceUrl, preset) {
+  const instances = [];
+  if (cobaltInstanceUrl) {
+    instances.push(cobaltInstanceUrl);
+  }
+  instances.push(...COBALT_PUBLIC_INSTANCES);
+
+  const errors = [];
+  for (const instance of instances) {
+    try {
+      return await resolveCobaltSingle(link, displayType, instance, preset);
+    } catch (e) {
+      errors.push(`${instance}: ${e.message}`);
+    }
+  }
+  throw new Error(`All Cobalt instances failed: ${errors.join('; ')}`);
 }
 
 function resolveDirectLink(link) {

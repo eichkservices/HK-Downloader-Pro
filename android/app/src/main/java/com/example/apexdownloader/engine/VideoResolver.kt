@@ -311,66 +311,93 @@ private class DesktopServerResolver : Resolver {
 private class CobaltResolver : Resolver {
     override val name = "cobalt"
     private val client = NetworkClient.client
+    private val publicInstances = listOf(
+        "https://cobalt.canine.tools",
+        "https://cobalt.meowing.de",
+        "https://cobalt.mgytr.top",
+        "https://cobalt.tools"
+    )
+
+    private fun buildRequest(url: String, cleanCobaltUrl: String, ctx: ResolverContext): Request {
+        val payload = JSONObject().apply {
+            put("url", url)
+            put("videoQuality", ctx.preset.videoQuality)
+            put("downloadMode", ctx.preset.downloadMode)
+            if (ctx.preset.downloadMode == "audio") {
+                put("audioFormat", ctx.preset.audioFormat)
+                put("audioBitrate", ctx.preset.audioBitrate)
+            }
+        }.toString()
+        val requestBody = payload.toRequestBody("application/json".toMediaTypeOrNull())
+        return Request.Builder()
+            .url("$cleanCobaltUrl/")
+            .post(requestBody)
+            .header("Accept", "application/json")
+            .header("Content-Type", "application/json")
+            .build()
+    }
+
+    private suspend fun resolveSingle(url: String, type: String, cleanCobaltUrl: String, ctx: ResolverContext): ResolveOutcome {
+        val request = buildRequest(url, cleanCobaltUrl, ctx)
+        return client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return ResolveOutcome.Failed("HTTP ${response.code}")
+            val data = JSONObject(response.body?.string() ?: "")
+            when (data.optString("status")) {
+                "tunnel", "redirect" -> {
+                    val directUrl = data.getString("url")
+                    val filename = data.optString("filename", "Video - ${type.replaceFirstChar { it.uppercase() }}")
+                    val ext = filename.substringAfterLast('.', "mp4")
+                    val thumbnail = if (type == "youtube") VideoResolver.extractYoutubeThumbnail(url) else ""
+                    ResolveOutcome.Success(
+                        filename.substringBeforeLast('.'),
+                        thumbnail,
+                        listOf(VideoFormat("cobalt|$directUrl", "Download ($ext)", ext, sizeBytes = VideoResolver.probeContentLength(directUrl)))
+                    )
+                }
+                "picker" -> {
+                    val pickerArr = data.optJSONArray("picker") ?: JSONArray()
+                    val formats = mutableListOf<VideoFormat>()
+                    for (i in 0 until pickerArr.length()) {
+                        val pObj = pickerArr.getJSONObject(i)
+                        val itemUrl = pObj.optString("url")
+                        val itemType = pObj.optString("type", "video")
+                        val ext = if (itemType == "photo") "jpg" else "mp4"
+                        if (itemUrl.isNotEmpty()) {
+                            val size = if (i < 10) VideoResolver.probeContentLength(itemUrl) else null
+                            formats.add(VideoFormat("cobalt|$itemUrl", "Item ${i + 1} ($itemType)", ext, size))
+                        }
+                    }
+                    if (formats.isNotEmpty()) ResolveOutcome.Success("Media Set - ${type.replaceFirstChar { it.uppercase() }}", "", formats)
+                    else ResolveOutcome.Failed("picker returned no usable items")
+                }
+                "local-processing" -> ResolveOutcome.Failed("needs local remuxing this instance doesn't support")
+                "error" -> ResolveOutcome.Failed(data.optJSONObject("error")?.optString("code") ?: "unknown error")
+                else -> ResolveOutcome.Failed("unexpected response")
+            }
+        }
+    }
 
     override suspend fun resolve(url: String, type: String, ctx: ResolverContext): ResolveOutcome {
-        if (ctx.cobaltInstanceUrl.isNullOrEmpty()) return ResolveOutcome.NotApplicable
-        return try {
-            val cleanCobaltUrl = ctx.cobaltInstanceUrl.trimEnd('/')
-            val payload = JSONObject().apply {
-                put("url", url)
-                put("videoQuality", ctx.preset.videoQuality)
-                put("downloadMode", ctx.preset.downloadMode)
-                if (ctx.preset.downloadMode == "audio") {
-                    put("audioFormat", ctx.preset.audioFormat)
-                    put("audioBitrate", ctx.preset.audioBitrate)
-                }
-            }.toString()
-            val requestBody = payload.toRequestBody("application/json".toMediaTypeOrNull())
-            val request = Request.Builder()
-                .url("$cleanCobaltUrl/")
-                .post(requestBody)
-                .header("Accept", "application/json")
-                .header("Content-Type", "application/json")
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                val data = JSONObject(response.body?.string() ?: "")
-                when (data.optString("status")) {
-                    "tunnel", "redirect" -> {
-                        val directUrl = data.getString("url")
-                        val filename = data.optString("filename", "Video - ${type.replaceFirstChar { it.uppercase() }}")
-                        val ext = filename.substringAfterLast('.', "mp4")
-                        val thumbnail = if (type == "youtube") VideoResolver.extractYoutubeThumbnail(url) else ""
-                        ResolveOutcome.Success(
-                            filename.substringBeforeLast('.'),
-                            thumbnail,
-                            listOf(VideoFormat("cobalt|$directUrl", "Download ($ext)", ext, sizeBytes = VideoResolver.probeContentLength(directUrl)))
-                        )
-                    }
-                    "picker" -> {
-                        val pickerArr = data.optJSONArray("picker") ?: JSONArray()
-                        val formats = mutableListOf<VideoFormat>()
-                        for (i in 0 until pickerArr.length()) {
-                            val pObj = pickerArr.getJSONObject(i)
-                            val itemUrl = pObj.optString("url")
-                            val itemType = pObj.optString("type", "video")
-                            val ext = if (itemType == "photo") "jpg" else "mp4"
-                            if (itemUrl.isNotEmpty()) {
-                                val size = if (i < 10) VideoResolver.probeContentLength(itemUrl) else null
-                                formats.add(VideoFormat("cobalt|$itemUrl", "Item ${i + 1} ($itemType)", ext, size))
-                            }
-                        }
-                        if (formats.isNotEmpty()) ResolveOutcome.Success("Media Set - ${type.replaceFirstChar { it.uppercase() }}", "", formats)
-                        else ResolveOutcome.Failed("picker returned no usable items")
-                    }
-                    "local-processing" -> ResolveOutcome.Failed("needs local remuxing this instance doesn't support")
-                    "error" -> ResolveOutcome.Failed(data.optJSONObject("error")?.optString("code") ?: "unknown error")
-                    else -> ResolveOutcome.Failed("unexpected response")
-                }
-            }
-        } catch (e: Exception) {
-            ResolveOutcome.Failed(e.message ?: "unreachable")
+        val instances = mutableListOf<String>()
+        if (!ctx.cobaltInstanceUrl.isNullOrEmpty()) {
+            instances.add(ctx.cobaltInstanceUrl)
         }
+        instances.addAll(publicInstances)
+
+        val failures = mutableListOf<String>()
+        for (instance in instances) {
+            val cleanCobaltUrl = instance.trimEnd('/')
+            try {
+                when (val outcome = resolveSingle(url, type, cleanCobaltUrl, ctx)) {
+                    is ResolveOutcome.Success -> return outcome
+                    is ResolveOutcome.Failed -> failures.add("$cleanCobaltUrl: ${outcome.reason}")
+                    else -> {}
+                }
+            } catch (e: Exception) {
+                failures.add("$cleanCobaltUrl: ${e.message ?: "error"}")
+            }
+        }
+        return ResolveOutcome.Failed("All Cobalt instances failed: ${failures.joinToString("; ")}")
     }
 }
 

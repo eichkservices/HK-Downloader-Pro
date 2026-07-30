@@ -111,61 +111,6 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Card(
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = BgPanel),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Cobalt Instance (optional)",
-                    color = TextPrimary,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-
-                Text(
-                    text = "Cobalt's public API was shut down in 2024 — there's no shared server to fall back to anymore. If you don't run the Desktop App, self-host a Cobalt instance and paste its URL here to resolve YouTube/TikTok/Instagram/Facebook/Reddit links.",
-                    color = TextSecondary,
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                OutlinedTextField(
-                    value = cobaltInput,
-                    onValueChange = { cobaltInput = it },
-                    placeholder = { Text("e.g. https://cobalt.mydomain.com", color = TextSecondary) },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary,
-                        focusedBorderColor = AccentOrange,
-                        unfocusedBorderColor = BorderColor,
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                )
-
-                Button(
-                    onClick = {
-                        viewModel.saveCobaltInstanceUrl(cobaltInput.trim())
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentOrange),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Save Cobalt Instance", color = Color.White, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
         val context = LocalContext.current
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
         var isIgnoringBatteryOptimizations by remember {
