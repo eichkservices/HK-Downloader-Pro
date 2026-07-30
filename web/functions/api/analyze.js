@@ -1,0 +1,198 @@
+// functions/api/analyze.js
+//
+// Cloudflare Pages Function -- deploys automatically alongside the static
+// site on the SAME domain (no separate Render/Node hosting needed). Handles
+// POST /api/analyze { inputUrl } and does the actual video resolution
+// server-side, so normal users never see a "configure Cobalt" prompt.
+//
+// [Claude / Sonnet] Added this file. Mirrors the client-side resolver chain
+// in app.js (same platform list, same Cobalt API contract), but runs on
+// Cloudflare's servers where the Cobalt instance URL lives as a secret
+// environment variable -- never sent to or configured by the browser.
+//
+// ---- ONE-TIME SETUP REQUIRED (on the Cloudflare dashboard, not in code) ----
+// Cloudflare Pages project -> Settings -> Environment variables -> add:
+//   COBALT_INSTANCE_URL = https://your-self-hosted-cobalt-instance.example.com
+// Do this for both "Production" and "Preview" environments.
+// That's the ONLY thing that needs configuring outside this codebase.
+// -----------------------------------------------------------------------
+
+const COBALT_PLATFORMS = {
+  'youtube.com': 'YouTube', 'youtu.be': 'YouTube',
+  'instagram.com': 'Instagram',
+  'twitter.com': 'Twitter', 'x.com': 'Twitter',
+  'facebook.com': 'Facebook', 'fb.watch': 'Facebook',
+  'reddit.com': 'Reddit',
+  'bilibili.com': 'Bilibili', 'bilibili.tv': 'Bilibili',
+  'bsky.app': 'Bluesky',
+  'dailymotion.com': 'Dailymotion',
+  'loom.com': 'Loom',
+  'ok.ru': 'OK',
+  'pinterest.com': 'Pinterest', 'pin.it': 'Pinterest',
+  'rutube.ru': 'Rutube',
+  'snapchat.com': 'Snapchat',
+  'soundcloud.com': 'SoundCloud',
+  'streamable.com': 'Streamable',
+  'tumblr.com': 'Tumblr',
+  'twitch.tv': 'Twitch',
+  'vimeo.com': 'Vimeo',
+  'vk.com': 'VK', 'vk.ru': 'VK',
+  'xiaohongshu.com': 'Xiaohongshu', 'xhslink.com': 'Xiaohongshu',
+};
+
+function identifyLinkType(link) {
+  const l = link.toLowerCase();
+  if (l.includes('tiktok.com')) return 'tiktok';
+  for (const domain of Object.keys(COBALT_PLATFORMS)) {
+    if (l.includes(domain)) return COBALT_PLATFORMS[domain].toLowerCase();
+  }
+  return 'direct-link';
+}
+
+async function resolveTikwm(link) {
+  const resp = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(link)}`);
+  const data = await resp.json();
+  if (data?.code !== 0 || !data.data) throw new Error('tikwm returned no usable data');
+  const v = data.data;
+  const formats = [];
+  if (v.play) formats.push({ directUrl: v.play, note: 'HD No Watermark (MP4)', ext: 'mp4' });
+  if (v.wmplay) formats.push({ directUrl: v.wmplay, note: 'Watermarked (MP4)', ext: 'mp4' });
+  if (v.music) formats.push({ directUrl: v.music, note: 'Audio Only (MP3)', ext: 'mp3' });
+  if (formats.length === 0) throw new Error('no playable formats in tikwm response');
+  return { title: v.title || 'TikTok Video', thumbnail: v.cover || '', formats, type: 'tiktok' };
+}
+
+async function resolveYoutubeMetadata(link) {
+  let title = null, thumbnail = null;
+  const vidId = link.match(/(?:v=|youtu\.be\/|shorts\/)([a-zA-Z0-9_-]{11})/)?.[1];
+  if (vidId) thumbnail = `https://img.youtube.com/vi/${vidId}/hqdefault.jpg`;
+  try {
+    const oeResp = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(link)}&format=json`);
+    if (oeResp.ok) {
+      const oe = await oeResp.json();
+      title = oe.title || title;
+      thumbnail = oe.thumbnail_url || thumbnail;
+    }
+  } catch (e) {}
+  return { title, thumbnail };
+}
+
+async function resolveCobalt(link, displayType, cobaltInstanceUrl, preset) {
+  if (!cobaltInstanceUrl) {
+    throw new Error(`No Cobalt instance configured on the server (set COBALT_INSTANCE_URL in Cloudflare Pages env vars)`);
+  }
+  const p = preset || { videoQuality: '1080', downloadMode: 'auto' };
+  const payload = { url: link, videoQuality: p.videoQuality, downloadMode: p.downloadMode };
+  if (p.downloadMode === 'audio') {
+    payload.audioFormat = p.audioFormat;
+    if (p.audioBitrate) payload.audioBitrate = p.audioBitrate;
+  }
+  const resp = await fetch(cobaltInstanceUrl.replace(/\/+$/, '') + '/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await resp.json();
+
+  if (data.status === 'tunnel' || data.status === 'redirect') {
+    const filename = data.filename || `${displayType}-download.mp4`;
+    const ext = filename.includes('.') ? filename.split('.').pop() : 'mp4';
+    return {
+      title: filename.replace(/\.[^/.]+$/, ''),
+      thumbnail: '',
+      type: displayType.toLowerCase(),
+      formats: [{ directUrl: data.url, note: `Download (${ext})`, ext }]
+    };
+  }
+  if (data.status === 'picker' && Array.isArray(data.picker)) {
+    const formats = data.picker
+      .filter(item => item.url)
+      .map((item, i) => ({
+        directUrl: item.url,
+        note: `Item ${i + 1} (${item.type || 'video'})`,
+        ext: item.type === 'photo' ? 'jpg' : 'mp4'
+      }));
+    if (formats.length > 0) {
+      return { title: `Media set - ${displayType}`, thumbnail: '', type: displayType.toLowerCase(), formats };
+    }
+  }
+  if (data.status === 'error') {
+    throw new Error(`Cobalt error (${data.error?.code || 'unknown'})`);
+  }
+  throw new Error('unexpected response from Cobalt instance');
+}
+
+function resolveDirectLink(link) {
+  const fname = link.split('/').pop().split('?')[0] || 'Media Video';
+  const ext = fname.includes('.') ? fname.split('.').pop().toLowerCase() : 'mp4';
+  return {
+    title: fname,
+    thumbnail: '',
+    type: 'direct',
+    formats: [{ directUrl: link, note: `Direct ${ext.toUpperCase()} Download`, ext }]
+  };
+}
+
+export async function onRequestPost(context) {
+  const { request, env } = context;
+  const cobaltInstanceUrl = env.COBALT_INSTANCE_URL || '';
+
+  let inputUrl;
+  let preset;
+  try {
+    const body = await request.json();
+    inputUrl = body.inputUrl;
+    preset = body.preset || { videoQuality: '1080', downloadMode: 'auto' };
+  } catch (e) {
+    return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  if (!inputUrl) {
+    return new Response(JSON.stringify({ error: 'Missing inputUrl' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  const type = identifyLinkType(inputUrl);
+  const chain = type === 'tiktok'
+    ? [
+        { name: 'tikwm', run: () => resolveTikwm(inputUrl) },
+        { name: 'cobalt', run: () => resolveCobalt(inputUrl, 'TikTok', cobaltInstanceUrl, preset) },
+      ]
+    : type === 'youtube'
+    ? [
+        { name: 'cobalt', run: async () => {
+            const meta = await resolveYoutubeMetadata(inputUrl).catch(() => ({}));
+            const result = await resolveCobalt(inputUrl, 'YouTube', cobaltInstanceUrl, preset);
+            return { ...result, title: meta.title || result.title, thumbnail: meta.thumbnail || result.thumbnail };
+          }
+        },
+      ]
+    : type === 'direct-link'
+    ? [{ name: 'direct-link', run: () => resolveDirectLink(inputUrl) }]
+    : [{ name: 'cobalt', run: () => resolveCobalt(inputUrl, type.charAt(0).toUpperCase() + type.slice(1), cobaltInstanceUrl, preset) }];
+
+  const failures = [];
+  for (const resolver of chain) {
+    try {
+      const result = await resolver.run();
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (e) {
+      failures.push(`${resolver.name}: ${e.message}`);
+    }
+  }
+
+  return new Response(JSON.stringify({
+    error: `Couldn't resolve this link (tried: ${failures.join('; ')})`
+  }), {
+    status: 502,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}

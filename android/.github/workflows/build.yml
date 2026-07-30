@@ -1,0 +1,73 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: {}   # lets you trigger a build manually from the Actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x gradlew
+
+      # Debug APK: builds every time, no secrets required. Good for quick
+      # testing -- Android will still show the "unknown sources" install
+      # prompt since it isn't from Play Store, that's normal.
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: apex-downloader-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+      # Release APK: only builds if the signing secrets below are configured
+      # in this repo (Settings -> Secrets and variables -> Actions -> New
+      # repository secret). Without them this step is skipped, not failed.
+      - name: Check for release signing secrets
+        id: check_signing
+        run: |
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "has_secrets=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_secrets=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Decode keystore
+        if: steps.check_signing.outputs.has_secrets == 'true'
+        run: |
+          mkdir -p keystore
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore/apex-release.keystore
+
+      - name: Write keystore.properties
+        if: steps.check_signing.outputs.has_secrets == 'true'
+        run: |
+          cat > keystore.properties << EOF
+          storeFile=keystore/apex-release.keystore
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          EOF
+
+      - name: Build signed release APK
+        if: steps.check_signing.outputs.has_secrets == 'true'
+        run: ./gradlew assembleRelease
+
+      - name: Upload release APK
+        if: steps.check_signing.outputs.has_secrets == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: apex-downloader-release-signed
+          path: app/build/outputs/apk/release/app-release.apk

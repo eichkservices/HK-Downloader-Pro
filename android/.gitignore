@@ -1,0 +1,22 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Release signing -- real secrets, must never be committed.
+# For CI (GitHub Actions), supply these via repo Secrets instead:
+# see .github/workflows/build.yml
+/keystore.properties
+/keystore/*.keystore
+/keystore/keystore-credentials.txt
