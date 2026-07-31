@@ -7,45 +7,20 @@ const COBALT_STATIC_FALLBACKS = [
   "https://lime.clxxped.lol"
 ];
 
-function fetchJson(url) {
-  return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
-      let body = '';
-      res.on('data', (chunk) => body += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(body)); } catch (e) { reject(e); }
-      });
-    }).on('error', reject);
-  });
+async function fetchJson(url, options = {}) {
+  const res = await fetch(url, options);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
 }
 
-function postJson(url, payload) {
-  return new Promise((resolve, reject) => {
-    const urlObj = new URL(url);
-    const postData = JSON.stringify(payload);
-    const options = {
-      hostname: urlObj.hostname,
-      port: 443,
-      path: urlObj.pathname + urlObj.search,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Content-Length': Buffer.byteLength(postData)
-      }
-    };
-    const req = https.request(options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => body += chunk);
-      res.on('end', () => {
-        try { resolve({ status: res.statusCode, body: JSON.parse(body) }); }
-        catch (e) { resolve({ status: res.statusCode, raw: body }); }
-      });
-    });
-    req.on('error', reject);
-    req.write(postData);
-    req.end();
+async function postJson(url, payload) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify(payload)
   });
+  const body = await res.json().catch(() => null);
+  return { status: res.status, body };
 }
 
 const COBALT_PLATFORMS = {
@@ -213,6 +188,28 @@ module.exports = async (req, res) => {
 
   if (!inputUrl) {
     return res.status(400).json({ error: 'Missing inputUrl' });
+  }
+
+  const ytdlpApiUrl = process.env.YTDLP_API_URL || '';
+  if (ytdlpApiUrl) {
+    try {
+      const cleanApiUrl = ytdlpApiUrl.replace(/\/+$/, '');
+      const resp = await fetchJson(`${cleanApiUrl}/api/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inputUrl, preset })
+      });
+      if (resp && resp.formats && Array.isArray(resp.formats)) {
+        resp.formats.forEach(f => {
+          if (f.token && !f.token.startsWith('http')) {
+            f.token = `${cleanApiUrl}/api/download?token=${f.token}`;
+          }
+        });
+        return res.status(200).json(resp);
+      }
+    } catch (e) {
+      // fallback
+    }
   }
 
   const type = identifyLinkType(inputUrl);

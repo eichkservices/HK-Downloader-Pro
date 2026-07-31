@@ -202,6 +202,34 @@ export async function onRequestPost(context) {
     });
   }
 
+  const ytdlpApiUrl = env.YTDLP_API_URL || '';
+  if (ytdlpApiUrl) {
+    try {
+      const cleanApiUrl = ytdlpApiUrl.replace(/\/+$/, '');
+      const resp = await fetch(`${cleanApiUrl}/api/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inputUrl, preset })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.formats && Array.isArray(data.formats)) {
+          data.formats.forEach(f => {
+            if (f.token && !f.token.startsWith('http')) {
+              f.token = `${cleanApiUrl}/api/download?token=${f.token}`;
+            }
+          });
+        }
+        return new Response(JSON.stringify(data), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    } catch (e) {
+      // fallback on error
+    }
+  }
+
   if (!inputUrl) {
     return new Response(JSON.stringify({ error: 'Missing inputUrl' }), {
       status: 400,
