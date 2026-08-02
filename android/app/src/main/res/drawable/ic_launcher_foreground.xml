@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- HK Downloader Pro brand foreground glyph: two stacked download chevrons,
      cyan over orange, matching the standalone logo mark. Flat vector paths
-     (adaptive icons can't render blur/inset shading -- that detail lives in
+     (adaptive icons can't render blur/inset shading - that detail lives in
      the raster logo files instead). Bounding box x:[37,71] y:[38,78.3],
      safely inside the 66x66 adaptive-icon safe zone (x/y [21,87]). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
