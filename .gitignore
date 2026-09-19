@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 .DS_Store
 .idea/
 .gradle/
@@ -6,3 +6,4 @@ build/
 *.apk
 *.log
 local.properties
+cloudflared.exe
