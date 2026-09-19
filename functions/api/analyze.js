@@ -49,6 +49,70 @@ function identifyLinkType(link) {
   return 'direct-link';
 }
 
+function cleanUrl(rawUrl) {
+  if (!rawUrl) return '';
+  let u = rawUrl.trim().replace(/^["'<(\[{`\s]+|["'>)\]}`.,;:\s]+$/g, '');
+  try {
+    const parsed = new URL(u);
+    const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm', 'si', 'feature', 'fbclid', 'igsh', 'ref', 'usp', '_ga', '_gl', 'mibextid'];
+    for (const p of trackingParams) {
+      parsed.searchParams.delete(p);
+    }
+    return parsed.toString();
+  } catch (e) {
+    return u;
+  }
+}
+
+async function resolveFacebookDirect(link) {
+  const resp = await fetch(link, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Upgrade-Insecure-Requests': '1'
+    }
+  });
+
+  const body = await resp.text();
+  const hdMatch = body.match(/"browser_native_hd_url"\s*:\s*"([^"]+)"/) ||
+                  body.match(/"playable_url_quality_hd"\s*:\s*"([^"]+)"/) ||
+                  body.match(/hd_src\s*:\s*"([^"]+)"/);
+
+  const sdMatch = body.match(/"browser_native_sd_url"\s*:\s*"([^"]+)"/) ||
+                  body.match(/"playable_url"\s*:\s*"([^"]+)"/) ||
+                  body.match(/sd_src\s*:\s*"([^"]+)"/);
+
+  let title = 'Facebook Video';
+  const titleMatch = body.match(/<title id="pageTitle">([^<]+)<\/title>/) ||
+                     body.match(/<title>([^<]+)<\/title>/);
+  if (titleMatch) {
+    title = titleMatch[1].replace(/\\u[\dA-F]{4}/gi, m => String.fromCharCode(parseInt(m.replace(/\\u/g, ''), 16)))
+                         .replace(/\s*\|\s*Facebook.*$/i, '')
+                         .replace(/\\/g, '')
+                         .trim();
+  }
+
+  let thumbnail = '';
+  const thumbMatch = body.match(/"preferred_thumbnail"\s*:\s*\{\s*"image"\s*:\s*\{\s*"uri"\s*:\s*"([^"]+)"/) ||
+                     body.match(/property="og:image"\s+content="([^"]+)"/) ||
+                     body.match(/content="([^"]+)"\s+property="og:image"/);
+  if (thumbMatch) {
+    thumbnail = thumbMatch[1].replace(/\\/g, '');
+  }
+
+  const cleanHd = hdMatch ? hdMatch[1].replace(/\\/g, '') : null;
+  const cleanSd = sdMatch ? sdMatch[1].replace(/\\/g, '') : null;
+
+  const formats = [];
+  if (cleanHd) formats.push({ directUrl: cleanHd, note: '🎬 HD (1080p MP4)', ext: 'mp4' });
+  if (cleanSd) formats.push({ directUrl: cleanSd, note: '🎬 SD (480p MP4)', ext: 'mp4' });
+
+  if (formats.length === 0) throw new Error('No direct streams found in Facebook page');
+
+  return { title, thumbnail, type: 'facebook', formats };
+}
+
 async function resolveTikwm(link) {
   const resp = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(link)}`);
   const data = await resp.json();
@@ -237,11 +301,18 @@ export async function onRequestPost(context) {
     });
   }
 
+  inputUrl = cleanUrl(inputUrl);
+
   const type = identifyLinkType(inputUrl);
   const chain = type === 'tiktok'
     ? [
         { name: 'tikwm', run: () => resolveTikwm(inputUrl) },
         { name: 'cobalt', run: () => resolveCobalt(inputUrl, 'TikTok', cobaltInstanceUrl, preset) },
+      ]
+    : type === 'facebook'
+    ? [
+        { name: 'facebook-direct', run: () => resolveFacebookDirect(inputUrl) },
+        { name: 'cobalt', run: () => resolveCobalt(inputUrl, 'Facebook', cobaltInstanceUrl, preset) },
       ]
     : type === 'youtube'
     ? [

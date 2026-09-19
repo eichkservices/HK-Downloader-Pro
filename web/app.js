@@ -13,6 +13,43 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalTypeBadge     = document.getElementById('modalTypeBadge');
   const formatList         = document.getElementById('formatList');
 
+  // ── APEX Engine: Rolling Speed Sampler (800ms window → accurate, smooth readouts)
+  class SpeedSampler {
+    constructor(windowMs = 800) {
+      this.windowMs = windowMs;
+      this.samples = [];
+    }
+    add(bytes) {
+      const now = Date.now();
+      this.samples.push({ ts: now, bytes });
+      const cutoff = now - this.windowMs;
+      while (this.samples.length > 0 && this.samples[0].ts < cutoff) {
+        this.samples.shift();
+      }
+    }
+    get speed() {
+      if (this.samples.length < 2) return 0;
+      const total = this.samples.reduce((s, x) => s + x.bytes, 0);
+      const span = this.samples[this.samples.length - 1].ts - this.samples[0].ts;
+      return span > 0 ? (total / span) * 1000 : 0;
+    }
+  }
+
+  function cleanUrl(rawUrl) {
+    if (!rawUrl) return '';
+    let u = rawUrl.trim().replace(/^["'<(\[{`\s]+|["'>)\]}`.,;:\s]+$/g, '');
+    try {
+      const parsed = new URL(u);
+      const tracking = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm', 'si', 'feature', 'fbclid', 'igsh', 'ref', 'usp', '_ga', '_gl', 'mibextid'];
+      for (const p of tracking) {
+        parsed.searchParams.delete(p);
+      }
+      return parsed.toString();
+    } catch(e) {
+      return u;
+    }
+  }
+
   // Bold toast banner for completion/failure -- appears at the top of the
   // app shell, auto-dismisses. isError swaps to the red/failure treatment.
   const toastContainer = document.getElementById('toastContainer');
@@ -213,7 +250,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Universal Video Resolver (Works on Node Backend AND Static Cloudflare Pages!)
-  async function analyzeUrl(link) {
+  async function analyzeUrl(rawLink) {
+    const link = cleanUrl(rawLink);
+    if (urlInput) urlInput.value = link;
     setAnalyzing(true);
     try {
       const type = identifyLinkType(link);
@@ -926,21 +965,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const chunks    = [];
       let   received  = 0;
       let   startTime = Date.now();
+      const speedSampler = new SpeedSampler(800);
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         chunks.push(value);
         received += value.length;
+        speedSampler.add(value.length);
 
-        const pct     = totalSize ? Math.round((received / totalSize) * 100) : null;
-        const elapsed = (Date.now() - startTime) / 1000;
-        const speed   = received / elapsed;
-        const eta     = totalSize && speed ? Math.round((totalSize - received) / speed) : null;
+        const currentSpeed = speedSampler.speed || (received / Math.max(0.1, (Date.now() - startTime) / 1000));
+        const pct          = totalSize ? Math.round((received / totalSize) * 100) : null;
+        const eta          = totalSize && currentSpeed > 0 ? Math.round((totalSize - received) / currentSpeed) : null;
 
         bar.style.width      = pct != null ? `${pct}%` : '50%';
         percent.textContent  = pct != null ? `${pct}%` : '…';
-        meta.textContent     = `${fmtBytes(received)}${totalSize ? ' / ' + fmtBytes(totalSize) : ''}    ${fmtSpeed(speed)}${eta ? '    ' + fmtEta(eta) : ''}`;
+        meta.textContent     = `${fmtBytes(received)}${totalSize ? ' / ' + fmtBytes(totalSize) : ''}    ${fmtSpeed(currentSpeed)}${eta ? '    ' + fmtEta(eta) : ''}`;
       }
 
       // Complete download
