@@ -1,2 +1,9 @@
+[project]
+name = "hk-downloader-pro"
+version = "0.1.0"
+dependencies = [
+    "yt-dlp",
+]
+
 [tool.vercel]
 entrypoint = "api.analyze:handler"
