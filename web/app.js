@@ -345,9 +345,26 @@ document.addEventListener('DOMContentLoaded', () => {
     if (data?.code !== 0 || !data.data) throw new Error('tikwm returned no usable data');
     const v = data.data;
     const formats = [];
-    if (v.play) formats.push({ directUrl: v.play, note: 'HD No Watermark (MP4)', ext: 'mp4' });
-    if (v.wmplay) formats.push({ directUrl: v.wmplay, note: 'Watermarked (MP4)', ext: 'mp4' });
-    if (v.music) formats.push({ directUrl: v.music, note: 'Audio Only (MP3)', ext: 'mp3' });
+
+    // 1. HD No Watermark (best quality if available)
+    if (v.hdplay) formats.push({ directUrl: v.hdplay, note: '🎬 HD 1080p (No watermark)', ext: 'mp4', hasAudio: true });
+    // 2. Standard No Watermark
+    if (v.play) formats.push({ directUrl: v.play, note: '🎬 Video (No watermark)', ext: 'mp4', hasAudio: true });
+    // 3. Watermarked
+    if (v.wmplay) formats.push({ directUrl: v.wmplay, note: '🎬 Video (Watermarked)', ext: 'mp4', hasAudio: true });
+    // 4. Music / Audio
+    if (v.music) formats.push({ directUrl: v.music, note: '🎵 Audio Track (MP3)', ext: 'mp3', isAudio: true });
+    // 5. TikTok Photo Slideshow album (if present)
+    if (Array.isArray(v.images) && v.images.length > 0) {
+      v.images.forEach((imgUrl, i) => {
+        formats.push({
+          directUrl: imgUrl,
+          note: `📸 Slide Photo #${i + 1} (JPG)`,
+          ext: 'jpg'
+        });
+      });
+    }
+
     if (formats.length === 0) throw new Error('no playable formats in tikwm response');
     return { title: v.title || 'TikTok Video', thumbnail: v.cover || '', formats, type: 'tiktok' };
   }
@@ -574,19 +591,24 @@ document.addEventListener('DOMContentLoaded', () => {
       const cleanTitle = (data.title || 'download').replace(/[\\/:*?"<>|]/g, '').trim() || 'download';
       const filename   = `${cleanTitle}.${f.ext || 'mp4'}`;
 
-      // User requested exact wording: Video (No watermark) / Video (Watermarked)
+      // Preserve descriptive note, only sanitize TikTok generic notes if needed
       let cleanNote = f.note || 'Video Download';
-      if (cleanNote.toLowerCase().includes('no watermark') || cleanNote.toLowerCase().includes('hd no watermark')) {
-        cleanNote = 'Video (No watermark)';
-      } else if (cleanNote.toLowerCase().includes('watermark')) {
-        cleanNote = 'Video (Watermarked)';
-      } else if (cleanNote.toLowerCase().includes('audio')) {
-        cleanNote = 'Audio Track (MP3)';
+      if ((data.type || '').toLowerCase() === 'tiktok') {
+        if (cleanNote.toLowerCase().includes('hd')) {
+          cleanNote = '🎬 Video (HD No watermark)';
+        } else if (cleanNote.toLowerCase().includes('no watermark')) {
+          cleanNote = '🎬 Video (No watermark)';
+        } else if (cleanNote.toLowerCase().includes('watermark')) {
+          cleanNote = '🎬 Video (Watermarked)';
+        } else if (cleanNote.toLowerCase().includes('audio')) {
+          cleanNote = '🎵 Audio Track (MP3)';
+        }
       }
 
+      const isAudioItem = f.ext === 'mp3' || f.ext === 'm4a' || f.isAudio;
       const thumbMarkup = data.thumbnail
         ? `<img src="${data.thumbnail}" class="option-thumb" alt="thumb">`
-        : `<div class="option-thumb-fallback">${f.ext === 'mp3' ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>` : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>`}</div>`;
+        : `<div class="option-thumb-fallback">${isAudioItem ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>` : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>`}</div>`;
 
       const sizeText = f.sizeBytes ? fmtBytes(f.sizeBytes) : (f.size ? fmtBytes(f.size) : '');
 
@@ -640,24 +662,91 @@ document.addEventListener('DOMContentLoaded', () => {
   const touchRight = document.getElementById('touchRight');
   const bufferSpinner = document.getElementById('bufferSpinner');
   const bufferedFill  = document.getElementById('bufferedFill');
+  const audioView          = document.getElementById('audioView');
+  const audioTrackTitle    = document.getElementById('audioTrackTitle');
+  const playerErrorOverlay = document.getElementById('playerErrorOverlay');
+  const btnErrOpenExternal = document.getElementById('btnErrOpenExternal');
+  const btnErrSaveDirect   = document.getElementById('btnErrSaveDirect');
 
   let isLocked = false;
   let controlsTimeout = null;
+  let currentActiveFilename = '';
+  let currentActiveExt = '';
 
-  function playVideoInCustomPlayer(title, blobUrl) {
+  function getMimeType(filename, ext) {
+    const cleanExt = (ext || (filename ? filename.split('.').pop() : '') || '').toLowerCase();
+    switch (cleanExt) {
+      case 'mp3': return 'audio/mpeg';
+      case 'm4a': return 'audio/mp4';
+      case 'wav': return 'audio/wav';
+      case 'ogg':
+      case 'opus': return 'audio/ogg';
+      case 'webm': return 'video/webm';
+      case 'jpg':
+      case 'jpeg': return 'image/jpeg';
+      case 'png': return 'image/png';
+      default: return 'video/mp4';
+    }
+  }
+
+  function playVideoInCustomPlayer(title, blobUrl, ext, filename) {
     currentActiveTitle = title || 'Playing Media';
     currentActiveBlobUrl = blobUrl;
+    currentActiveExt = (ext || (filename ? filename.split('.').pop() : '') || 'mp4').toLowerCase();
+    currentActiveFilename = filename || `${currentActiveTitle}.${currentActiveExt}`;
 
     playerTitle.textContent = currentActiveTitle;
+    if (playerErrorOverlay) playerErrorOverlay.classList.add('hidden');
+
+    const isAudio = ['mp3', 'm4a', 'opus', 'wav', 'ogg', 'aac'].includes(currentActiveExt);
+
+    if (audioView) {
+      if (isAudio) {
+        audioView.classList.remove('hidden');
+        if (audioTrackTitle) audioTrackTitle.textContent = currentActiveTitle;
+        if (btnAspectToggle) btnAspectToggle.classList.add('hidden');
+      } else {
+        audioView.classList.add('hidden');
+        if (btnAspectToggle) btnAspectToggle.classList.remove('hidden');
+      }
+    }
+
     videoPlayer.src = blobUrl;
     playerModal.classList.remove('hidden');
 
-    videoPlayer.play().catch(() => {});
+    videoPlayer.play().catch(err => {
+      console.warn('Playback error / autoplay prevented:', err);
+    });
     if (playSvg && pauseSvg) {
       playSvg.classList.add('hidden');
       pauseSvg.classList.remove('hidden');
     }
     resetControlsTimeout();
+  }
+
+  videoPlayer.addEventListener('error', () => {
+    console.warn('videoPlayer error event triggered, showing fallback overlay');
+    if (playerErrorOverlay) {
+      playerErrorOverlay.classList.remove('hidden');
+    }
+  });
+
+  if (btnErrOpenExternal) {
+    btnErrOpenExternal.addEventListener('click', () => {
+      openWithMedia(currentActiveBlobUrl);
+    });
+  }
+
+  if (btnErrSaveDirect) {
+    btnErrSaveDirect.addEventListener('click', () => {
+      if (!currentActiveBlobUrl) return;
+      const a = document.createElement('a');
+      a.href = currentActiveBlobUrl;
+      a.download = currentActiveFilename || 'media.mp4';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    });
   }
 
   // Aspect Ratio Fit Auto Switcher (Contain, Cover, Stretch)
@@ -857,6 +946,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function closeCustomPlayer() {
     videoPlayer.pause();
     videoPlayer.src = '';
+    if (playerErrorOverlay) playerErrorOverlay.classList.add('hidden');
+    if (audioView) audioView.classList.add('hidden');
     playerModal.classList.add('hidden');
   }
 
@@ -879,7 +970,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const a = document.createElement('a');
     a.href = blobUrl;
     a.target = '_blank';
+    a.rel = 'noreferrer noopener';
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
   }
 
   // 7. Delete Confirmation Modal Popup
@@ -983,10 +1077,12 @@ document.addEventListener('DOMContentLoaded', () => {
         meta.textContent     = `${fmtBytes(received)}${totalSize ? ' / ' + fmtBytes(totalSize) : ''}    ${fmtSpeed(currentSpeed)}${eta ? '    ' + fmtEta(eta) : ''}`;
       }
 
-      // Complete download
-      const blob    = new Blob(chunks, { type: 'video/mp4' });
-      const blobUrl = URL.createObjectURL(blob);
-      const a       = document.createElement('a');
+      // Complete download with dynamic MIME type
+      const ext      = (formatObj?.ext || filename.split('.').pop() || 'mp4').toLowerCase();
+      const mimeType = getMimeType(filename, ext);
+      const blob     = new Blob(chunks, { type: mimeType });
+      const blobUrl  = URL.createObjectURL(blob);
+      const a        = document.createElement('a');
       a.href     = blobUrl;
       a.download = filename;
       document.body.appendChild(a);
@@ -1003,24 +1099,25 @@ document.addEventListener('DOMContentLoaded', () => {
       flashAmbientState('state-completed');
 
       actionsContainer.innerHTML = `
-        <button class="btn-card-action btn-play" title="Play Video">
+        <button class="btn-card-action btn-play" title="Play Media">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
           <span>Play</span>
         </button>
         <button class="btn-card-action btn-openwith" title="Open With App">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
         </button>
-        <button class="btn-card-action btn-share" title="Share Video">
+        <button class="btn-card-action btn-share" title="Share Media">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
         </button>
-        <button class="btn-card-action btn-del" title="Delete Video">
+        <button class="btn-card-action btn-del" title="Delete">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
         </button>
       `;
 
-      const libObj = { title: title || filename, filename, thumbnail, blobUrl, size: received };
+      const isAudio = ['mp3', 'm4a', 'opus', 'wav', 'ogg', 'aac'].includes(ext) || formatObj?.isAudio;
+      const libObj = { title: title || filename, filename, thumbnail, blobUrl, size: received, ext, isAudio };
 
-      actionsContainer.querySelector('.btn-play').addEventListener('click', () => playVideoInCustomPlayer(title || filename, blobUrl));
+      actionsContainer.querySelector('.btn-play').addEventListener('click', () => playVideoInCustomPlayer(title || filename, blobUrl, ext, filename));
       actionsContainer.querySelector('.btn-openwith').addEventListener('click', () => openWithMedia(blobUrl));
       actionsContainer.querySelector('.btn-share').addEventListener('click', () => shareMedia(title || filename, blobUrl));
       actionsContainer.querySelector('.btn-del').addEventListener('click', () => promptDeleteConfirmation(cardElem, libObj));
@@ -1159,7 +1256,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `;
 
-      card.querySelector('.lib-thumb').addEventListener('click', () => playVideoInCustomPlayer(item.title, item.blobUrl));
+      card.querySelector('.lib-thumb').addEventListener('click', () => playVideoInCustomPlayer(item.title, item.blobUrl, item.ext, item.filename));
       card.querySelector('.btn-lib-open').addEventListener('click', (e) => { e.stopPropagation(); openWithMedia(item.blobUrl); });
       card.querySelector('.btn-lib-share').addEventListener('click', (e) => { e.stopPropagation(); shareMedia(item.title, item.blobUrl); });
       card.querySelector('.btn-lib-del').addEventListener('click', (e) => { e.stopPropagation(); promptDeleteConfirmation(card, item); });

@@ -941,3 +941,121 @@ html, body {
 .toast-banner.toast-error .toast-icon { background: rgba(251, 113, 133, 0.15); color: var(--accent-red); }
 .toast-title { font-size: 14px; font-weight: 800; color: #fff; }
 .toast-subtitle { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 1px; }
+
+/* ---------- Audio Player View (APEX Inspired) ---------- */
+.mx-audio-view {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: radial-gradient(circle at center, #161e2e 0%, #0a0d14 100%);
+  z-index: 2;
+  padding: 24px;
+  text-align: center;
+}
+.mx-audio-view.hidden { display: none !important; }
+.audio-art-disc {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.2), rgba(255, 138, 61, 0.25));
+  border: 2px solid rgba(255, 255, 255, 0.16);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6), 0 0 28px rgba(255, 138, 61, 0.25);
+  animation: discPulse 3s ease-in-out infinite;
+}
+.audio-art-disc svg {
+  width: 48px;
+  height: 48px;
+  color: var(--accent-cyan);
+}
+@keyframes discPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6), 0 0 28px rgba(255, 138, 61, 0.2); }
+  50% { transform: scale(1.04); box-shadow: 0 16px 44px rgba(0, 0, 0, 0.7), 0 0 40px rgba(34, 211, 238, 0.35); }
+}
+.audio-track-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  max-width: 90%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.audio-track-sub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ---------- In-Player Decoder Error Fallback (APEX Inspired) ---------- */
+.mx-error-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 13, 20, 0.94);
+  backdrop-filter: blur(16px);
+  z-index: 10;
+  padding: 20px;
+}
+.mx-error-overlay.hidden { display: none !important; }
+.err-box {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(251, 113, 133, 0.35);
+  border-radius: var(--radius-lg);
+  padding: 24px 20px;
+  max-width: 380px;
+  width: 100%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+}
+.err-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+}
+.err-msg {
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 8px;
+}
+.err-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.btn-err-action {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.btn-err-action:active { transform: scale(0.97); }
+.btn-err-primary {
+  background: linear-gradient(135deg, var(--accent-cyan), #0284c7);
+  border: none;
+  color: #041017;
+}

@@ -114,14 +114,33 @@ async function resolveFacebookDirect(link) {
 }
 
 async function resolveTikwm(link) {
-  const resp = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(link)}`);
+  const resp = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(link)}`, {
+    signal: AbortSignal.timeout(6000)
+  });
   const data = await resp.json();
   if (data?.code !== 0 || !data.data) throw new Error('tikwm returned no usable data');
   const v = data.data;
   const formats = [];
-  if (v.play) formats.push({ directUrl: v.play, note: 'HD No Watermark (MP4)', ext: 'mp4' });
-  if (v.wmplay) formats.push({ directUrl: v.wmplay, note: 'Watermarked (MP4)', ext: 'mp4' });
-  if (v.music) formats.push({ directUrl: v.music, note: 'Audio Only (MP3)', ext: 'mp3' });
+
+  // 1. HD No Watermark (best quality if available)
+  if (v.hdplay) formats.push({ directUrl: v.hdplay, note: '🎬 HD 1080p (No watermark)', ext: 'mp4', hasAudio: true });
+  // 2. Standard No Watermark
+  if (v.play) formats.push({ directUrl: v.play, note: '🎬 Video (No watermark)', ext: 'mp4', hasAudio: true });
+  // 3. Watermarked
+  if (v.wmplay) formats.push({ directUrl: v.wmplay, note: '🎬 Video (Watermarked)', ext: 'mp4', hasAudio: true });
+  // 4. Music / Audio
+  if (v.music) formats.push({ directUrl: v.music, note: '🎵 Audio Track (MP3)', ext: 'mp3', isAudio: true });
+  // 5. TikTok Photo Slideshow album (if present)
+  if (Array.isArray(v.images) && v.images.length > 0) {
+    v.images.forEach((imgUrl, i) => {
+      formats.push({
+        directUrl: imgUrl,
+        note: `📸 Slide Photo #${i + 1} (JPG)`,
+        ext: 'jpg'
+      });
+    });
+  }
+
   if (formats.length === 0) throw new Error('no playable formats in tikwm response');
   return { title: v.title || 'TikTok Video', thumbnail: v.cover || '', formats, type: 'tiktok' };
 }
@@ -131,7 +150,9 @@ async function resolveYoutubeMetadata(link) {
   const vidId = link.match(/(?:v=|youtu\.be\/|shorts\/)([a-zA-Z0-9_-]{11})/)?.[1];
   if (vidId) thumbnail = `https://img.youtube.com/vi/${vidId}/hqdefault.jpg`;
   try {
-    const oeResp = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(link)}&format=json`);
+    const oeResp = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(link)}&format=json`, {
+      signal: AbortSignal.timeout(3000)
+    });
     if (oeResp.ok) {
       const oe = await oeResp.json();
       title = oe.title || title;
@@ -142,9 +163,7 @@ async function resolveYoutubeMetadata(link) {
 }
 
 const COBALT_STATIC_FALLBACKS = [
-  "https://api.cobalt.liubquanti.click",
   "https://apicobalt.mgytr.top",
-  "https://subito-c.meowing.de",
   "https://lime.clxxped.lol"
 ];
 
@@ -158,7 +177,8 @@ async function resolveCobaltSingle(link, displayType, instanceUrl, preset) {
   const resp = await fetch(instanceUrl.replace(/\/+$/, '') + '/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(4500)
   });
   if (!resp.ok) {
     throw new Error(`HTTP ${resp.status}`);

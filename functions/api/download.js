@@ -30,8 +30,10 @@ export async function onRequestGet(context) {
     });
 
     if (!upstream.ok && upstream.status !== 206) {
-      // If proxy fetch fails, redirect the browser to the direct URL as fallback
-      return Response.redirect(targetUrl, 302);
+      return new Response(JSON.stringify({ error: `Upstream returned status ${upstream.status}` }), {
+        status: 502,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      });
     }
 
     const headers = new Headers(upstream.headers);
@@ -45,7 +47,9 @@ export async function onRequestGet(context) {
       headers
     });
   } catch (err) {
-    // On any proxy error, redirect to targetUrl directly
-    return Response.redirect(targetUrl, 302);
+    return new Response(JSON.stringify({ error: err.message || 'Stream proxy failed' }), {
+      status: 502,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+    });
   }
 }

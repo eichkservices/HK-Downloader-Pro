@@ -116,40 +116,71 @@ class handler(BaseHTTPRequestHandler):
             formats = []
             seen_heights = set()
 
-            def get_tier_label(h):
-                if h >= 2160: return f"🎬 4K UHD ({h}p MP4)"
-                if h >= 1440: return f"🎬 2K QHD ({h}p MP4)"
-                if h >= 1080: return f"🎬 1080p FHD (MP4)"
-                if h >= 720:  return f"🎬 720p HD (MP4)"
-                if h >= 480:  return f"🎬 480p SD (MP4)"
-                if h >= 360:  return f"🎬 360p (MP4)"
-                return f"🎬 {h}p (MP4)"
+            def get_tier_label(h, has_audio):
+                audio_suffix = "" if has_audio else " - Video Only"
+                if h >= 2160: return f"🎬 4K UHD ({h}p MP4{audio_suffix})"
+                if h >= 1440: return f"🎬 2K QHD ({h}p MP4{audio_suffix})"
+                if h >= 1080: return f"🎬 1080p FHD (MP4{audio_suffix})"
+                if h >= 720:  return f"🎬 720p HD (MP4{audio_suffix})"
+                if h >= 480:  return f"🎬 480p SD (MP4{audio_suffix})"
+                if h >= 360:  return f"🎬 360p (MP4{audio_suffix})"
+                return f"🎬 {h}p (MP4{audio_suffix})"
 
+            def codec_priority(f):
+                vcodec = (f.get('vcodec') or '').lower()
+                acodec = (f.get('acodec') or '').lower()
+                score = 0
+                # Give highest priority to progressive streams (both video & audio muxed)
+                if vcodec != 'none' and acodec != 'none':
+                    score += 10
+                # Prefer universal H.264/AVC hardware decoding compatibility
+                if 'avc' in vcodec or 'h264' in vcodec:
+                    score += 3
+                elif 'vp9' in vcodec:
+                    score += 2
+                elif 'av01' in vcodec or 'hevc' in vcodec or 'h265' in vcodec:
+                    score += 1
+                return score
+
+            # Filter out all m3u8 playlists and manifests (which fail in standalone players)
+            playable_raw = []
             for f in raw_formats:
+                url_stream = f.get('url') or ''
+                proto = (f.get('protocol') or '').lower()
+                if not url_stream or 'm3u8' in proto or '.m3u8' in url_stream or '.mpd' in url_stream:
+                    continue
+                playable_raw.append(f)
+
+            sorted_raw = sorted(playable_raw, key=codec_priority, reverse=True)
+
+            for f in sorted_raw:
                 url_stream = f.get('url')
                 ext = f.get('ext') or 'mp4'
                 height = f.get('height')
                 vcodec = f.get('vcodec') or 'none'
+                acodec = f.get('acodec') or 'none'
                 if not url_stream or vcodec == 'none':
                     continue
 
                 size = f.get('filesize') or f.get('filesize_approx')
+                has_audio = (acodec != 'none')
 
                 if height and height not in seen_heights:
                     seen_heights.add(height)
                     formats.append({
                         'directUrl': url_stream,
                         'token': url_stream,
-                        'note': get_tier_label(height),
+                        'note': get_tier_label(height, has_audio),
                         'ext': ext,
                         'sizeBytes': size,
-                        'height': height
+                        'height': height,
+                        'hasAudio': has_audio
                     })
 
-            formats.sort(key=lambda x: x.get('height', 0), reverse=True)
+            formats.sort(key=lambda x: (x.get('hasAudio', False), x.get('height', 0)), reverse=True)
 
-            # Add Audio option
-            audios = [f for f in raw_formats if f.get('url') and f.get('vcodec') == 'none' and f.get('acodec') != 'none']
+            # Add Audio option (MP3/M4A)
+            audios = [f for f in raw_formats if f.get('url') and f.get('vcodec') == 'none' and f.get('acodec') != 'none' and not ('m3u8' in (f.get('protocol') or '') or '.m3u8' in f.get('url', ''))]
             if audios:
                 best_audio = max(audios, key=lambda a: a.get('abr') or 0)
                 formats.append({
@@ -157,7 +188,8 @@ class handler(BaseHTTPRequestHandler):
                     'token': best_audio['url'],
                     'note': f"🎵 High Quality Audio ({best_audio.get('ext') or 'm4a'})",
                     'ext': best_audio.get('ext') or 'm4a',
-                    'sizeBytes': best_audio.get('filesize') or best_audio.get('filesize_approx')
+                    'sizeBytes': best_audio.get('filesize') or best_audio.get('filesize_approx'),
+                    'isAudio': True
                 })
 
             if not formats and info.get('url'):
