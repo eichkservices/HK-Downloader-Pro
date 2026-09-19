@@ -562,7 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </div>
         <div class="option-actions">
-          <a href="${f.directUrl || f.token}" class="btn-fast-dl" target="_blank" rel="noopener">Save to Device</a>
+          <a href="${f.directUrl || f.token}" download="${encodeURIComponent(filename)}" class="btn-fast-dl" target="_blank" rel="noreferrer noopener" referrerpolicy="no-referrer">Save to Device</a>
           <button class="btn-dl-item">Save to Library</button>
         </div>
       `;
@@ -895,8 +895,30 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     try {
-      let downloadEndpoint = tokenOrUrl.startsWith('http') ? tokenOrUrl : `/api/download?token=${tokenOrUrl}`;
-      const resp = await fetch(downloadEndpoint, { signal: controller.signal });
+      let downloadEndpoint;
+      if (tokenOrUrl.startsWith('http')) {
+        // If cross-origin, route through Cloudflare Pages proxy to attach CORS headers
+        if (!tokenOrUrl.includes(window.location.hostname)) {
+          downloadEndpoint = `/api/download?url=${encodeURIComponent(tokenOrUrl)}&filename=${encodeURIComponent(filename)}`;
+        } else {
+          downloadEndpoint = tokenOrUrl;
+        }
+      } else {
+        downloadEndpoint = `/api/download?token=${tokenOrUrl}&filename=${encodeURIComponent(filename)}`;
+      }
+
+      let resp;
+      try {
+        resp = await fetch(downloadEndpoint, { signal: controller.signal });
+      } catch (fetchErr) {
+        // If proxy or direct fetch encounters a CORS network error, try direct URL
+        if (downloadEndpoint !== tokenOrUrl && tokenOrUrl.startsWith('http')) {
+          resp = await fetch(tokenOrUrl, { signal: controller.signal });
+        } else {
+          throw fetchErr;
+        }
+      }
+
       if (!resp.ok) throw new Error(`Server status ${resp.status}`);
 
       const totalSize = knownSize || parseInt(resp.headers.get('content-length') || '0', 10) || 0;
@@ -969,6 +991,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     } catch (err) {
       if (err.name !== 'AbortError') {
+        // Fallback: If browser fetch encounters CORS or memory error, trigger native browser download!
+        if (tokenOrUrl && tokenOrUrl.startsWith('http')) {
+          statusText.textContent = 'Downloading...';
+          meta.textContent = 'Saving via browser download...';
+
+          const a = document.createElement('a');
+          a.href = tokenOrUrl;
+          a.download = filename || 'video.mp4';
+          a.target = '_blank';
+          a.rel = 'noreferrer noopener';
+          a.referrerPolicy = 'no-referrer';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+
+          setTimeout(() => {
+            cardElem.classList.remove('failed');
+            cardElem.classList.add('completed');
+            bar.style.width = '100%';
+            percent.textContent = '100%';
+            statusText.textContent = 'Finished';
+            meta.textContent = 'Saved to Device Downloads';
+            showToast('Download started', title || filename);
+            releaseCount();
+            flashAmbientState('state-completed');
+          }, 1200);
+          return;
+        }
+
         cardElem.classList.add('failed');
         percent.textContent = 'Failed';
         statusText.textContent = 'Failed';
