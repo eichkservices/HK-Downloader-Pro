@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20108%20108%22%3E%3Crect%20width%3D%22108%22%20height%3D%22108%22%20rx%3D%2224%22%20fill%3D%22%230d1017%22/%3E%3Cpath%20d%3D%22M37%2C38%20L42.5%2C38%20L54%2C52.8%20L65.5%2C38%20L71%2C38%20L54%2C58.3%20Z%22%20fill%3D%22%2322d3ee%22/%3E%3Cpath%20d%3D%22M37%2C58%20L42.5%2C58%20L54%2C72.8%20L65.5%2C58%20L71%2C58%20L54%2C78.3%20Z%22%20fill%3D%22%23ff8a3d%22/%3E%3C/svg%3E">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=7.0">
+  <link rel="stylesheet" href="style.css?v=2.5.1">
 </head>
 <body>
   <div class="mobile-frame">
@@ -25,13 +25,15 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"></path></svg>
       </button>
       
-      <div class="header-brand-wrap">
-        <svg class="header-logo-icon" viewBox="0 0 108 108" aria-label="HK Downloader Pro logo">
+      <div class="header-brand-wrap" style="display: flex; align-items: center; gap: 10px;">
+        <svg class="header-logo-icon" width="28" height="28" style="width: 28px; height: 28px; min-width: 28px; flex-shrink: 0;" viewBox="0 0 108 108" aria-label="HK Downloader Pro logo">
           <path fill="#22d3ee" d="M37,38 L42.5,38 L54,52.8 L65.5,38 L71,38 L54,58.3 Z"></path>
           <path fill="#ff8a3d" d="M37,58 L42.5,58 L54,72.8 L65.5,58 L71,58 L54,78.3 Z"></path>
         </svg>
-        <h1 class="header-title">HK Downloader Pro</h1>
-        <span class="app-version-badge" title="Live Web & App Version">v2.5.0</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <h1 class="header-title" style="margin: 0; font-size: 17px; font-weight: 700; white-space: nowrap;">HK Downloader Pro</h1>
+          <span class="app-version-badge" title="Live Web & App Version">v2.5.0</span>
+        </div>
       </div>
       
       <button class="icon-btn bell-btn" aria-label="Notifications">
@@ -56,15 +58,6 @@
               <span id="btnSpinner" class="spinner hidden"></span>
             </button>
           </form>
-
-          <div id="qualityPills" class="quality-pills-row">
-            <button type="button" class="quality-pill active" data-preset="best">Best available</button>
-            <button type="button" class="quality-pill" data-preset="1080">1080p</button>
-            <button type="button" class="quality-pill" data-preset="720">720p</button>
-            <button type="button" class="quality-pill" data-preset="480">480p (data saver)</button>
-            <button type="button" class="quality-pill" data-preset="audio-mp3">Audio (MP3 320)</button>
-            <button type="button" class="quality-pill" data-preset="audio-opus">Audio (Opus)</button>
-          </div>
 
           <!-- Download Android APK Banner -->
           <a href="hk-downloader-pro.apk" download class="apk-download-banner">
@@ -299,6 +292,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=5.0"></script>
+  <script src="app.js?v=2.5.1"></script>
 </body>
 </html>
