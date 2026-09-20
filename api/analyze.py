@@ -251,7 +251,11 @@ def extract_ytdlp(url):
         'no_warnings': True,
         'skip_download': True,
         'socket_timeout': 8,
-        'js_runtimes': {'node': {}},
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android']
+            }
+        },
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36'
         }
@@ -266,6 +270,17 @@ def extract_ytdlp(url):
             try:
                 tf = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt')
                 tf.write(ig_cookies)
+                tf.close()
+                ydl_opts['cookiefile'] = tf.name
+                cookie_file = tf.name
+            except Exception:
+                pass
+    elif 'youtube.com' in url or 'youtu.be' in url:
+        yt_cookies = os.environ.get('YOUTUBE_COOKIES') or os.environ.get('COOKIES')
+        if yt_cookies:
+            try:
+                tf = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt')
+                tf.write(yt_cookies)
                 tf.close()
                 ydl_opts['cookiefile'] = tf.name
                 cookie_file = tf.name
@@ -379,6 +394,15 @@ def extract_ytdlp(url):
             'note': f"🎵 High Quality Audio ({best_audio.get('ext') or 'm4a'})",
             'ext': best_audio.get('ext') or 'm4a',
             'sizeBytes': best_audio.get('filesize') or best_audio.get('filesize_approx'),
+            'isAudio': True
+        })
+    elif formats and any(f.get('hasAudio') for f in formats):
+        audio_source = next(f for f in formats if f.get('hasAudio'))
+        formats.append({
+            'directUrl': audio_source['directUrl'],
+            'token': audio_source['token'],
+            'note': "🎵 Audio Track (MP3 / Audio)",
+            'ext': 'mp3',
             'isAudio': True
         })
 

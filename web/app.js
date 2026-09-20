@@ -290,12 +290,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } catch (ve) {}
 
-      // 3. Client-side Fallback (CORS-allowed community resolvers)
-      const clientData = await resolveClientSide(link, selectedPreset);
-      openFormatModal(clientData);
+      // 3. Client-side Fallback (for direct links or custom cobalt)
+      try {
+        const clientData = await resolveClientSide(link, selectedPreset);
+        if (clientData && clientData.formats && clientData.formats.length > 0) {
+          openFormatModal(clientData);
+          return;
+        }
+      } catch (clientErr) {
+        console.warn('Client-side resolver fallback failed:', clientErr);
+      }
 
+      showToast('Download Unavailable', 'This link is restricted on web by the platform. Please use the HK Downloader Android App or retry.');
     } catch (err) {
-      alert('Analysis Error: ' + (err.message || 'Unable to resolve link'));
+      showToast('Analysis Error', err.message || 'Unable to resolve link');
     } finally {
       setAnalyzing(false);
     }
