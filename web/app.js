@@ -408,12 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return { title, thumbnail };
   }
 
-  const COBALT_STATIC_FALLBACKS = [
-    "https://api.cobalt.liubquanti.click",
-    "https://cobaltapi.cjs.nz",
-    "https://rue-cobalt.xenon.zone",
-    "https://lime.clxxped.lol"
-  ];
+  const COBALT_STATIC_FALLBACKS = [];
 
   async function resolveCobaltSingle(link, displayType, instanceUrl, preset) {
     const p = preset || QUALITY_PRESETS['1080'];
@@ -487,8 +482,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const uniqueInstances = Array.from(new Set(instances));
-    if (uniqueInstances.length === 0 || (uniqueInstances.length === 1 && uniqueInstances[0] === instanceUrl)) {
-      uniqueInstances.push(...COBALT_STATIC_FALLBACKS);
+    if (uniqueInstances.length === 0) {
+      throw new Error(`Platform ${displayType} stream resolution requires backend engine.`);
     }
 
     const errors = [];
@@ -1073,7 +1068,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      if (!resp.ok) throw new Error(`Server status ${resp.status}`);
+      if (!resp.ok) {
+        if (downloadEndpoint !== tokenOrUrl && tokenOrUrl.startsWith('http')) {
+          try {
+            resp = await fetch(tokenOrUrl, { signal: controller.signal });
+          } catch (e) {}
+        }
+        if (!resp || !resp.ok) throw new Error(`Server status ${resp ? resp.status : 'error'}`);
+      }
 
       const totalSize = knownSize || parseInt(resp.headers.get('content-length') || '0', 10) || 0;
       const reader    = resp.body.getReader();

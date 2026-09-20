@@ -200,10 +200,7 @@ async function resolveYoutubeMetadata(link) {
   return { title, thumbnail };
 }
 
-const COBALT_STATIC_FALLBACKS = [
-  "https://apicobalt.mgytr.top",
-  "https://lime.clxxped.lol"
-];
+const COBALT_STATIC_FALLBACKS = [];
 
 async function resolveCobaltSingle(link, displayType, instanceUrl, preset) {
   const p = preset || { videoQuality: '1080', downloadMode: 'auto' };
@@ -307,6 +304,18 @@ function resolveDirectLink(link) {
   };
 }
 
+export async function onRequestOptions() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Max-Age': '86400'
+    }
+  });
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
   const cobaltInstanceUrl = env.COBALT_INSTANCE_URL || '';
@@ -320,7 +329,7 @@ export async function onRequestPost(context) {
   } catch (e) {
     return new Response(JSON.stringify({ error: 'Invalid request body' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
     });
   }
 
@@ -339,14 +348,21 @@ export async function onRequestPost(context) {
         if (data.formats && Array.isArray(data.formats)) {
           data.formats = capVideoFormats(data.formats);
           data.formats.forEach(f => {
-            if (f.token && !f.token.startsWith('http')) {
-              f.token = `${cleanApiUrl}/api/download?token=${f.token}`;
+            if (!f.token && f.directUrl) {
+              f.token = f.directUrl;
+            } else if (f.token && !f.token.startsWith('http')) {
+              f.token = f.directUrl || f.token;
             }
           });
         }
         return new Response(JSON.stringify(data), {
           status: 200,
-          headers: { 'Content-Type': 'application/json' }
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type'
+          }
         });
       }
     } catch (e) {

@@ -1,4 +1,5 @@
 from http.server import BaseHTTPRequestHandler
+import http.cookiejar
 import json
 import os
 import re
@@ -426,6 +427,136 @@ def extract_ytdlp(url):
         'type': info.get('extractor') or 'video'
     }
 
+def extract_reddit(url):
+    try:
+        # If directly a v.redd.it URL, yt-dlp can handle directly without challenge
+        if 'v.redd.it' in url:
+            return extract_ytdlp(url)
+
+        id_m = re.search(r'comments/([a-zA-Z0-9]+)', url)
+        if not id_m:
+            return None
+        post_id = id_m.group(1)
+
+        cj = http.cookiejar.CookieJar()
+        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+        }
+
+        # 1. Visit post or solve Reddit JS challenge if triggered
+        req = urllib.request.Request(url, headers=headers)
+        with opener.open(req, timeout=8) as r:
+            html = r.read().decode('utf-8', errors='ignore')
+
+        if 'js_challenge' in html:
+            token_m = re.search(r'await\(async e=>e\+e\)\("([0-9a-fA-F]+)"\)', html)
+            jsc_m = re.search(r'name="jsc_token"\s+value="([^"]+)"', html)
+            action_m = re.search(r'<form hidden method="GET" action="([^"]+)"', html)
+            if token_m and jsc_m and action_m:
+                token = token_m.group(1)
+                solution = token + token
+                jsc = jsc_m.group(1)
+                action = action_m.group(1)
+                query = urllib.parse.urlencode({
+                    'solution': solution,
+                    'js_challenge': '1',
+                    'jsc_token': jsc,
+                    'jsc_orig_r': ''
+                })
+                solve_url = urllib.parse.urljoin(url, action) + '?' + query
+                req2 = urllib.request.Request(solve_url, headers=headers)
+                with opener.open(req2, timeout=8) as r2:
+                    r2.read()
+
+        # 2. Fetch authenticated JSON
+        json_url = f'https://www.reddit.com/comments/{post_id}/.json'
+        req_json = urllib.request.Request(json_url, headers=headers)
+        with opener.open(req_json, timeout=8) as r_json:
+            data = json.loads(r_json.read().decode('utf-8'))
+
+        post = data[0]['data']['children'][0]['data']
+        title = post.get('title') or 'Reddit Media'
+        thumb = post.get('thumbnail') if post.get('thumbnail') and post.get('thumbnail').startswith('http') else ''
+
+        media = post.get('media') or post.get('secure_media')
+        v_url = post.get('url') or ''
+
+        # If it's a native Reddit video
+        if (media and 'reddit_video' in media) or 'v.redd.it' in v_url:
+            if 'v.redd.it' in v_url:
+                v_res = extract_ytdlp(v_url)
+                if v_res and v_res.get('formats'):
+                    v_res['title'] = title
+                    if thumb: v_res['thumbnail'] = thumb
+                    v_res['type'] = 'reddit'
+                    return v_res
+
+            if media and 'reddit_video' in media:
+                rv = media['reddit_video']
+                fallback_url = rv.get('fallback_url')
+                h = rv.get('height') or 720
+                if fallback_url:
+                    formats = [{
+                        'directUrl': fallback_url,
+                        'token': fallback_url,
+                        'note': f"🎬 {h}p HD (MP4)" if h >= 720 else f"🎬 {h}p SD (MP4)",
+                        'ext': 'mp4',
+                        'height': h,
+                        'hasAudio': True
+                    }]
+                    return {
+                        'title': title,
+                        'thumbnail': thumb,
+                        'formats': formats,
+                        'maxResolution': f"{h}p",
+                        'type': 'reddit'
+                    }
+
+        # Check for image post
+        if post.get('post_hint') == 'image' or v_url.endswith(('.jpg', '.jpeg', '.png', '.webp', '.gif')):
+            ext = v_url.split('?')[0].split('.')[-1]
+            return {
+                'title': title,
+                'thumbnail': thumb or v_url,
+                'formats': [{
+                    'directUrl': v_url,
+                    'token': v_url,
+                    'note': f"📸 High Res Image ({ext.upper()})",
+                    'ext': ext
+                }],
+                'maxResolution': 'Original',
+                'type': 'reddit'
+            }
+
+        # Check gallery
+        if post.get('is_gallery') and 'media_metadata' in post:
+            formats = []
+            for item_id, item_val in list(post['media_metadata'].items())[:5]:
+                s = item_val.get('s', {})
+                img_url = s.get('u') or s.get('gif')
+                if img_url:
+                    clean_img = img_url.replace('&amp;', '&')
+                    formats.append({
+                        'directUrl': clean_img,
+                        'token': clean_img,
+                        'note': f"📸 Gallery Photo #{len(formats)+1} (JPG)",
+                        'ext': 'jpg'
+                    })
+            if formats:
+                return {
+                    'title': title,
+                    'thumbnail': thumb or formats[0]['directUrl'],
+                    'formats': formats,
+                    'maxResolution': 'Original',
+                    'type': 'reddit'
+                }
+    except Exception:
+        pass
+    return None
+
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(200)
@@ -503,7 +634,18 @@ class handler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps(pin_result).encode('utf-8'))
                 return
 
-        # 5. Core yt-dlp Universal Engine (YouTube, Reddit, Vimeo, etc.)
+        # 5. Reddit Direct Engine
+        if 'reddit.com' in url or 'redd.it' in url:
+            reddit_result = extract_reddit(url)
+            if reddit_result:
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps(reddit_result).encode('utf-8'))
+                return
+
+        # 6. Core yt-dlp Universal Engine (YouTube, Vimeo, etc.)
         try:
             ytdlp_result = extract_ytdlp(url)
             self.send_response(200)
@@ -514,6 +656,17 @@ class handler(BaseHTTPRequestHandler):
             return
         except Exception as e:
             err_msg = str(e)
+
+            # Fallback for Reddit if attempted
+            if 'reddit.com' in url or 'redd.it' in url:
+                reddit_result = extract_reddit(url)
+                if reddit_result:
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    self.wfile.write(json.dumps(reddit_result).encode('utf-8'))
+                    return
 
             # Fallback for Facebook if yt-dlp was attempted first
             if 'facebook.com' in url or 'fb.watch' in url:
