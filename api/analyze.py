@@ -8,6 +8,7 @@ import urllib.request
 import urllib.parse
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse, unquote
 import yt_dlp
+import html
 
 def clean_url(raw_url):
     if not raw_url:
@@ -440,10 +441,72 @@ def extract_ytdlp(url):
 
 def extract_reddit(url):
     try:
-        # If directly a v.redd.it URL, yt-dlp can handle directly without challenge
+        # 1. If directly a v.redd.it URL, yt-dlp can handle directly without auth
         if 'v.redd.it' in url:
             return extract_ytdlp(url)
 
+        # 2. RapidSave resolver (Fastest and highly reliable across datacenter IPs)
+        try:
+            req_rs = urllib.request.Request(
+                f'https://rapidsave.com/info?url={url}',
+                headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+            )
+            with urllib.request.urlopen(req_rs, timeout=8) as r:
+                page = r.read().decode('utf-8', errors='ignore')
+
+            t_match = re.search(r'<h2[^>]*class="[^"]*text-truncate[^"]*"[^>]*>\s*([^<]+)\s*</h2>', page)
+            title = html.unescape(t_match.group(1).strip()) if t_match else 'Reddit Video'
+
+            merged_m = re.search(r'href=[\'"](https://sd\.rapidsave\.com/download\.php[^\'"]+)[\'"]', page)
+            merged_url = merged_m.group(1).replace('&amp;', '&') if merged_m else None
+
+            v_match = re.search(r'https?://v\.redd\.it/([a-zA-Z0-9]+)', page)
+            if v_match:
+                v_id = v_match.group(1)
+                formats = []
+                # 1) Merged video with audio
+                if merged_url:
+                    formats.append({
+                        'directUrl': merged_url,
+                        'token': merged_url,
+                        'note': '🎬 720p HD (Merged Audio + Video MP4)',
+                        'ext': 'mp4',
+                        'height': 720,
+                        'hasAudio': True
+                    })
+
+                # 2) Progressive streams from v.redd.it via yt-dlp
+                try:
+                    ytdl_res = extract_ytdlp(f"https://v.redd.it/{v_id}")
+                    if ytdl_res and ytdl_res.get('formats'):
+                        for f in ytdl_res['formats']:
+                            if len(formats) < 4:
+                                formats.append(f)
+                except Exception:
+                    pass
+
+                # 3) Ensure dedicated audio option
+                if not any(f.get('isAudio') for f in formats):
+                    formats.append({
+                        'directUrl': f"https://v.redd.it/{v_id}/CMAF_AUDIO_128.mp4",
+                        'token': f"https://v.redd.it/{v_id}/CMAF_AUDIO_128.mp4",
+                        'note': '🎵 Audio Track (M4A / MP3)',
+                        'ext': 'm4a',
+                        'isAudio': True
+                    })
+
+                if formats:
+                    return {
+                        'title': title,
+                        'thumbnail': '',
+                        'formats': formats,
+                        'maxResolution': '720p',
+                        'type': 'reddit'
+                    }
+        except Exception:
+            pass
+
+        # 3. Direct Reddit API / Challenge Fallback (For images, galleries, or if RapidSave fails)
         id_m = re.search(r'comments/([a-zA-Z0-9]+)', url)
         if not id_m:
             return None
@@ -460,21 +523,20 @@ def extract_reddit(url):
         if reddit_cookies:
             headers['Cookie'] = reddit_cookies
 
-        # 1. Visit post or solve Reddit JS challenge if triggered
         req = urllib.request.Request(url, headers=headers)
-        html = ''
+        html_page = ''
         try:
             with opener.open(req, timeout=8) as r:
-                html = r.read().decode('utf-8', errors='ignore')
+                html_page = r.read().decode('utf-8', errors='ignore')
         except urllib.error.HTTPError as e:
-            html = e.read().decode('utf-8', errors='ignore')
+            html_page = e.read().decode('utf-8', errors='ignore')
         except Exception:
             pass
 
-        if 'js_challenge' in html:
-            token_m = re.search(r'await\(async e=>e\+e\)\("([0-9a-fA-F]+)"\)', html)
-            jsc_m = re.search(r'name="jsc_token"\s+value="([^"]+)"', html)
-            action_m = re.search(r'<form hidden method="GET" action="([^"]+)"', html)
+        if 'js_challenge' in html_page:
+            token_m = re.search(r'await\(async e=>e\+e\)\("([0-9a-fA-F]+)"\)', html_page)
+            jsc_m = re.search(r'name="jsc_token"\s+value="([^"]+)"', html_page)
+            action_m = re.search(r'<form hidden method="GET" action="([^"]+)"', html_page)
             if token_m and jsc_m and action_m:
                 token = token_m.group(1)
                 solution = token + token
@@ -496,7 +558,6 @@ def extract_reddit(url):
                 except Exception:
                     pass
 
-        # 2. Fetch authenticated JSON
         json_url = f'https://www.reddit.com/comments/{post_id}/.json'
         req_json = urllib.request.Request(json_url, headers=headers)
         data = None
@@ -511,14 +572,13 @@ def extract_reddit(url):
         except Exception:
             pass
 
-        # Direct v.redd.it regex fallback if JSON was blocked
         if not data:
-            v_matches = re.findall(r'https?://v\.redd\.it/([a-zA-Z0-9]+)', html)
+            v_matches = re.findall(r'https?://v\.redd\.it/([a-zA-Z0-9]+)', html_page)
             if v_matches:
                 v_url = f"https://v.redd.it/{v_matches[0]}"
                 v_res = extract_ytdlp(v_url)
                 if v_res and v_res.get('formats'):
-                    title_m = re.search(r'<title>([^<]+)</title>', html)
+                    title_m = re.search(r'<title>([^<]+)</title>', html_page)
                     if title_m:
                         v_res['title'] = title_m.group(1).split('|')[0].strip()
                     v_res['type'] = 'reddit'
@@ -534,7 +594,7 @@ def extract_reddit(url):
         media = post.get('media') or post.get('secure_media')
         v_url = post.get('url') or ''
 
-        # If it's a native Reddit video
+        # If native Reddit video
         if (media and 'reddit_video' in media) or 'v.redd.it' in v_url:
             if 'v.redd.it' in v_url:
                 v_res = extract_ytdlp(v_url)
@@ -606,6 +666,7 @@ def extract_reddit(url):
     except Exception:
         pass
     return None
+
 
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
@@ -694,6 +755,13 @@ class handler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps(reddit_result).encode('utf-8'))
                 return
+            else:
+                self.send_response(502)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': 'Failed to extract Reddit media. Ensure post is public and contains video or image media.'}).encode('utf-8'))
+                return
 
         # 6. Core yt-dlp Universal Engine (YouTube, Vimeo, etc.)
         try:
@@ -706,17 +774,6 @@ class handler(BaseHTTPRequestHandler):
             return
         except Exception as e:
             err_msg = str(e)
-
-            # Fallback for Reddit if attempted
-            if 'reddit.com' in url or 'redd.it' in url:
-                reddit_result = extract_reddit(url)
-                if reddit_result:
-                    self.send_response(200)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Access-Control-Allow-Origin', '*')
-                    self.end_headers()
-                    self.wfile.write(json.dumps(reddit_result).encode('utf-8'))
-                    return
 
             # Fallback for Facebook if yt-dlp was attempted first
             if 'facebook.com' in url or 'fb.watch' in url:

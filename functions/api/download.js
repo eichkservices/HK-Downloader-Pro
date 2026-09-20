@@ -35,6 +35,8 @@ export async function onRequestGet(context) {
       referer = 'https://www.instagram.com/';
     } else if (targetUrl.includes('facebook') || targetUrl.includes('fbcdn')) {
       referer = 'https://www.facebook.com/';
+    } else if (targetUrl.includes('rapidsave')) {
+      referer = 'https://rapidsave.com/';
     } else if (targetUrl.includes('redd.it') || targetUrl.includes('reddit')) {
       referer = 'https://www.reddit.com/';
     } else if (targetUrl.includes('pinimg') || targetUrl.includes('pinterest')) {
