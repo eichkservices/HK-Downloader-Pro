@@ -113,6 +113,44 @@ async function resolveFacebookDirect(link) {
   return { title, thumbnail, type: 'facebook', formats };
 }
 
+async function resolvePinterestDirect(link) {
+  const resp = await fetch(link, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+    },
+    signal: AbortSignal.timeout(6000)
+  });
+  const html = await resp.text();
+  const titleMatch = html.match(/<title>([^<]+)<\/title>/);
+  const title = titleMatch ? titleMatch[1].split('|')[0].trim() : 'Pinterest Media';
+
+  const vids = html.match(/https:\/\/v\.pinimg\.com\/[^"']+\.mp4/g) || [];
+  const imgs = html.match(/https:\/\/i\.pinimg\.com\/originals\/[^"']+\.(?:jpg|jpeg|png|webp)/g) || [];
+  const ogImg = html.match(/property="og:image"\s+content="([^"]+)"/);
+  const thumb = ogImg ? ogImg[1] : (imgs[0] || '');
+
+  const formats = [];
+  if (vids.length > 0) {
+    formats.push({ directUrl: vids[0], note: '🎬 Video (HD MP4)', ext: 'mp4', height: 720, hasAudio: true });
+  } else if (imgs.length > 0) {
+    const ext = imgs[0].split('?')[0].split('.').pop() || 'jpg';
+    formats.push({ directUrl: imgs[0], note: `📸 Original Image (${ext.toUpperCase()})`, ext });
+  } else if (thumb) {
+    formats.push({ directUrl: thumb, note: '📸 Image Download (JPG)', ext: 'jpg' });
+  }
+
+  if (formats.length === 0) throw new Error('No Pinterest media found in page');
+  return { title, thumbnail: thumb, type: 'pinterest', formats };
+}
+
+function capVideoFormats(formats) {
+  if (!Array.isArray(formats)) return [];
+  const videos = formats.filter(f => !f.isAudio && f.ext !== 'mp3' && f.ext !== 'm4a');
+  const audios = formats.filter(f => f.isAudio || f.ext === 'mp3' || f.ext === 'm4a');
+  return [...videos.slice(0, 4), ...audios.slice(0, 1)];
+}
+
 async function resolveTikwm(link) {
   const resp = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(link)}`, {
     signal: AbortSignal.timeout(6000)
@@ -286,7 +324,8 @@ export async function onRequestPost(context) {
     });
   }
 
-  const ytdlpApiUrl = env.YTDLP_API_URL || '';
+  const DEFAULT_YTDLP_URL = 'https://hk-downloader-pro.vercel.app';
+  const ytdlpApiUrl = env.YTDLP_API_URL || DEFAULT_YTDLP_URL;
   if (ytdlpApiUrl) {
     try {
       const cleanApiUrl = ytdlpApiUrl.replace(/\/+$/, '');
@@ -298,6 +337,7 @@ export async function onRequestPost(context) {
       if (resp.ok) {
         const data = await resp.json();
         if (data.formats && Array.isArray(data.formats)) {
+          data.formats = capVideoFormats(data.formats);
           data.formats.forEach(f => {
             if (f.token && !f.token.startsWith('http')) {
               f.token = `${cleanApiUrl}/api/download?token=${f.token}`;
@@ -334,6 +374,11 @@ export async function onRequestPost(context) {
         { name: 'facebook-direct', run: () => resolveFacebookDirect(inputUrl) },
         { name: 'cobalt', run: () => resolveCobalt(inputUrl, 'Facebook', cobaltInstanceUrl, preset) },
       ]
+    : type === 'pinterest'
+    ? [
+        { name: 'pinterest-direct', run: () => resolvePinterestDirect(inputUrl) },
+        { name: 'cobalt', run: () => resolveCobalt(inputUrl, 'Pinterest', cobaltInstanceUrl, preset) },
+      ]
     : type === 'youtube'
     ? [
         { name: 'cobalt', run: async () => {
@@ -351,6 +396,9 @@ export async function onRequestPost(context) {
   for (const resolver of chain) {
     try {
       const result = await resolver.run();
+      if (result && Array.isArray(result.formats)) {
+        result.formats = capVideoFormats(result.formats);
+      }
       return new Response(JSON.stringify(result), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }

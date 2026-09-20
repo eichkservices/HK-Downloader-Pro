@@ -257,9 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const type = identifyLinkType(link);
       
-      // 1. Try a single backend POST request first.
-      // If the backend runs yt-dlp (e.g., via YTDLP_API_URL or local server),
-      // it extracts ALL qualities in a single, fast request!
+      // 1. Try backend POST request to /api/analyze
       try {
         const resp = await fetch('/api/analyze', {
           method: 'POST',
@@ -276,7 +274,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } catch (e) {}
 
-      // 2. Client-side Fallback (CORS-allowed backend subdomains)
+      // 2. Direct Vercel Cloud Backend Fallback (CORS-enabled)
+      try {
+        const vercelResp = await fetch('https://hk-downloader-pro.vercel.app/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ inputUrl: link, preset: selectedPreset })
+        });
+        if (vercelResp.ok) {
+          const vData = await vercelResp.json();
+          if (vData.formats && vData.formats.length > 0) {
+            openFormatModal(vData);
+            return;
+          }
+        }
+      } catch (ve) {}
+
+      // 3. Client-side Fallback (CORS-allowed community resolvers)
       const clientData = await resolveClientSide(link, selectedPreset);
       openFormatModal(clientData);
 
