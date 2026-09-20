@@ -637,20 +637,19 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </div>
         <div class="option-actions">
-          <a href="${f.directUrl || f.token}" download="${encodeURIComponent(filename)}" class="btn-fast-dl" target="_blank" rel="noreferrer noopener" referrerpolicy="no-referrer">Save to Device</a>
-          <button class="btn-dl-item">Save to Library</button>
+          <button class="btn-fast-dl">Download</button>
+          <a href="${f.directUrl || f.token}" download="${encodeURIComponent(filename)}" class="btn-dl-item" target="_blank" rel="noreferrer noopener" referrerpolicy="no-referrer">Direct Link</a>
         </div>
       `;
 
-      item.querySelector('.btn-dl-item').addEventListener('click', () => {
+      item.querySelector('.btn-fast-dl').addEventListener('click', () => {
         startDownload(f.token || f.directUrl, filename, data.title, data.thumbnail, f.sizeBytes, f);
         formatModal.classList.add('hidden');
         urlInput.value = '';
         updateButtonText();
       });
 
-      // Clear search when clicking Save to Device too
-      item.querySelector('.btn-fast-dl').addEventListener('click', () => {
+      item.querySelector('.btn-dl-item').addEventListener('click', () => {
         formatModal.classList.add('hidden');
         urlInput.value = '';
         updateButtonText();

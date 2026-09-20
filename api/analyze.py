@@ -250,12 +250,8 @@ def extract_ytdlp(url):
         'quiet': True,
         'no_warnings': True,
         'skip_download': True,
-        'socket_timeout': 6,
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['android', 'ios']
-            }
-        },
+        'socket_timeout': 8,
+        'js_runtimes': {'node': {}},
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36'
         }
