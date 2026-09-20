@@ -287,6 +287,17 @@ def extract_ytdlp(url):
                 cookie_file = tf.name
             except Exception:
                 pass
+    elif 'reddit.com' in url or 'redd.it' in url:
+        rd_cookies = os.environ.get('REDDIT_COOKIES') or os.environ.get('COOKIES')
+        if rd_cookies:
+            try:
+                tf = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt')
+                tf.write(rd_cookies)
+                tf.close()
+                ydl_opts['cookiefile'] = tf.name
+                cookie_file = tf.name
+            except Exception:
+                pass
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -445,11 +456,20 @@ def extract_reddit(url):
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.9',
         }
+        reddit_cookies = os.environ.get('REDDIT_COOKIES')
+        if reddit_cookies:
+            headers['Cookie'] = reddit_cookies
 
         # 1. Visit post or solve Reddit JS challenge if triggered
         req = urllib.request.Request(url, headers=headers)
-        with opener.open(req, timeout=8) as r:
-            html = r.read().decode('utf-8', errors='ignore')
+        html = ''
+        try:
+            with opener.open(req, timeout=8) as r:
+                html = r.read().decode('utf-8', errors='ignore')
+        except urllib.error.HTTPError as e:
+            html = e.read().decode('utf-8', errors='ignore')
+        except Exception:
+            pass
 
         if 'js_challenge' in html:
             token_m = re.search(r'await\(async e=>e\+e\)\("([0-9a-fA-F]+)"\)', html)
@@ -468,14 +488,44 @@ def extract_reddit(url):
                 })
                 solve_url = urllib.parse.urljoin(url, action) + '?' + query
                 req2 = urllib.request.Request(solve_url, headers=headers)
-                with opener.open(req2, timeout=8) as r2:
-                    r2.read()
+                try:
+                    with opener.open(req2, timeout=8) as r2:
+                        r2.read()
+                except urllib.error.HTTPError as e2:
+                    e2.read()
+                except Exception:
+                    pass
 
         # 2. Fetch authenticated JSON
         json_url = f'https://www.reddit.com/comments/{post_id}/.json'
         req_json = urllib.request.Request(json_url, headers=headers)
-        with opener.open(req_json, timeout=8) as r_json:
-            data = json.loads(r_json.read().decode('utf-8'))
+        data = None
+        try:
+            with opener.open(req_json, timeout=8) as r_json:
+                data = json.loads(r_json.read().decode('utf-8'))
+        except urllib.error.HTTPError as e_json:
+            try:
+                data = json.loads(e_json.read().decode('utf-8'))
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+        # Direct v.redd.it regex fallback if JSON was blocked
+        if not data:
+            v_matches = re.findall(r'https?://v\.redd\.it/([a-zA-Z0-9]+)', html)
+            if v_matches:
+                v_url = f"https://v.redd.it/{v_matches[0]}"
+                v_res = extract_ytdlp(v_url)
+                if v_res and v_res.get('formats'):
+                    title_m = re.search(r'<title>([^<]+)</title>', html)
+                    if title_m:
+                        v_res['title'] = title_m.group(1).split('|')[0].strip()
+                    v_res['type'] = 'reddit'
+                    return v_res
+
+        if not data or not isinstance(data, list) or len(data) == 0:
+            return None
 
         post = data[0]['data']['children'][0]['data']
         title = post.get('title') or 'Reddit Media'
