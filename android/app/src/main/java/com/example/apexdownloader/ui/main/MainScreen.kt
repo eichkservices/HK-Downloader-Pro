@@ -2,16 +2,22 @@ package com.example.apexdownloader.ui.main
 
 import android.app.Application
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -40,36 +46,96 @@ fun MainScreen(
 
     Scaffold(
         bottomBar = {
-            NavigationBar(
-                containerColor = BgPanel,
-                tonalElevation = 8.dp
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(BgDark)
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                contentAlignment = Alignment.Center
             ) {
-                NavigationBarItem(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    icon = { Icon(Icons.Default.Download, contentDescription = "Downloader") },
-                    label = { Text("Downloader", fontSize = 11.sp) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = AccentOrange,
-                        selectedTextColor = AccentOrange,
-                        unselectedIconColor = TextSecondary,
-                        unselectedTextColor = TextSecondary,
-                        indicatorColor = Color(0x15E07A2B)
-                    )
-                )
-                NavigationBarItem(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                    label = { Text("Settings", fontSize = 11.sp) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = AccentOrange,
-                        selectedTextColor = AccentOrange,
-                        unselectedIconColor = TextSecondary,
-                        unselectedTextColor = TextSecondary,
-                        indicatorColor = Color(0x15E07A2B)
-                    )
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(0.92f)
+                        .height(56.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(Color(0xFF131722))
+                        .border(1.dp, Color(0x1FFFFFFF), RoundedCornerShape(22.dp))
+                        .padding(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    // Queue tab
+                    val queueSelected = selectedTab == 0
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(
+                                if (queueSelected) Color(0x28E07A2B)
+                                else Color.Transparent
+                            )
+                            .then(
+                                if (queueSelected) Modifier.border(1.dp, Color(0x45E07A2B), RoundedCornerShape(18.dp))
+                                else Modifier
+                            )
+                            .clickable { selectedTab = 0 },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Download,
+                                contentDescription = "Queue",
+                                tint = if (queueSelected) AccentOrange else TextSecondary,
+                                modifier = Modifier.size(17.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                "Queue",
+                                color = if (queueSelected) AccentOrange else TextSecondary,
+                                fontSize = 12.sp,
+                                fontWeight = if (queueSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.width(8.dp))
+
+                    // Library / Settings tab
+                    val librarySelected = selectedTab == 1
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(
+                                if (librarySelected) Color(0x28E07A2B)
+                                else Color.Transparent
+                            )
+                            .then(
+                                if (librarySelected) Modifier.border(1.dp, Color(0x45E07A2B), RoundedCornerShape(18.dp))
+                                else Modifier
+                            )
+                            .clickable { selectedTab = 1 },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Folder,
+                                contentDescription = "Library",
+                                tint = if (librarySelected) AccentOrange else TextSecondary,
+                                modifier = Modifier.size(17.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                "Library",
+                                color = if (librarySelected) AccentOrange else TextSecondary,
+                                fontSize = 12.sp,
+                                fontWeight = if (librarySelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
+                    }
+                }
             }
         },
         containerColor = BgDark
