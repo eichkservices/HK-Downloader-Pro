@@ -1,6 +1,8 @@
 from http.server import BaseHTTPRequestHandler
 import json
+import os
 import re
+import tempfile
 import urllib.request
 import urllib.parse
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse, unquote
@@ -243,6 +245,7 @@ def extract_facebook_direct(url):
     return None
 
 def extract_ytdlp(url):
+    cookie_file = None
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
@@ -252,8 +255,30 @@ def extract_ytdlp(url):
         }
     }
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
+    if 'instagram.com' in url:
+        ig_session = os.environ.get('INSTAGRAM_SESSION_ID')
+        ig_cookies = os.environ.get('INSTAGRAM_COOKIES')
+        if ig_session:
+            ydl_opts.setdefault('http_headers', {})['Cookie'] = f"sessionid={ig_session};"
+        elif ig_cookies:
+            try:
+                tf = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt')
+                tf.write(ig_cookies)
+                tf.close()
+                ydl_opts['cookiefile'] = tf.name
+                cookie_file = tf.name
+            except Exception:
+                pass
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+    finally:
+        if cookie_file and os.path.exists(cookie_file):
+            try:
+                os.unlink(cookie_file)
+            except Exception:
+                pass
 
     title = info.get('title') or 'Media Video'
     thumbnail = info.get('thumbnail') or ''
@@ -488,7 +513,7 @@ class handler(BaseHTTPRequestHandler):
 
             # User-friendly explanation for Instagram authentication requirement
             if 'instagram.com' in url:
-                err_msg = "Instagram requires login credentials or session cookies for this content. Supported direct platforms: YouTube, TikTok, Facebook, Pinterest, Reddit, Twitter/X, and Direct Media links."
+                err_msg = "Instagram restricts unauthenticated server downloads. Use HK Downloader Android App (v2.5.0) or configure an Instagram session cookie in settings."
 
             self.send_response(502)
             self.send_header('Content-Type', 'application/json')

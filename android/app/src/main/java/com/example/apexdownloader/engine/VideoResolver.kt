@@ -84,7 +84,8 @@ object VideoResolver {
     // ---- The actual chain, in static priority order per type ----
     private val cloudStorageResolver = CloudStorageResolver()
     private val tikTokPublicApiResolver = TikTokPublicApiResolver()
-    private val cloudflarePagesResolver = CloudflarePagesResolver()
+    private val instagramDirectResolver = InstagramDirectResolver()
+    private val universalCloudResolver = UniversalCloudResolver()
     private val desktopServerResolver = DesktopServerResolver()
     private val cobaltResolver = CobaltResolver()
     private val localDirectLinkResolver = LocalDirectLinkResolver()
@@ -92,9 +93,10 @@ object VideoResolver {
     private fun chainFor(type: String): List<Resolver> {
         val base = when (type) {
             "google-drive", "dropbox" -> listOf(cloudStorageResolver)
-            "tiktok" -> listOf(tikTokPublicApiResolver, cloudflarePagesResolver, desktopServerResolver, cobaltResolver)
+            "tiktok" -> listOf(tikTokPublicApiResolver, universalCloudResolver, desktopServerResolver, cobaltResolver)
+            "instagram" -> listOf(instagramDirectResolver, universalCloudResolver, desktopServerResolver, cobaltResolver)
             "direct-link" -> listOf(localDirectLinkResolver)
-            in videoPlatformTypes -> listOf(cloudflarePagesResolver, desktopServerResolver, cobaltResolver)
+            in videoPlatformTypes -> listOf(universalCloudResolver, desktopServerResolver, cobaltResolver)
             else -> listOf(localDirectLinkResolver)
         }
         // Adaptive reorder: whichever backend won last time for this type
@@ -462,64 +464,139 @@ private class LocalDirectLinkResolver : Resolver {
     }
 }
 
-/** Resolves video links through the Cloudflare Pages custom backend. */
-private class CloudflarePagesResolver : Resolver {
-    override val name = "cloudflare-pages"
+/** Resolves video links through the primary Vercel universal backend and Cloudflare Pages fallback. */
+private class UniversalCloudResolver : Resolver {
+    override val name = "universal-cloud"
     private val client = NetworkClient.client
 
+    private val endpoints = listOf(
+        "https://hk-downloader-pro.vercel.app/api/analyze",
+        "https://hk-downloader-pro2.pages.dev/api/analyze"
+    )
+
     override suspend fun resolve(url: String, type: String, ctx: ResolverContext): ResolveOutcome {
-        val endpoint = "https://hk-downloader-pro2.pages.dev/api/analyze"
-        return try {
-            val jsonReq = JSONObject().apply {
-                put("inputUrl", url)
-            }.toString()
-            val requestBody = jsonReq.toRequestBody("application/json".toMediaTypeOrNull())
-            val request = Request.Builder()
-                .url(endpoint)
-                .post(requestBody)
-                .header("Content-Type", "application/json")
-                .header("Accept", "application/json")
-                .build()
+        var lastErr = "unreachable"
+        for (endpoint in endpoints) {
+            try {
+                val jsonReq = JSONObject().apply {
+                    put("inputUrl", url)
+                    put("url", url)
+                }.toString()
+                val requestBody = jsonReq.toRequestBody("application/json".toMediaTypeOrNull())
+                val request = Request.Builder()
+                    .url(endpoint)
+                    .post(requestBody)
+                    .header("Content-Type", "application/json")
+                    .header("Accept", "application/json")
+                    .header("User-Agent", NetworkClient.USER_AGENT)
+                    .build()
 
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return ResolveOutcome.Failed("HTTP ${response.code}")
-                val data = JSONObject(response.body?.string() ?: "")
-                val title = data.optString("title", "Universal Video")
-                val thumbnail = data.optString("thumbnail", "")
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        lastErr = "HTTP ${response.code} from $endpoint"
+                        return@use
+                    }
+                    val data = JSONObject(response.body?.string() ?: "")
+                    val title = data.optString("title", "Universal Video")
+                    val thumbnail = data.optString("thumbnail", "")
 
-                val formatsList = mutableListOf<VideoFormat>()
-                val formatsArr = data.optJSONArray("formats")
-                if (formatsArr != null) {
-                    for (i in 0 until formatsArr.length()) {
-                        val fObj = formatsArr.getJSONObject(i)
-                        val directUrl = fObj.optString("directUrl")
-                        val token = fObj.optString("token")
-                        // If directUrl is empty, fallback to token or construct download URL
-                        val formatId = if (directUrl.isNotEmpty()) {
-                            "cobalt|$directUrl"
-                        } else if (token.isNotEmpty()) {
-                            "cobalt|https://hk-downloader-pro2.pages.dev/api/download?token=$token"
-                        } else {
-                            ""
-                        }
-                        if (formatId.isNotEmpty()) {
+                    val formatsList = mutableListOf<VideoFormat>()
+                    val formatsArr = data.optJSONArray("formats")
+                    if (formatsArr != null) {
+                        for (i in 0 until formatsArr.length()) {
+                            val fObj = formatsArr.getJSONObject(i)
+                            val directUrl = fObj.optString("directUrl")
+                            val token = fObj.optString("token")
                             val ext = fObj.optString("ext", "mp4")
                             val note = fObj.optString("note", "Download")
                             val sizeBytes = fObj.optLong("sizeBytes", -1L).takeIf { it > 0 }
                                 ?: fObj.optLong("size", -1L).takeIf { it > 0 }
-                            formatsList.add(VideoFormat(formatId, note, ext, sizeBytes = sizeBytes))
+
+                            val resolvedUrl = when {
+                                directUrl.isNotEmpty() -> directUrl
+                                token.startsWith("http") -> token
+                                token.isNotEmpty() -> "https://hk-downloader-pro2.pages.dev/api/download?token=$token"
+                                else -> ""
+                            }
+
+                            if (resolvedUrl.isNotEmpty()) {
+                                formatsList.add(VideoFormat(resolvedUrl, note, ext, sizeBytes = sizeBytes))
+                            }
+                        }
+                    }
+                    if (formatsList.isNotEmpty()) {
+                        return ResolveOutcome.Success(title, thumbnail, formatsList)
+                    }
+                }
+            } catch (e: Exception) {
+                lastErr = e.message ?: "network error"
+            }
+        }
+        return ResolveOutcome.Failed(lastErr)
+    }
+}
+
+/** Resolves Instagram reels/posts directly on-device using residential IP and mobile headers. */
+private class InstagramDirectResolver : Resolver {
+    override val name = "instagram-direct"
+    private val client = NetworkClient.client
+
+    override suspend fun resolve(url: String, type: String, ctx: ResolverContext): ResolveOutcome {
+        if (type != "instagram") return ResolveOutcome.NotApplicable
+
+        val shortcode = Regex("(?:/p/|/reel/|/reels/|/tv/)([a-zA-Z0-9_-]+)").find(url)?.groupValues?.get(1)
+            ?: return ResolveOutcome.NotApplicable
+
+        val endpoints = listOf(
+            "https://www.instagram.com/p/$shortcode/?__a=1&__d=dis",
+            "https://www.instagram.com/reel/$shortcode/?__a=1&__d=dis"
+        )
+
+        for (endpoint in endpoints) {
+            try {
+                val request = Request.Builder()
+                    .url(endpoint)
+                    .header("User-Agent", NetworkClient.USER_AGENT)
+                    .header("X-IG-App-ID", "936619743392459")
+                    .header("Accept", "*/*")
+                    .header("Referer", "https://www.instagram.com/")
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) return@use
+                    val bodyStr = response.body?.string() ?: return@use
+                    val json = JSONObject(bodyStr)
+
+                    val items = json.optJSONArray("items")
+                    val item = items?.optJSONObject(0)
+                    val media = item ?: json.optJSONObject("graphql")?.optJSONObject("shortcode_media")
+
+                    if (media != null) {
+                        val videoVersions = media.optJSONArray("video_versions")
+                        val videoUrl = if (videoVersions != null && videoVersions.length() > 0) {
+                            videoVersions.getJSONObject(0).optString("url")
+                        } else {
+                            media.optString("video_url")
+                        }
+
+                        val caption = media.optJSONObject("caption")?.optString("text")
+                            ?: media.optJSONObject("edge_media_to_caption")?.optJSONArray("edges")?.optJSONObject(0)?.optJSONObject("node")?.optString("text")
+                            ?: "Instagram Reel"
+
+                        val thumb = media.optJSONObject("image_versions2")?.optJSONArray("candidates")?.optJSONObject(0)?.optString("url")
+                            ?: media.optString("display_url")
+
+                        if (videoUrl.isNotEmpty()) {
+                            val formats = listOf(
+                                VideoFormat(videoUrl, "🎬 HD Video (MP4)", "mp4", VideoResolver.probeContentLength(videoUrl))
+                            )
+                            return ResolveOutcome.Success(caption.take(80), thumb, formats)
                         }
                     }
                 }
-                if (formatsList.isEmpty()) {
-                    ResolveOutcome.Failed("no formats resolved")
-                } else {
-                    ResolveOutcome.Success(title, thumbnail, formatsList)
-                }
-            }
-        } catch (e: Exception) {
-            ResolveOutcome.Failed(e.message ?: "unreachable")
+            } catch (e: Exception) {}
         }
+        return ResolveOutcome.Failed("Instagram direct extraction failed")
     }
 }
 

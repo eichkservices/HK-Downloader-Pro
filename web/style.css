@@ -105,6 +105,21 @@ html, body {
   letter-spacing: -0.01em;
 }
 
+.app-version-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(34, 211, 238, 0.12);
+  color: #22d3ee;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.2);
+  letter-spacing: 0.4px;
+}
+
 .icon-btn {
   width: 38px;
   height: 38px;

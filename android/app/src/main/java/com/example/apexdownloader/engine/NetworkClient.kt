@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit
  * block or rate-limit generic HTTP client user agents).
  */
 object NetworkClient {
-    const val USER_AGENT = "ApexDownloader/1.0 (+https://github.com/apex-downloader)"
+    const val USER_AGENT = "Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36"
 
     val client: OkHttpClient by lazy {
         OkHttpClient.Builder()

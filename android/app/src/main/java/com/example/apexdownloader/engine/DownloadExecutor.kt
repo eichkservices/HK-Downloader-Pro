@@ -1,6 +1,8 @@
 package com.example.apexdownloader.engine
 
 import android.content.Context
+import android.media.MediaScannerConnection
+import android.os.Environment
 import com.example.apexdownloader.data.DownloadItem
 import com.example.apexdownloader.data.DownloadRepository
 import okhttp3.Request
@@ -27,19 +29,33 @@ class DownloadExecutor(
     suspend fun execute(item: DownloadItem, desktopServerUrl: String?, formatId: String?) {
         repository.addOrUpdateDownload(item.copy(status = "downloading", speed = "Connecting...", progress = 0f))
 
-        val downloadsDir = context.getExternalFilesDir(null) ?: context.filesDir
-        val filenameClean = sanitizeFilename(item.filename.ifEmpty { "download_" + System.currentTimeMillis() })
+        val downloadsDir = try {
+            val publicDownloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val appDir = File(publicDownloads, "HK-Downloader-Pro")
+            if (!appDir.exists()) appDir.mkdirs()
+            if (appDir.canWrite()) appDir else (context.getExternalFilesDir(null) ?: context.filesDir)
+        } catch (e: Exception) {
+            context.getExternalFilesDir(null) ?: context.filesDir
+        }
+
+        var filenameClean = sanitizeFilename(item.filename.ifEmpty { "download_" + System.currentTimeMillis() })
+        val isAudio = item.type == "audio" || (formatId ?: "").contains("audio") || (item.formatId ?: "").contains("audio") || filenameClean.endsWith(".mp3")
+        val defaultExt = if (isAudio) ".mp3" else ".mp4"
+        if (!filenameClean.contains(".")) {
+            filenameClean += defaultExt
+        }
         val finalFile = File(downloadsDir, filenameClean)
 
-        if (item.type in VideoResolver.videoPlatformTypes && !desktopServerUrl.isNullOrEmpty() && formatId?.startsWith("cobalt|") != true) {
+        if (item.type in VideoResolver.videoPlatformTypes && !desktopServerUrl.isNullOrEmpty() && formatId?.startsWith("cobalt|") != true && formatId?.startsWith("http") != true) {
             downloadViaDesktopServer(item, desktopServerUrl, formatId, finalFile)
         } else if (item.type == "google-drive" && item.url.contains("/folders/")) {
             downloadGDriveFolder(item, downloadsDir)
         } else {
-            val downloadUrl = if (formatId?.startsWith("cobalt|") == true) {
-                formatId.substringAfter("cobalt|")
-            } else {
-                getDirectDownloadUrl(item.url, item.type)
+            val downloadUrl = when {
+                formatId?.startsWith("cobalt|") == true -> formatId.substringAfter("cobalt|")
+                formatId?.startsWith("http://") == true || formatId?.startsWith("https://") == true -> formatId
+                !item.formatId.isNullOrEmpty() && (item.formatId.startsWith("http://") || item.formatId.startsWith("https://")) -> item.formatId
+                else -> getDirectDownloadUrl(item.url, item.type)
             }
             downloadDirectFile(item, downloadUrl, finalFile)
         }
@@ -65,6 +81,21 @@ class DownloadExecutor(
         val partFile = File(destFile.parentFile, destFile.name + ".part")
         val existingBytes = if (partFile.exists()) partFile.length() else 0L
         val requestBuilder = Request.Builder().url(url)
+            .header("User-Agent", NetworkClient.USER_AGENT)
+            .header("Accept", "*/*")
+            .header("Accept-Language", "en-US,en;q=0.9")
+
+        val lowerUrl = url.lowercase()
+        if (lowerUrl.contains("tiktok") || lowerUrl.contains("byteoversea") || lowerUrl.contains("ibytedtos")) {
+            requestBuilder.header("Referer", "https://www.tiktok.com/")
+        } else if (lowerUrl.contains("instagram") || lowerUrl.contains("cdninstagram")) {
+            requestBuilder.header("Referer", "https://www.instagram.com/")
+        } else if (lowerUrl.contains("googlevideo.com") || lowerUrl.contains("youtube.com")) {
+            requestBuilder.header("Referer", "https://www.youtube.com/")
+        } else if (lowerUrl.contains("fbcdn.net") || lowerUrl.contains("facebook.com")) {
+            requestBuilder.header("Referer", "https://www.facebook.com/")
+        }
+
         if (existingBytes > 0) {
             requestBuilder.header("Range", "bytes=$existingBytes-")
         }
@@ -147,6 +178,14 @@ class DownloadExecutor(
                 partFile.copyTo(destFile, overwrite = true)
                 partFile.delete()
             }
+
+            try {
+                MediaScannerConnection.scanFile(
+                    context,
+                    arrayOf(destFile.absolutePath),
+                    arrayOf(if (destFile.name.endsWith(".mp3", ignoreCase = true)) "audio/mpeg" else "video/mp4")
+                ) { _, _ -> }
+            } catch (e: Exception) {}
 
             val finished = item.copy(
                 status = "completed",

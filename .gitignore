@@ -7,3 +7,5 @@ build/
 *.log
 local.properties
 cloudflared.exe
+__pycache__/
+start-backend.bat
