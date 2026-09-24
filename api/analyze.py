@@ -255,7 +255,7 @@ def extract_ytdlp(url):
         'socket_timeout': 8,
         'extractor_args': {
             'youtube': {
-                'player_client': ['android']
+                'player_client': ['visionos', 'android']
             }
         },
         'http_headers': {
@@ -303,9 +303,11 @@ def extract_ytdlp(url):
     try:
         if 'youtube.com' in url or 'youtu.be' in url:
             client_candidates = [
-                ['tv_embedded', 'android_creator'],
+                ['visionos', 'android'],
+                ['visionos'],
+                ['android_vr', 'visionos'],
                 ['android'],
-                ['ios', 'mweb']
+                ['web', 'visionos']
             ]
             info = None
             last_err = None
