@@ -35,13 +35,17 @@ class DownloadWorker(
         // Start in the foreground immediately with an indeterminate notification;
         // the executor's onProgress callback below will replace it with real progress.
         val title = inputData.getString(KEY_TITLE) ?: "Download"
-        setForeground(
-            ForegroundInfo(
-                notificationId,
-                DownloadNotifications.buildProgressNotification(applicationContext, itemId, title, 0, "Starting...", indeterminate = true),
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC else 0
+        try {
+            setForeground(
+                ForegroundInfo(
+                    notificationId,
+                    DownloadNotifications.buildProgressNotification(applicationContext, itemId, title, 0, "Starting...", indeterminate = true),
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC else 0
+                )
             )
-        )
+        } catch (e: Exception) {
+            // Silently fallback if foreground service permission/type is restricted on device
+        }
 
         val desktopServerUrl = inputData.getString(KEY_DESKTOP_SERVER)?.ifEmpty { null }
         val formatId = inputData.getString(KEY_FORMAT_ID)?.ifEmpty { null }
@@ -62,19 +66,23 @@ class DownloadWorker(
 
         val executor = DownloadExecutor(applicationContext, repository) { updated ->
             val statusText = "${updated.speed} · ${updated.eta}"
-            setForeground(
-                ForegroundInfo(
-                    notificationId,
-                    DownloadNotifications.buildProgressNotification(
-                        applicationContext,
-                        itemId,
-                        updated.title,
-                        updated.progress.toInt(),
-                        statusText
-                    ),
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC else 0
+            try {
+                setForeground(
+                    ForegroundInfo(
+                        notificationId,
+                        DownloadNotifications.buildProgressNotification(
+                            applicationContext,
+                            itemId,
+                            updated.title,
+                            updated.progress.toInt(),
+                            statusText
+                        ),
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC else 0
+                    )
                 )
-            )
+            } catch (e: Exception) {
+                // Ignore foreground notification update failure
+            }
         }
 
         // The foreground notification above disappears the moment doWork()

@@ -871,7 +871,7 @@ class handler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps(pin_result).encode('utf-8'))
                 return
 
-        # 5. Reddit Direct Engine
+        # 5. Reddit Direct Engine (RapidSave + direct extraction)
         if 'reddit.com' in url or 'redd.it' in url:
             reddit_result = extract_reddit(url)
             if reddit_result:
@@ -881,13 +881,7 @@ class handler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps(reddit_result).encode('utf-8'))
                 return
-            else:
-                self.send_response(502)
-                self.send_header('Content-Type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                self.wfile.write(json.dumps({'error': 'Failed to extract Reddit media. Ensure post is public and contains video or image media.'}).encode('utf-8'))
-                return
+            # If rapid extraction fails, fall through to core yt-dlp universal engine below
 
         # 6. YouTube Direct Engine (Instant 300ms Innertube resolution, bypasses datacenter bot-checks)
         if 'youtube.com' in url or 'youtu.be' in url:

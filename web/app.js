@@ -668,6 +668,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const sizeText = f.sizeBytes ? fmtBytes(f.sizeBytes) : (f.size ? fmtBytes(f.size) : '');
 
+      const isYt = (data.type || '').toLowerCase() === 'youtube' || (f.directUrl || '').includes('googlevideo') || (f.directUrl || '').includes('youtube');
+      const ytVidId = f.videoId || data.videoId || (data.url || urlInput.value || '').match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1] || '';
+      const safeDirectHref = isYt && ytVidId
+        ? `/api/download?type=youtube&id=${encodeURIComponent(ytVidId)}&filename=${encodeURIComponent(filename)}`
+        : (f.directUrl || f.token);
+
       const item = document.createElement('div');
       item.className = 'format-item-card';
       item.innerHTML = `
@@ -680,12 +686,12 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         <div class="option-actions">
           <button class="btn-fast-dl">Download</button>
-          <a href="${f.directUrl || f.token}" download="${encodeURIComponent(filename)}" class="btn-dl-item" target="_blank" rel="noreferrer noopener" referrerpolicy="no-referrer">Direct Link</a>
+          <a href="${safeDirectHref}" download="${encodeURIComponent(filename)}" class="btn-dl-item" target="_blank" rel="noreferrer noopener" referrerpolicy="no-referrer">Direct Link</a>
         </div>
       `;
 
       item.querySelector('.btn-fast-dl').addEventListener('click', () => {
-        startDownload(f.token || f.directUrl, filename, data.title, data.thumbnail, f.sizeBytes, f);
+        startDownload(f.token || f.directUrl, filename, data.title, data.thumbnail, f.sizeBytes, { ...f, type: data.type, videoId: ytVidId });
         formatModal.classList.add('hidden');
         urlInput.value = '';
         updateButtonText();
@@ -1084,7 +1090,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       let downloadEndpoint;
-      if (tokenOrUrl.startsWith('http')) {
+      const isYtStream = (formatObj?.type || '').toLowerCase() === 'youtube' ||
+                         (tokenOrUrl || '').includes('googlevideo') ||
+                         (tokenOrUrl || '').includes('youtube') ||
+                         Boolean(formatObj?.videoId);
+
+      if (isYtStream) {
+        const vidId = formatObj?.videoId || (tokenOrUrl || '').match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1] || '';
+        downloadEndpoint = `/api/download?type=youtube&id=${encodeURIComponent(vidId)}&url=${encodeURIComponent(tokenOrUrl)}&filename=${encodeURIComponent(filename)}`;
+      } else if (tokenOrUrl.startsWith('http')) {
         // If cross-origin, route through Cloudflare Pages proxy to attach CORS headers
         if (!tokenOrUrl.includes(window.location.hostname)) {
           downloadEndpoint = `/api/download?url=${encodeURIComponent(tokenOrUrl)}&filename=${encodeURIComponent(filename)}`;
@@ -1196,7 +1210,7 @@ document.addEventListener('DOMContentLoaded', () => {
           meta.textContent = 'Saving via browser download...';
 
           const a = document.createElement('a');
-          a.href = tokenOrUrl;
+          a.href = (downloadEndpoint && downloadEndpoint.startsWith('/api/download')) ? downloadEndpoint : tokenOrUrl;
           a.download = filename || 'video.mp4';
           a.target = '_blank';
           a.rel = 'noreferrer noopener';

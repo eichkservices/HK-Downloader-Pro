@@ -33,7 +33,7 @@ fun MainScreen(
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as Application
-    val viewModel: MainScreenViewModel = viewModel { MainScreenViewModel(app) }
+    val viewModel: MainScreenViewModel = viewModel(factory = androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(app))
 
     var selectedTab by remember { mutableStateOf(0) }
 
@@ -50,8 +50,8 @@ fun MainScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(BgDark)
-                    .navigationBarsPadding()
-                    .padding(horizontal = 24.dp, vertical = 10.dp),
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(horizontal = 24.dp, vertical = 14.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Row(

@@ -373,6 +373,65 @@ export async function onRequestPost(context) {
     });
   }
 
+  if (!inputUrl) {
+    return new Response(JSON.stringify({ error: 'Missing inputUrl' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  inputUrl = cleanUrl(inputUrl);
+  const type = identifyLinkType(inputUrl);
+
+  // 1. Direct Edge Resolvers (Instant response for YouTube, TikTok, Facebook, Pinterest)
+  if (type === 'youtube') {
+    try {
+      const ytData = await resolveYoutubeDirect(inputUrl);
+      if (ytData && ytData.formats && ytData.formats.length > 0) {
+        return new Response(JSON.stringify(ytData), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type'
+          }
+        });
+      }
+    } catch (e) {}
+  } else if (type === 'tiktok') {
+    try {
+      const tkData = await resolveTikwm(inputUrl);
+      if (tkData && tkData.formats && tkData.formats.length > 0) {
+        return new Response(JSON.stringify(tkData), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type'
+          }
+        });
+      }
+    } catch (e) {}
+  } else if (type === 'pinterest') {
+    try {
+      const pinData = await resolvePinterestDirect(inputUrl);
+      if (pinData && pinData.formats && pinData.formats.length > 0) {
+        return new Response(JSON.stringify(pinData), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type'
+          }
+        });
+      }
+    } catch (e) {}
+  }
+
+  // 2. Delegate to Python backend for complex/fallback media (Reddit, Twitter, etc.)
   const DEFAULT_YTDLP_URL = 'https://hk-downloader-pro.vercel.app';
   const ytdlpApiUrl = env.YTDLP_API_URL || DEFAULT_YTDLP_URL;
   if (ytdlpApiUrl) {
@@ -382,7 +441,7 @@ export async function onRequestPost(context) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inputUrl, preset }),
-        signal: AbortSignal.timeout(5000)
+        signal: AbortSignal.timeout(6000)
       });
       if (resp.ok) {
         const data = await resp.json();
@@ -411,16 +470,6 @@ export async function onRequestPost(context) {
     }
   }
 
-  if (!inputUrl) {
-    return new Response(JSON.stringify({ error: 'Missing inputUrl' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-
-  inputUrl = cleanUrl(inputUrl);
-
-  const type = identifyLinkType(inputUrl);
   const chain = type === 'tiktok'
     ? [
         { name: 'tikwm', run: () => resolveTikwm(inputUrl) },

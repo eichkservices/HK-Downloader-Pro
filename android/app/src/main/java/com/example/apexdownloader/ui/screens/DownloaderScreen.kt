@@ -150,12 +150,16 @@ fun DownloaderScreen(
                                     .fillMaxWidth()
                                     .padding(vertical = 4.dp)
                                     .clickable {
+                                        val cleanTitle = successState.title
+                                            .replace(Regex("[\\\\/:*?\"<>|]"), "_")
+                                            .trim()
+                                            .ifEmpty { "video" }
                                         viewModel.triggerDownload(
                                             url = successState.url,
                                             title = successState.title,
                                             thumbnail = successState.thumbnail,
                                             formatId = format.formatId,
-                                            filename = successState.title + "." + format.ext
+                                            filename = "$cleanTitle.${format.ext.ifEmpty { "mp4" }}"
                                         )
                                         showFormatDialog = null
                                         urlInput = ""
