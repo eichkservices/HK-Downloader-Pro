@@ -381,7 +381,8 @@ export async function onRequestPost(context) {
       const resp = await fetch(`${cleanApiUrl}/api/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inputUrl, preset })
+        body: JSON.stringify({ inputUrl, preset }),
+        signal: AbortSignal.timeout(5000)
       });
       if (resp.ok) {
         const data = await resp.json();

@@ -881,7 +881,18 @@ class handler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({'error': 'Failed to extract Reddit media. Ensure post is public and contains video or image media.'}).encode('utf-8'))
                 return
 
-        # 6. Core yt-dlp Universal Engine (YouTube, Vimeo, etc.)
+        # 6. YouTube Direct Engine (Instant 300ms Innertube resolution, bypasses datacenter bot-checks)
+        if 'youtube.com' in url or 'youtu.be' in url:
+            yt_result = extract_youtube_direct(url)
+            if yt_result:
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps(yt_result).encode('utf-8'))
+                return
+
+        # 7. Core yt-dlp Universal Engine (YouTube fallback for other formats, Vimeo, etc.)
         try:
             ytdlp_result = extract_ytdlp(url)
             self.send_response(200)
