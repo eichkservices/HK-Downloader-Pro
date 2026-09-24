@@ -707,7 +707,17 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json')
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
-        self.wfile.write(json.dumps({'status': 'ok', 'service': 'HK Downloader Pro Universal Engine v2.1'}).encode('utf-8'))
+        try:
+            import yt_dlp.version
+            yver = getattr(yt_dlp.version, '__version__', 'unknown')
+        except Exception:
+            yver = 'unknown'
+        self.wfile.write(json.dumps({
+            'status': 'ok',
+            'service': 'HK Downloader Pro Universal Engine v2.5.4',
+            'ytdlp_version': yver,
+            'build': 'visionos-v2.5.4'
+        }).encode('utf-8'))
 
     def do_POST(self):
         content_length = int(self.headers.get('Content-Length', 0))
