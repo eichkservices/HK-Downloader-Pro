@@ -310,6 +310,8 @@ def extract_ytdlp(url):
                 ['web', 'visionos']
             ]
             client_log = {}
+            info = None
+            last_err = None
             for client_list in client_candidates:
                 key = "+".join(client_list)
                 ydl_opts['extractor_args'] = {'youtube': {'player_client': client_list}}
