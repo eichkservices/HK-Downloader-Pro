@@ -246,6 +246,87 @@ def extract_facebook_direct(url):
         }
     return None
 
+def extract_youtube_direct(url):
+    try:
+        video_id = None
+        m = re.search(r'(?:v=|youtu\.be/|shorts/|embed/)([a-zA-Z0-9_-]{11})', url)
+        if m:
+            video_id = m.group(1)
+        if not video_id:
+            return None
+
+        headers = {
+            'Content-Type': 'application/json',
+            'X-YouTube-Client-Name': '3',
+            'X-YouTube-Client-Version': '21.26.364',
+            'Origin': 'https://www.youtube.com',
+            'User-Agent': 'com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip'
+        }
+        payload = {
+            'videoId': video_id,
+            'context': {
+                'client': {
+                    'clientName': 'ANDROID',
+                    'clientVersion': '21.26.364',
+                    'androidSdkVersion': 30
+                }
+            },
+            'playbackContext': {
+                'contentPlaybackContext': {
+                    'html5Preference': 'HTML5_PREF_WANTS',
+                    'signatureTimestamp': 20717
+                }
+            },
+            'contentCheckOk': True,
+            'racyCheckOk': True
+        }
+        req = urllib.request.Request(
+            'https://www.youtube.com/youtubei/v1/player',
+            data=json.dumps(payload).encode('utf-8'),
+            headers=headers
+        )
+        with urllib.request.urlopen(req, timeout=10) as r:
+            data = json.loads(r.read().decode('utf-8'))
+
+        if data.get('playabilityStatus', {}).get('status') != 'OK':
+            return None
+
+        details = data.get('videoDetails', {})
+        title = details.get('title') or 'YouTube Video'
+        thumb = f'https://img.youtube.com/vi/{video_id}/hqdefault.jpg'
+
+        streamingData = data.get('streamingData', {})
+        raw_formats = streamingData.get('formats', [])
+        formats = []
+        for f in raw_formats:
+            stream_url = f.get('url')
+            if not stream_url:
+                continue
+            quality = f.get('qualityLabel') or f"{f.get('height', 360)}p"
+            clen = f.get('contentLength')
+            size_bytes = int(clen) if clen and clen.isdigit() else None
+            formats.append({
+                'directUrl': stream_url,
+                'token': stream_url,
+                'note': f"🎬 {quality} (Standard MP4)",
+                'ext': 'mp4',
+                'height': f.get('height') or 360,
+                'hasAudio': True,
+                'sizeBytes': size_bytes
+            })
+
+        if formats:
+            return {
+                'title': title,
+                'thumbnail': thumb,
+                'formats': formats,
+                'maxResolution': formats[0].get('note', '360p'),
+                'type': 'youtube'
+            }
+    except Exception:
+        pass
+    return None
+
 def extract_ytdlp(url):
     cookie_file = None
     ydl_opts = {
@@ -832,6 +913,17 @@ class handler(BaseHTTPRequestHandler):
                     self.send_header('Access-Control-Allow-Origin', '*')
                     self.end_headers()
                     self.wfile.write(json.dumps(pin_result).encode('utf-8'))
+                    return
+
+            # Fallback for YouTube if yt-dlp was bot-blocked on datacenter IP
+            if 'youtube.com' in url or 'youtu.be' in url:
+                yt_result = extract_youtube_direct(url)
+                if yt_result:
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    self.wfile.write(json.dumps(yt_result).encode('utf-8'))
                     return
 
             # User-friendly explanation for Instagram authentication requirement

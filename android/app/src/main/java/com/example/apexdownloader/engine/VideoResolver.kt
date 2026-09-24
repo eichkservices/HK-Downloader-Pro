@@ -85,6 +85,7 @@ object VideoResolver {
     private val cloudStorageResolver = CloudStorageResolver()
     private val tikTokPublicApiResolver = TikTokPublicApiResolver()
     private val instagramDirectResolver = InstagramDirectResolver()
+    private val youtubeDirectResolver = YouTubeDirectResolver()
     private val universalCloudResolver = UniversalCloudResolver()
     private val desktopServerResolver = DesktopServerResolver()
     private val cobaltResolver = CobaltResolver()
@@ -95,6 +96,7 @@ object VideoResolver {
             "google-drive", "dropbox" -> listOf(cloudStorageResolver)
             "tiktok" -> listOf(tikTokPublicApiResolver, universalCloudResolver, desktopServerResolver, cobaltResolver)
             "instagram" -> listOf(instagramDirectResolver, universalCloudResolver, desktopServerResolver, cobaltResolver)
+            "youtube" -> listOf(youtubeDirectResolver, universalCloudResolver, desktopServerResolver, cobaltResolver)
             "direct-link" -> listOf(localDirectLinkResolver)
             in videoPlatformTypes -> listOf(universalCloudResolver, desktopServerResolver, cobaltResolver)
             else -> listOf(localDirectLinkResolver)
@@ -217,6 +219,82 @@ private class CloudStorageResolver : Resolver {
             VideoFormat("original", "Original Quality (Direct Link)", "direct", sizeBytes = VideoResolver.probeContentLength(url))
         )
         return ResolveOutcome.Success(title, thumbnail, formats)
+    }
+}
+
+/** Direct on-device YouTube extraction via YouTube's Android player API.
+ *  Uses the device's own residential/carrier IP to cleanly resolve direct streams
+ *  without datacenter bot-check blocks. */
+private class YouTubeDirectResolver : Resolver {
+    override val name = "youtube-direct"
+    private val client = NetworkClient.client
+
+    override suspend fun resolve(url: String, type: String, ctx: ResolverContext): ResolveOutcome {
+        if (type != "youtube") return ResolveOutcome.NotApplicable
+        val vidId = Regex("(?:v=|youtu\\.be/|shorts/|embed/)([a-zA-Z0-9_-]{11})").find(url)?.groupValues?.get(1)
+            ?: return ResolveOutcome.Failed("Invalid YouTube URL")
+
+        return try {
+            val payload = JSONObject().apply {
+                put("videoId", vidId)
+                put("context", JSONObject().apply {
+                    put("client", JSONObject().apply {
+                        put("clientName", "ANDROID")
+                        put("clientVersion", "21.26.364")
+                        put("androidSdkVersion", 30)
+                    })
+                })
+                put("playbackContext", JSONObject().apply {
+                    put("contentPlaybackContext", JSONObject().apply {
+                        put("html5Preference", "HTML5_PREF_WANTS")
+                        put("signatureTimestamp", 20717)
+                    })
+                })
+                put("contentCheckOk", true)
+                put("racyCheckOk", true)
+            }.toString()
+
+            val requestBody = payload.toRequestBody("application/json".toMediaTypeOrNull())
+            val request = Request.Builder()
+                .url("https://www.youtube.com/youtubei/v1/player")
+                .post(requestBody)
+                .header("Content-Type", "application/json")
+                .header("X-YouTube-Client-Name", "3")
+                .header("X-YouTube-Client-Version", "21.26.364")
+                .header("Origin", "https://www.youtube.com")
+                .header("User-Agent", "com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip")
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return ResolveOutcome.Failed("HTTP ${response.code}")
+                val data = JSONObject(response.body?.string() ?: "")
+                val playability = data.optJSONObject("playabilityStatus")
+                if (playability?.optString("status") != "OK") {
+                    return ResolveOutcome.Failed(playability?.optString("reason") ?: "Video unplayable")
+                }
+
+                val title = data.optJSONObject("videoDetails")?.optString("title", "YouTube Video") ?: "YouTube Video"
+                val thumbnail = "https://img.youtube.com/vi/$vidId/hqdefault.jpg"
+                val streamingData = data.optJSONObject("streamingData")
+                val rawFormats = streamingData?.optJSONArray("formats") ?: JSONArray()
+                val formats = mutableListOf<VideoFormat>()
+
+                for (i in 0 until rawFormats.length()) {
+                    val f = rawFormats.getJSONObject(i)
+                    val streamUrl = f.optString("url")
+                    if (streamUrl.isNotEmpty()) {
+                        val quality = f.optString("qualityLabel", "${f.optInt("height", 360)}p")
+                        val clen = f.optLong("contentLength", -1L).takeIf { it > 0 }
+                        formats.add(VideoFormat(streamUrl, "$quality · MP4 Video", "mp4", clen))
+                    }
+                }
+
+                if (formats.isEmpty()) ResolveOutcome.Failed("No direct progressive streams available")
+                else ResolveOutcome.Success(title, thumbnail, formats)
+            }
+        } catch (e: Exception) {
+            ResolveOutcome.Failed(e.message ?: "network error")
+        }
     }
 }
 
