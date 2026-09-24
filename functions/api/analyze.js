@@ -249,35 +249,11 @@ async function resolveCobaltSingle(link, displayType, instanceUrl, preset) {
 }
 
 async function resolveCobalt(link, displayType, cobaltInstanceUrl, preset) {
-  const instances = [];
-  if (cobaltInstanceUrl) {
-    instances.push(cobaltInstanceUrl);
+  if (!cobaltInstanceUrl) {
+    throw new Error(`Platform ${displayType} stream resolution requires backend engine.`);
   }
 
-  // Fetch active working endpoints from cobalt.directory dynamically at runtime!
-  try {
-    const dirResp = await fetch('https://cobalt.directory/api/working?type=api', { signal: AbortSignal.timeout(3000) });
-    if (dirResp.ok) {
-      const dirData = await dirResp.json();
-      const service = displayType.toLowerCase();
-      // Try endpoints for the specific service first
-      const serviceEndpoints = dirData.data?.[service] || [];
-      instances.push(...serviceEndpoints);
-      // Fallback: add all other working endpoints to maximize chance of success
-      if (dirData.data) {
-        for (const s in dirData.data) {
-          if (s !== service) {
-            instances.push(...dirData.data[s]);
-          }
-        }
-      }
-    }
-  } catch (e) {
-    // If cobalt.directory is down or times out, fallback to hardcoded list
-  }
-
-  // De-duplicate endpoints while preserving order
-  const uniqueInstances = Array.from(new Set(instances));
+  const uniqueInstances = [cobaltInstanceUrl];
   if (uniqueInstances.length === 0 || (uniqueInstances.length === 1 && uniqueInstances[0] === cobaltInstanceUrl)) {
     uniqueInstances.push(...COBALT_STATIC_FALLBACKS);
   }

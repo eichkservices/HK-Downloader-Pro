@@ -457,34 +457,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function resolveCobalt(link, displayType, preset) {
     const instanceUrl = getCobaltInstanceUrl();
-    const instances = [];
-    if (instanceUrl) {
-      instances.push(instanceUrl);
-    }
-
-    try {
-      const dirResp = await fetch('https://cobalt.directory/api/working?type=api', { signal: AbortSignal.timeout(3000) });
-      if (dirResp.ok) {
-        const dirData = await dirResp.json();
-        const service = displayType.toLowerCase();
-        const serviceEndpoints = dirData.data?.[service] || [];
-        instances.push(...serviceEndpoints);
-        if (dirData.data) {
-          for (const s in dirData.data) {
-            if (s !== service) {
-              instances.push(...dirData.data[s]);
-            }
-          }
-        }
-      }
-    } catch (e) {
-      // fallback
-    }
-
-    const uniqueInstances = Array.from(new Set(instances));
-    if (uniqueInstances.length === 0) {
+    if (!instanceUrl) {
       throw new Error(`Platform ${displayType} stream resolution requires backend engine.`);
     }
+
+    const uniqueInstances = [instanceUrl];
 
     const errors = [];
     for (const instance of uniqueInstances) {

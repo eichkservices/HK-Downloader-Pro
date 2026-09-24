@@ -110,9 +110,16 @@ fun DownloaderScreen(
     var filterTab by remember { mutableStateOf("all") }
 
     LaunchedEffect(analysisState) {
-        if (analysisState is AnalysisState.Success) {
-            showFormatDialog = analysisState as AnalysisState.Success
-            viewModel.resetAnalysis()
+        when (val state = analysisState) {
+            is AnalysisState.Success -> {
+                showFormatDialog = state
+                viewModel.resetAnalysis()
+            }
+            is AnalysisState.Error -> {
+                android.widget.Toast.makeText(context, state.message, android.widget.Toast.LENGTH_LONG).show()
+                viewModel.resetAnalysis()
+            }
+            else -> {}
         }
     }
 
@@ -350,8 +357,11 @@ fun DownloaderScreen(
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(Color(0x18FFFFFF))
                                 .clickable {
-                                    clipboardManager.getText()?.text?.let { text ->
-                                        urlInput = text
+                                    val clip = clipboardManager.getText()?.text?.toString()?.trim() ?: ""
+                                    if (clip.isNotEmpty()) {
+                                        urlInput = clip
+                                    } else {
+                                        android.widget.Toast.makeText(context, "Clipboard is empty", android.widget.Toast.LENGTH_SHORT).show()
                                     }
                                 }
                                 .padding(horizontal = 10.dp, vertical = 7.dp),
@@ -380,12 +390,16 @@ fun DownloaderScreen(
                         Button(
                             onClick = {
                                 focusManager.clearFocus()
-                                if (urlInput.trim().isNotEmpty()) {
-                                    viewModel.analyzeUrl(urlInput, selectedPreset)
+                                val input = urlInput.trim()
+                                if (input.isNotEmpty()) {
+                                    viewModel.analyzeUrl(input, selectedPreset)
                                 } else {
-                                    clipboardManager.getText()?.text?.let { text ->
-                                        urlInput = text
-                                        viewModel.analyzeUrl(text, selectedPreset)
+                                    val clip = clipboardManager.getText()?.text?.toString()?.trim() ?: ""
+                                    if (clip.isNotEmpty() && (clip.startsWith("http://") || clip.startsWith("https://") || clip.contains("."))) {
+                                        urlInput = clip
+                                        viewModel.analyzeUrl(clip, selectedPreset)
+                                    } else {
+                                        android.widget.Toast.makeText(context, "Please enter or paste a video link", android.widget.Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },

@@ -50,7 +50,8 @@ fun MainScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(BgDark)
-                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                    .navigationBarsPadding()
+                    .padding(horizontal = 24.dp, vertical = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Row(

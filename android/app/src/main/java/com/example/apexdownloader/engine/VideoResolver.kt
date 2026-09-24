@@ -378,51 +378,11 @@ private class CobaltResolver : Resolver {
     }
 
     override suspend fun resolve(url: String, type: String, ctx: ResolverContext): ResolveOutcome {
-        val instances = mutableListOf<String>()
+        val uniqueInstances = mutableListOf<String>()
         if (!ctx.cobaltInstanceUrl.isNullOrEmpty()) {
-            instances.add(ctx.cobaltInstanceUrl)
-        }
-
-        // Fetch dynamically from cobalt.directory tracker
-        try {
-            val dirRequest = Request.Builder()
-                .url("https://cobalt.directory/api/working?type=api")
-                .build()
-            client.newCall(dirRequest).execute().use { response ->
-                if (response.isSuccessful) {
-                    val bodyStr = response.body?.string() ?: ""
-                    val dirData = JSONObject(bodyStr).optJSONObject("data")
-                    if (dirData != null) {
-                        val service = type.lowercase()
-                        val serviceArr = dirData.optJSONArray(service)
-                        if (serviceArr != null) {
-                            for (i in 0 until serviceArr.length()) {
-                                instances.add(serviceArr.getString(i))
-                            }
-                        }
-                        // Fallback: add all other services' APIs as well
-                        val keys = dirData.keys()
-                        while (keys.hasNext()) {
-                            val k = keys.next()
-                            if (k != service) {
-                                val otherArr = dirData.optJSONArray(k)
-                                if (otherArr != null) {
-                                    for (i in 0 until otherArr.length()) {
-                                        instances.add(otherArr.getString(i))
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            // Ignore & fallback to static
-        }
-
-        val uniqueInstances = instances.distinct().toMutableList()
-        if (uniqueInstances.isEmpty() || (uniqueInstances.size == 1 && uniqueInstances[0] == ctx.cobaltInstanceUrl)) {
-            uniqueInstances.addAll(staticFallbacks)
+            uniqueInstances.add(ctx.cobaltInstanceUrl)
+        } else {
+            return ResolveOutcome.NotApplicable
         }
 
         val failures = mutableListOf<String>()
@@ -470,8 +430,9 @@ private class UniversalCloudResolver : Resolver {
     private val client = NetworkClient.client
 
     private val endpoints = listOf(
+        "https://hkdownloader.online/api/analyze",
         "https://hk-downloader-pro.vercel.app/api/analyze",
-        "https://hk-downloader-pro2.pages.dev/api/analyze"
+        "https://hk-downloader-pro.pages.dev/api/analyze"
     )
 
     override suspend fun resolve(url: String, type: String, ctx: ResolverContext): ResolveOutcome {
@@ -515,7 +476,7 @@ private class UniversalCloudResolver : Resolver {
                             val resolvedUrl = when {
                                 directUrl.isNotEmpty() -> directUrl
                                 token.startsWith("http") -> token
-                                token.isNotEmpty() -> "https://hk-downloader-pro2.pages.dev/api/download?token=$token"
+                                token.isNotEmpty() -> "https://hkdownloader.online/api/download?url=${java.net.URLEncoder.encode(token, "UTF-8")}"
                                 else -> ""
                             }
 

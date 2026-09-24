@@ -10,6 +10,7 @@ import com.example.apexdownloader.engine.DownloadEngine
 import com.example.apexdownloader.engine.QualityPreset
 import com.example.apexdownloader.engine.VideoFormat
 import com.example.apexdownloader.engine.VideoResolver
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -51,7 +52,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         if (trimmed.isEmpty()) return
         _analysisState.value = AnalysisState.Analyzing
 
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 VideoResolver.resolveVideoInfo(
                     url = trimmed,

@@ -301,14 +301,38 @@ def extract_ytdlp(url):
                 pass
 
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
+        if 'youtube.com' in url or 'youtu.be' in url:
+            client_candidates = [
+                ['tv_embedded', 'android_creator'],
+                ['android'],
+                ['ios', 'mweb']
+            ]
+            info = None
+            last_err = None
+            for client_list in client_candidates:
+                ydl_opts['extractor_args'] = {'youtube': {'player_client': client_list}}
+                try:
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        info = ydl.extract_info(url, download=False)
+                        if info and info.get('formats'):
+                            break
+                except Exception as e:
+                    last_err = e
+                    continue
+            if not info:
+                if last_err:
+                    raise last_err
+                raise Exception("Failed to extract media formats from YouTube.")
+        else:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
     finally:
         if cookie_file and os.path.exists(cookie_file):
             try:
                 os.unlink(cookie_file)
             except Exception:
                 pass
+
 
     title = info.get('title') or 'Media Video'
     thumbnail = info.get('thumbnail') or ''
