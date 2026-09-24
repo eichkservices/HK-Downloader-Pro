@@ -246,13 +246,17 @@ def extract_facebook_direct(url):
         }
     return None
 
+LAST_DIRECT_ERR = None
+
 def extract_youtube_direct(url):
+    global LAST_DIRECT_ERR
     try:
         video_id = None
         m = re.search(r'(?:v=|youtu\.be/|shorts/|embed/)([a-zA-Z0-9_-]{11})', url)
         if m:
             video_id = m.group(1)
         if not video_id:
+            LAST_DIRECT_ERR = f"No 11-char video_id in {url}"
             return None
 
         headers = {
@@ -288,7 +292,10 @@ def extract_youtube_direct(url):
         with urllib.request.urlopen(req, timeout=10) as r:
             data = json.loads(r.read().decode('utf-8'))
 
-        if data.get('playabilityStatus', {}).get('status') != 'OK':
+        status = data.get('playabilityStatus', {}).get('status')
+        if status != 'OK':
+            reason = data.get('playabilityStatus', {}).get('reason') or 'status not OK'
+            LAST_DIRECT_ERR = f"Innertube status: {status} ({reason})"
             return None
 
         details = data.get('videoDetails', {})
@@ -323,8 +330,9 @@ def extract_youtube_direct(url):
                 'maxResolution': formats[0].get('note', '360p'),
                 'type': 'youtube'
             }
-    except Exception:
-        pass
+        LAST_DIRECT_ERR = f"Innertube returned {len(raw_formats)} formats but none had direct url"
+    except Exception as e:
+        LAST_DIRECT_ERR = f"Innertube exception: {str(e)}"
     return None
 
 def extract_ytdlp(url):
@@ -890,6 +898,13 @@ class handler(BaseHTTPRequestHandler):
                 self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
                 self.wfile.write(json.dumps(yt_result).encode('utf-8'))
+                return
+            else:
+                self.send_response(502)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': f'YouTube engine error: {LAST_DIRECT_ERR}'}).encode('utf-8'))
                 return
 
         # 7. Core yt-dlp Universal Engine (YouTube fallback for other formats, Vimeo, etc.)
