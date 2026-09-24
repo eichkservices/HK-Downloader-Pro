@@ -309,9 +309,9 @@ def extract_ytdlp(url):
                 ['android'],
                 ['web', 'visionos']
             ]
-            info = None
-            last_err = None
+            client_log = {}
             for client_list in client_candidates:
+                key = "+".join(client_list)
                 ydl_opts['extractor_args'] = {'youtube': {'player_client': client_list}}
                 try:
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -319,12 +319,11 @@ def extract_ytdlp(url):
                         if info and info.get('formats'):
                             break
                 except Exception as e:
+                    client_log[key] = str(e)[:120]
                     last_err = e
                     continue
             if not info:
-                if last_err:
-                    raise last_err
-                raise Exception("Failed to extract media formats from YouTube.")
+                raise Exception(f"YouTube extraction failed: {json.dumps(client_log)}")
         else:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
