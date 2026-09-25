@@ -315,6 +315,8 @@ def extract_youtube_direct(url):
             formats.append({
                 'directUrl': stream_url,
                 'token': stream_url,
+                'videoId': video_id,
+                'url': url,
                 'note': f"🎬 {quality} (Standard MP4)",
                 'ext': 'mp4',
                 'height': f.get('height') or 360,
@@ -326,6 +328,8 @@ def extract_youtube_direct(url):
             return {
                 'title': title,
                 'thumbnail': thumb,
+                'videoId': video_id,
+                'url': url,
                 'formats': formats,
                 'maxResolution': formats[0].get('note', '360p'),
                 'type': 'youtube'

@@ -458,6 +458,8 @@ document.addEventListener('DOMContentLoaded', () => {
       formats.push({
         directUrl: f.url,
         token: f.url,
+        videoId: vidId,
+        url: link,
         note: `🎬 ${quality} (Standard MP4)`,
         ext: 'mp4',
         height: f.height || 360,
@@ -466,7 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
     if (formats.length === 0) throw new Error('No progressive streams available');
-    return { title, thumbnail, type: 'youtube', formats };
+    return { title, thumbnail, type: 'youtube', videoId: vidId, url: link, formats };
   }
 
   const COBALT_STATIC_FALLBACKS = [];
