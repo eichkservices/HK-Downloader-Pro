@@ -508,62 +508,130 @@ document.addEventListener('DOMContentLoaded', () => {
     const vidId = link.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1];
     if (!vidId) throw new Error('Invalid YouTube URL');
 
-    const headers = {
-      'Content-Type': 'application/json',
-      'X-YouTube-Client-Name': '3',
-      'X-YouTube-Client-Version': '21.26.364'
-    };
-    const payload = {
-      videoId: vidId,
-      context: {
-        client: {
-          clientName: 'ANDROID',
-          clientVersion: '21.26.364',
-          androidSdkVersion: 30
-        }
+    const clients = [
+      {
+        name: 'ANDROID',
+        version: '21.26.364',
+        clientNameId: '3',
+        ua: 'com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip',
+        context: { clientName: 'ANDROID', clientVersion: '21.26.364', androidSdkVersion: 30 }
       },
-      playbackContext: {
-        contentPlaybackContext: {
-          html5Preference: 'HTML5_PREF_WANTS',
-          signatureTimestamp: 20717
-        }
-      },
-      contentCheckOk: true,
-      racyCheckOk: true
-    };
+      {
+        name: 'TVHTML5',
+        version: '7.20260707.07.00',
+        clientNameId: '7',
+        ua: 'Mozilla/5.0 (ChromiumStylePlatform) Cobalt/25.lts.30.1034943-gold (unlike Gecko), Unknown_TV_U',
+        context: { clientName: 'TVHTML5', clientVersion: '7.20260707.07.00', userAgent: 'Mozilla/5.0 (ChromiumStylePlatform) Cobalt/25.lts.30.1034943-gold (unlike Gecko), Unknown_TV_U', hl: 'en', gl: 'US' }
+      }
+    ];
 
-    const resp = await fetch('https://www.youtube.com/youtubei/v1/player', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload)
-    });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
-    if (data?.playabilityStatus?.status !== 'OK') {
-      throw new Error(data?.playabilityStatus?.reason || 'Video unplayable');
-    }
-
-    const title = data.videoDetails?.title || 'YouTube Video';
+    let lastErr = null;
+    let title = 'YouTube Video';
     const thumbnail = `https://img.youtube.com/vi/${vidId}/hqdefault.jpg`;
     const formats = [];
-    const rawFormats = data.streamingData?.formats || [];
-    for (const f of rawFormats) {
-      if (!f.url) continue;
-      const quality = f.qualityLabel || `${f.height || 360}p`;
-      const clen = f.contentLength ? parseInt(f.contentLength, 10) : undefined;
-      formats.push({
-        directUrl: f.url,
-        token: f.url,
-        videoId: vidId,
-        url: link,
-        note: `🎬 ${quality} (Standard MP4)`,
-        ext: 'mp4',
-        height: f.height || 360,
-        hasAudio: true,
-        sizeBytes: clen
-      });
+
+    for (const c of clients) {
+      try {
+        const headers = {
+          'Content-Type': 'application/json',
+          'X-YouTube-Client-Name': c.clientNameId,
+          'X-YouTube-Client-Version': c.version
+        };
+        const payload = {
+          videoId: vidId,
+          context: { client: c.context },
+          playbackContext: {
+            contentPlaybackContext: {
+              html5Preference: 'HTML5_PREF_WANTS',
+              signatureTimestamp: 20717
+            }
+          },
+          contentCheckOk: true,
+          racyCheckOk: true
+        };
+
+        const resp = await fetch('https://www.youtube.com/youtubei/v1/player', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+        if (!resp.ok) continue;
+        const data = await resp.json();
+        if (data?.playabilityStatus?.status !== 'OK') {
+          lastErr = data?.playabilityStatus?.reason || 'Video unplayable';
+          continue;
+        }
+
+        title = data.videoDetails?.title || title;
+
+        const rawFormats = data.streamingData?.formats || [];
+        for (const f of rawFormats) {
+          if (!f.url) continue;
+          const quality = f.qualityLabel || `${f.height || 360}p`;
+          const clen = f.contentLength ? parseInt(f.contentLength, 10) : undefined;
+          formats.push({
+            directUrl: f.url,
+            token: f.url,
+            videoId: vidId,
+            url: link,
+            note: `🎬 ${quality} (Standard MP4 with Audio)`,
+            ext: 'mp4',
+            height: f.height || 360,
+            hasAudio: true,
+            sizeBytes: clen
+          });
+        }
+
+        const adaptive = data.streamingData?.adaptiveFormats || [];
+        for (const af of adaptive) {
+          if (af.url && af.height && af.height >= 720) {
+            const q = af.qualityLabel || `${af.height}p`;
+            formats.push({
+              directUrl: af.url,
+              token: af.url,
+              videoId: vidId,
+              url: link,
+              note: `🎬 ${q} HD (MP4 Stream)`,
+              ext: 'mp4',
+              height: af.height,
+              hasAudio: false,
+              sizeBytes: af.contentLength ? parseInt(af.contentLength, 10) : undefined
+            });
+          }
+        }
+
+        const audioStreams = adaptive.filter(af => af.url && (af.mimeType || '').includes('audio'));
+        if (audioStreams.length > 0) {
+          const bestAudio = audioStreams[0];
+          formats.push({
+            directUrl: bestAudio.url,
+            token: bestAudio.url,
+            videoId: vidId,
+            url: link,
+            note: `🎵 High Quality Audio (M4A / MP3)`,
+            ext: 'm4a',
+            isAudio: true,
+            sizeBytes: bestAudio.contentLength ? parseInt(bestAudio.contentLength, 10) : undefined
+          });
+        } else if (formats.length > 0 && formats[0].directUrl) {
+          formats.push({
+            directUrl: formats[0].directUrl,
+            token: formats[0].directUrl,
+            videoId: vidId,
+            url: link,
+            note: `🎵 Audio Track (MP3)`,
+            ext: 'mp3',
+            isAudio: true
+          });
+        }
+
+        if (formats.length > 0) break;
+      } catch (e) {
+        lastErr = e.message;
+      }
     }
-    if (formats.length === 0) throw new Error('No progressive streams available');
+
+    if (formats.length === 0) throw new Error(lastErr || 'No progressive streams available');
     return { title, thumbnail, type: 'youtube', videoId: vidId, url: link, formats };
   }
 
