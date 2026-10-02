@@ -391,6 +391,102 @@ document.addEventListener('DOMContentLoaded', () => {
     return { title: v.title || 'TikTok Video', thumbnail: v.cover || '', formats, type: 'tiktok' };
   }
 
+  async function resolveInstagramDirect(link) {
+    const shortcodeMatch = link.match(/(?:reel|reels|p|tv)\/([a-zA-Z0-9_-]+)/);
+    if (!shortcodeMatch) throw new Error('Invalid Instagram URL');
+    const shortcode = shortcodeMatch[1];
+
+    let title = 'Instagram Video';
+    let thumbnail = '';
+    const formats = [];
+
+    // 1. Fetch metadata via oEmbed
+    try {
+      const oeResp = await fetch(`https://api.instagram.com/oembed/?url=${encodeURIComponent(link)}`);
+      if (oeResp.ok) {
+        const oeData = await oeResp.json();
+        title = oeData.title || oeData.author_name ? `${oeData.author_name} - Instagram` : title;
+        thumbnail = oeData.thumbnail_url || thumbnail;
+      }
+    } catch (e) {}
+
+    // 2. Fetch page HTML / Embed to extract direct mp4 video stream with muxed audio
+    try {
+      const embedResp = await fetch(`https://www.instagram.com/p/${shortcode}/embed/captioned/`);
+      if (embedResp.ok) {
+        const html = await embedResp.text();
+        const videoMatch = html.match(/"video_url"\s*:\s*"([^"]+)"/) ||
+                           html.match(/video_url&quot;:&quot;([^&]+)&quot;/) ||
+                           html.match(/src="([^"]+\.mp4[^"]*)"/);
+        const thumbMatch = html.match(/"display_url"\s*:\s*"([^"]+)"/) ||
+                           html.match(/property="og:image"\s+content="([^"]+)"/);
+
+        if (thumbMatch && !thumbnail) {
+          thumbnail = thumbMatch[1].replace(/\\u0026/g, '&').replace(/&amp;/g, '&').replace(/\\/g, '');
+        }
+
+        if (videoMatch) {
+          const videoUrl = videoMatch[1].replace(/\\u0026/g, '&').replace(/&amp;/g, '&').replace(/\\/g, '');
+          formats.push({
+            directUrl: videoUrl,
+            token: videoUrl,
+            note: '🎬 HD Video (with Audio MP4)',
+            ext: 'mp4',
+            height: 1080,
+            hasAudio: true
+          });
+
+          formats.push({
+            directUrl: videoUrl,
+            token: videoUrl,
+            note: '🎵 Audio Track (MP3 / Audio)',
+            ext: 'mp3',
+            isAudio: true
+          });
+        }
+      }
+    } catch (e) {}
+
+    if (formats.length > 0) {
+      return { title, thumbnail, type: 'instagram', formats };
+    }
+    throw new Error('No direct Instagram streams available');
+  }
+
+  async function resolveFacebookDirect(link) {
+    const resp = await fetch(link);
+    const body = await resp.text();
+    const hdMatch = body.match(/"browser_native_hd_url"\s*:\s*"([^"]+)"/) ||
+                    body.match(/"playable_url_quality_hd"\s*:\s*"([^"]+)"/) ||
+                    body.match(/hd_src\s*:\s*"([^"]+)"/);
+
+    const sdMatch = body.match(/"browser_native_sd_url"\s*:\s*"([^"]+)"/) ||
+                    body.match(/"playable_url"\s*:\s*"([^"]+)"/) ||
+                    body.match(/sd_src\s*:\s*"([^"]+)"/);
+
+    let title = 'Facebook Video';
+    const titleMatch = body.match(/<title id="pageTitle">([^<]+)<\/title>/) ||
+                       body.match(/<title>([^<]+)<\/title>/);
+    if (titleMatch) {
+      title = titleMatch[1].replace(/\s*\|\s*Facebook.*$/i, '').trim();
+    }
+
+    let thumbnail = '';
+    const thumbMatch = body.match(/"preferred_thumbnail"\s*:\s*\{\s*"image"\s*:\s*\{\s*"uri"\s*:\s*"([^"]+)"/) ||
+                       body.match(/property="og:image"\s+content="([^"]+)"/);
+    if (thumbMatch) thumbnail = thumbMatch[1].replace(/\\/g, '');
+
+    const cleanHd = hdMatch ? hdMatch[1].replace(/\\/g, '') : null;
+    const cleanSd = sdMatch ? sdMatch[1].replace(/\\/g, '') : null;
+
+    const formats = [];
+    if (cleanHd) formats.push({ directUrl: cleanHd, note: '🎬 HD (1080p MP4)', ext: 'mp4', hasAudio: true });
+    if (cleanSd) formats.push({ directUrl: cleanSd, note: '🎬 SD (480p MP4)', ext: 'mp4', hasAudio: true });
+
+    if (formats.length === 0) throw new Error('No direct streams found in Facebook page');
+    return { title, thumbnail, type: 'facebook', formats };
+  }
+
   async function resolveYoutubeMetadata(link) {
     // oEmbed only gives title/thumbnail, never a download -- used to enrich
     // whatever the actual download resolver (Cobalt) returns.
@@ -555,6 +651,14 @@ document.addEventListener('DOMContentLoaded', () => {
     'tiktok': [
       { name: 'tikwm', run: (link) => resolveTikwm(link) },
       { name: 'cobalt', run: (link, preset) => resolveCobalt(link, 'TikTok', preset) },
+    ],
+    'instagram': [
+      { name: 'instagram-direct', run: (link) => resolveInstagramDirect(link) },
+      { name: 'cobalt', run: (link, preset) => resolveCobalt(link, 'Instagram', preset) },
+    ],
+    'facebook': [
+      { name: 'facebook-direct', run: (link) => resolveFacebookDirect(link) },
+      { name: 'cobalt', run: (link, preset) => resolveCobalt(link, 'Facebook', preset) },
     ],
     'youtube': [
       { name: 'youtube-direct', run: (link) => resolveYoutubeDirect(link) },

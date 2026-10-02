@@ -113,6 +113,83 @@ async function resolveFacebookDirect(link) {
   return { title, thumbnail, type: 'facebook', formats };
 }
 
+async function resolveInstagramDirect(link) {
+  const shortcodeMatch = link.match(/(?:reel|reels|p|tv)\/([a-zA-Z0-9_-]+)/);
+  if (!shortcodeMatch) throw new Error('Invalid Instagram URL');
+  const shortcode = shortcodeMatch[1];
+
+  // Try direct Instagram oEmbed and API endpoint
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Sec-Fetch-Mode': 'navigate'
+  };
+
+  let title = 'Instagram Video';
+  let thumbnail = '';
+  const formats = [];
+
+  // 1. Fetch metadata via oEmbed
+  try {
+    const oeResp = await fetch(`https://api.instagram.com/oembed/?url=${encodeURIComponent(link)}`, {
+      headers: { 'User-Agent': headers['User-Agent'] },
+      signal: AbortSignal.timeout(4000)
+    });
+    if (oeResp.ok) {
+      const oeData = await oeResp.json();
+      title = oeData.title || oeData.author_name ? `${oeData.author_name} - Instagram` : title;
+      thumbnail = oeData.thumbnail_url || thumbnail;
+    }
+  } catch (e) {}
+
+  // 2. Fetch page HTML / Embed to extract direct mp4 video stream (which includes full muxed audio)
+  try {
+    const embedResp = await fetch(`https://www.instagram.com/p/${shortcode}/embed/captioned/`, {
+      headers,
+      signal: AbortSignal.timeout(6000)
+    });
+    if (embedResp.ok) {
+      const html = await embedResp.text();
+      const videoMatch = html.match(/"video_url"\s*:\s*"([^"]+)"/) ||
+                         html.match(/video_url&quot;:&quot;([^&]+)&quot;/) ||
+                         html.match(/src="([^"]+\.mp4[^"]*)"/);
+      const thumbMatch = html.match(/"display_url"\s*:\s*"([^"]+)"/) ||
+                         html.match(/property="og:image"\s+content="([^"]+)"/);
+
+      if (thumbMatch && !thumbnail) {
+        thumbnail = thumbMatch[1].replace(/\\u0026/g, '&').replace(/&amp;/g, '&').replace(/\\/g, '');
+      }
+
+      if (videoMatch) {
+        const videoUrl = videoMatch[1].replace(/\\u0026/g, '&').replace(/&amp;/g, '&').replace(/\\/g, '');
+        formats.push({
+          directUrl: videoUrl,
+          token: videoUrl,
+          note: '🎬 HD Video (with Audio MP4)',
+          ext: 'mp4',
+          height: 1080,
+          hasAudio: true
+        });
+
+        // Dedicated audio track extracted from the video stream
+        formats.push({
+          directUrl: videoUrl,
+          token: videoUrl,
+          note: '🎵 Audio Track (MP3 / Audio)',
+          ext: 'mp3',
+          isAudio: true
+        });
+      }
+    }
+  } catch (e) {}
+
+  if (formats.length > 0) {
+    return { title, thumbnail, type: 'instagram', formats };
+  }
+  throw new Error('No direct Instagram streams available');
+}
+
 async function resolvePinterestDirect(link) {
   const resp = await fetch(link, {
     headers: {
@@ -406,6 +483,36 @@ export async function onRequestPost(context) {
       const tkData = await resolveTikwm(inputUrl);
       if (tkData && tkData.formats && tkData.formats.length > 0) {
         return new Response(JSON.stringify(tkData), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type'
+          }
+        });
+      }
+    } catch (e) {}
+  } else if (type === 'facebook') {
+    try {
+      const fbData = await resolveFacebookDirect(inputUrl);
+      if (fbData && fbData.formats && fbData.formats.length > 0) {
+        return new Response(JSON.stringify(fbData), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type'
+          }
+        });
+      }
+    } catch (e) {}
+  } else if (type === 'instagram') {
+    try {
+      const igData = await resolveInstagramDirect(inputUrl);
+      if (igData && igData.formats && igData.formats.length > 0) {
+        return new Response(JSON.stringify(igData), {
           status: 200,
           headers: {
             'Content-Type': 'application/json',
