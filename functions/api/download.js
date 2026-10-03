@@ -77,12 +77,14 @@ export async function onRequestGet(context) {
     if (m) resolvedYtId = m[1];
   }
 
-  if (type === 'youtube' || resolvedYtId || (targetUrl && (targetUrl.includes('googlevideo') || targetUrl.includes('youtube')))) {
+  if (type === 'youtube' || (targetUrl && (targetUrl.includes('googlevideo') || targetUrl.includes('youtube')))) {
     if (resolvedYtId) {
-      const freshUrl = await resolveYoutubeFreshStream(resolvedYtId);
-      if (freshUrl) {
-        targetUrl = freshUrl;
-      }
+      try {
+        const freshUrl = await resolveYoutubeFreshStream(resolvedYtId);
+        if (freshUrl) {
+          targetUrl = freshUrl;
+        }
+      } catch (e) {}
     }
   }
 
