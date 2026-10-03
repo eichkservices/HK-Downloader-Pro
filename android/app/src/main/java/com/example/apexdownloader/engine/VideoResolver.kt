@@ -229,72 +229,147 @@ private class YouTubeDirectResolver : Resolver {
     override val name = "youtube-direct"
     private val client = NetworkClient.client
 
+    private data class InnertubeClientConfig(
+        val name: String,
+        val version: String,
+        val clientNameId: String,
+        val ua: String,
+        val makeContext: () -> JSONObject
+    )
+
     override suspend fun resolve(url: String, type: String, ctx: ResolverContext): ResolveOutcome {
         if (type != "youtube") return ResolveOutcome.NotApplicable
         val vidId = Regex("(?:v=|youtu\\.be/|shorts/|embed/)([a-zA-Z0-9_-]{11})").find(url)?.groupValues?.get(1)
             ?: return ResolveOutcome.Failed("Invalid YouTube URL")
 
-        return try {
-            val payload = JSONObject().apply {
-                put("videoId", vidId)
-                put("context", JSONObject().apply {
-                    put("client", JSONObject().apply {
+        val clients = listOf(
+            InnertubeClientConfig(
+                name = "ANDROID_VR",
+                version = "1.61.48",
+                clientNameId = "28",
+                ua = "Mozilla/5.0 (Linux; Android 10; Quest 2) AppleWebKit/537.36",
+                makeContext = {
+                    JSONObject().apply {
+                        put("clientName", "ANDROID_VR")
+                        put("clientVersion", "1.61.48")
+                        put("deviceMake", "Oculus")
+                        put("deviceModel", "Quest 2")
+                        put("gl", "US")
+                        put("hl", "en")
+                    }
+                }
+            ),
+            InnertubeClientConfig(
+                name = "ANDROID",
+                version = "21.26.364",
+                clientNameId = "3",
+                ua = "com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip",
+                makeContext = {
+                    JSONObject().apply {
                         put("clientName", "ANDROID")
                         put("clientVersion", "21.26.364")
                         put("androidSdkVersion", 30)
-                    })
-                })
-                put("playbackContext", JSONObject().apply {
-                    put("contentPlaybackContext", JSONObject().apply {
-                        put("html5Preference", "HTML5_PREF_WANTS")
-                        put("signatureTimestamp", 20717)
-                    })
-                })
-                put("contentCheckOk", true)
-                put("racyCheckOk", true)
-            }.toString()
-
-            val requestBody = payload.toRequestBody("application/json".toMediaTypeOrNull())
-            val request = Request.Builder()
-                .url("https://www.youtube.com/youtubei/v1/player")
-                .post(requestBody)
-                .header("Content-Type", "application/json")
-                .header("X-YouTube-Client-Name", "3")
-                .header("X-YouTube-Client-Version", "21.26.364")
-                .header("Origin", "https://www.youtube.com")
-                .header("User-Agent", "com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip")
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return ResolveOutcome.Failed("HTTP ${response.code}")
-                val data = JSONObject(response.body?.string() ?: "")
-                val playability = data.optJSONObject("playabilityStatus")
-                if (playability?.optString("status") != "OK") {
-                    return ResolveOutcome.Failed(playability?.optString("reason") ?: "Video unplayable")
-                }
-
-                val title = data.optJSONObject("videoDetails")?.optString("title", "YouTube Video") ?: "YouTube Video"
-                val thumbnail = "https://img.youtube.com/vi/$vidId/hqdefault.jpg"
-                val streamingData = data.optJSONObject("streamingData")
-                val rawFormats = streamingData?.optJSONArray("formats") ?: JSONArray()
-                val formats = mutableListOf<VideoFormat>()
-
-                for (i in 0 until rawFormats.length()) {
-                    val f = rawFormats.getJSONObject(i)
-                    val streamUrl = f.optString("url")
-                    if (streamUrl.isNotEmpty()) {
-                        val quality = f.optString("qualityLabel", "${f.optInt("height", 360)}p")
-                        val clen = f.optLong("contentLength", -1L).takeIf { it > 0 }
-                        formats.add(VideoFormat(streamUrl, "$quality · MP4 Video", "mp4", clen))
                     }
                 }
+            )
+        )
 
-                if (formats.isEmpty()) ResolveOutcome.Failed("No direct progressive streams available")
-                else ResolveOutcome.Success(title, thumbnail, formats)
+        var lastErr = "Video unplayable"
+        for (c in clients) {
+            try {
+                val payload = JSONObject().apply {
+                    put("videoId", vidId)
+                    put("context", JSONObject().apply {
+                        put("client", c.makeContext())
+                    })
+                    put("playbackContext", JSONObject().apply {
+                        put("contentPlaybackContext", JSONObject().apply {
+                            put("html5Preference", "HTML5_PREF_WANTS")
+                            put("signatureTimestamp", 20717)
+                        })
+                    })
+                    put("contentCheckOk", true)
+                    put("racyCheckOk", true)
+                }.toString()
+
+                val requestBody = payload.toRequestBody("application/json".toMediaTypeOrNull())
+                val request = Request.Builder()
+                    .url("https://www.youtube.com/youtubei/v1/player")
+                    .post(requestBody)
+                    .header("Content-Type", "application/json")
+                    .header("X-YouTube-Client-Name", c.clientNameId)
+                    .header("X-YouTube-Client-Version", c.version)
+                    .header("Origin", "https://www.youtube.com")
+                    .header("User-Agent", c.ua)
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        lastErr = "HTTP ${response.code}"
+                        return@use
+                    }
+                    val data = JSONObject(response.body?.string() ?: "")
+                    val playability = data.optJSONObject("playabilityStatus")
+                    if (playability?.optString("status") != "OK") {
+                        lastErr = playability?.optString("reason") ?: "Video unplayable"
+                        return@use
+                    }
+
+                    val title = data.optJSONObject("videoDetails")?.optString("title", "YouTube Video") ?: "YouTube Video"
+                    val thumbnail = "https://img.youtube.com/vi/$vidId/hqdefault.jpg"
+                    val streamingData = data.optJSONObject("streamingData")
+                    val rawFormats = streamingData?.optJSONArray("formats") ?: JSONArray()
+                    val formats = mutableListOf<VideoFormat>()
+
+                    // 1. Progressive streams
+                    for (i in 0 until rawFormats.length()) {
+                        val f = rawFormats.getJSONObject(i)
+                        val streamUrl = f.optString("url")
+                        if (streamUrl.isNotEmpty()) {
+                            val quality = f.optString("qualityLabel", "${f.optInt("height", 360)}p")
+                            val clen = f.optLong("contentLength", -1L).takeIf { it > 0 }
+                            formats.add(VideoFormat(streamUrl, "$quality · Standard MP4 Video", "mp4", clen))
+                        }
+                    }
+
+                    // 2. High Quality Adaptive streams (1080p, 720p, 480p)
+                    val adaptive = streamingData?.optJSONArray("adaptiveFormats") ?: JSONArray()
+                    val seenHeights = mutableSetOf<Int>()
+                    for (i in 0 until adaptive.length()) {
+                        val af = adaptive.getJSONObject(i)
+                        val streamUrl = af.optString("url")
+                        val height = af.optInt("height", 0)
+                        if (streamUrl.isNotEmpty() && height >= 360 && height !in seenHeights) {
+                            seenHeights.add(height)
+                            val q = af.optString("qualityLabel", "${height}p")
+                            val isMp4 = af.optString("mimeType").contains("mp4")
+                            val clen = af.optLong("contentLength", -1L).takeIf { it > 0 }
+                            val note = if (height >= 1080) "$q FHD · MP4 Video" else if (height >= 720) "$q HD · MP4 Video" else "$q · MP4 Video"
+                            formats.add(VideoFormat(streamUrl, note, if (isMp4) "mp4" else "webm", clen))
+                        }
+                    }
+
+                    // 3. Audio formats
+                    for (i in 0 until adaptive.length()) {
+                        val af = adaptive.getJSONObject(i)
+                        val streamUrl = af.optString("url")
+                        val mime = af.optString("mimeType")
+                        if (streamUrl.isNotEmpty() && mime.contains("audio")) {
+                            val clen = af.optLong("contentLength", -1L).takeIf { it > 0 }
+                            formats.add(VideoFormat(streamUrl, "🎵 High Quality Audio (M4A / MP3)", "m4a", clen))
+                            break
+                        }
+                    }
+
+                    if (formats.isNotEmpty()) {
+                        return ResolveOutcome.Success(title, thumbnail, formats)
+                    }
+                }
+            } catch (e: Exception) {
+                lastErr = e.message ?: "network error"
             }
-        } catch (e: Exception) {
-            ResolveOutcome.Failed(e.message ?: "network error")
         }
+        return ResolveOutcome.Failed(lastErr)
     }
 }
 

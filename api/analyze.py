@@ -259,70 +259,129 @@ def extract_youtube_direct(url):
             LAST_DIRECT_ERR = f"No 11-char video_id in {url}"
             return None
 
-        headers = {
-            'Content-Type': 'application/json',
-            'X-YouTube-Client-Name': '3',
-            'X-YouTube-Client-Version': '21.26.364',
-            'Origin': 'https://www.youtube.com',
-            'User-Agent': 'com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip'
-        }
-        payload = {
-            'videoId': video_id,
-            'context': {
-                'client': {
-                    'clientName': 'ANDROID',
-                    'clientVersion': '21.26.364',
-                    'androidSdkVersion': 30
-                }
+        clients = [
+            {
+                'name': 'ANDROID_VR',
+                'version': '1.61.48',
+                'clientNameId': '28',
+                'ua': 'Mozilla/5.0 (Linux; Android 10; Quest 2) AppleWebKit/537.36',
+                'context': {'clientName': 'ANDROID_VR', 'clientVersion': '1.61.48', 'deviceMake': 'Oculus', 'deviceModel': 'Quest 2', 'gl': 'US', 'hl': 'en'}
             },
-            'playbackContext': {
-                'contentPlaybackContext': {
-                    'html5Preference': 'HTML5_PREF_WANTS',
-                    'signatureTimestamp': 20717
-                }
-            },
-            'contentCheckOk': True,
-            'racyCheckOk': True
-        }
-        req = urllib.request.Request(
-            'https://www.youtube.com/youtubei/v1/player',
-            data=json.dumps(payload).encode('utf-8'),
-            headers=headers
-        )
-        with urllib.request.urlopen(req, timeout=10) as r:
-            data = json.loads(r.read().decode('utf-8'))
+            {
+                'name': 'ANDROID',
+                'version': '21.26.364',
+                'clientNameId': '3',
+                'ua': 'com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip',
+                'context': {'clientName': 'ANDROID', 'clientVersion': '21.26.364', 'androidSdkVersion': 30}
+            }
+        ]
 
-        status = data.get('playabilityStatus', {}).get('status')
-        if status != 'OK':
-            reason = data.get('playabilityStatus', {}).get('reason') or 'status not OK'
-            LAST_DIRECT_ERR = f"Innertube status: {status} ({reason})"
-            return None
-
-        details = data.get('videoDetails', {})
-        title = details.get('title') or 'YouTube Video'
         thumb = f'https://img.youtube.com/vi/{video_id}/hqdefault.jpg'
-
-        streamingData = data.get('streamingData', {})
-        raw_formats = streamingData.get('formats', [])
         formats = []
-        for f in raw_formats:
-            stream_url = f.get('url')
-            if not stream_url:
-                continue
-            quality = f.get('qualityLabel') or f"{f.get('height', 360)}p"
-            clen = f.get('contentLength')
-            size_bytes = int(clen) if clen and clen.isdigit() else None
-            formats.append({
-                'directUrl': stream_url,
-                'token': stream_url,
-                'videoId': video_id,
-                'url': url,
-                'note': f"🎬 {quality} (Standard MP4)",
-                'ext': 'mp4',
-                'height': f.get('height') or 360,
-                'hasAudio': True,
-                'sizeBytes': size_bytes
-            })
+        title = 'YouTube Video'
+
+        for c in clients:
+            try:
+                headers = {
+                    'Content-Type': 'application/json',
+                    'X-YouTube-Client-Name': c['clientNameId'],
+                    'X-YouTube-Client-Version': c['version'],
+                    'Origin': 'https://www.youtube.com',
+                    'User-Agent': c['ua']
+                }
+                payload = {
+                    'videoId': video_id,
+                    'context': {'client': c['context']},
+                    'playbackContext': {
+                        'contentPlaybackContext': {
+                            'html5Preference': 'HTML5_PREF_WANTS',
+                            'signatureTimestamp': 20717
+                        }
+                    },
+                    'contentCheckOk': True,
+                    'racyCheckOk': True
+                }
+                req = urllib.request.Request(
+                    'https://www.youtube.com/youtubei/v1/player',
+                    data=json.dumps(payload).encode('utf-8'),
+                    headers=headers
+                )
+                with urllib.request.urlopen(req, timeout=8) as r:
+                    data = json.loads(r.read().decode('utf-8'))
+
+                status = data.get('playabilityStatus', {}).get('status')
+                if status != 'OK':
+                    reason = data.get('playabilityStatus', {}).get('reason') or 'status not OK'
+                    LAST_DIRECT_ERR = f"Innertube status: {status} ({reason})"
+                    continue
+
+                details = data.get('videoDetails', {})
+                title = details.get('title') or title
+
+                streamingData = data.get('streamingData', {})
+                raw_formats = streamingData.get('formats', [])
+                for f in raw_formats:
+                    stream_url = f.get('url')
+                    if not stream_url:
+                        continue
+                    quality = f.get('qualityLabel') or f"{f.get('height', 360)}p"
+                    clen = f.get('contentLength')
+                    size_bytes = int(clen) if clen and clen.isdigit() else None
+                    formats.append({
+                        'directUrl': stream_url,
+                        'token': stream_url,
+                        'videoId': video_id,
+                        'url': url,
+                        'note': f"🎬 {quality} (Standard MP4 with Audio)",
+                        'ext': 'mp4',
+                        'height': f.get('height') or 360,
+                        'hasAudio': True,
+                        'sizeBytes': size_bytes
+                    })
+
+                adaptive = streamingData.get('adaptiveFormats', [])
+                video_adaptive = [af for af in adaptive if af.get('url') and af.get('height')]
+                seen_heights = set()
+                for af in video_adaptive:
+                    h = af.get('height', 0)
+                    if h >= 360 and h not in seen_heights:
+                        seen_heights.add(h)
+                        q = af.get('qualityLabel') or f"{h}p"
+                        is_mp4 = 'mp4' in (af.get('mimeType') or '')
+                        clen = af.get('contentLength')
+                        size_bytes = int(clen) if clen and clen.isdigit() else None
+                        formats.append({
+                            'directUrl': af['url'],
+                            'token': af['url'],
+                            'videoId': video_id,
+                            'url': url,
+                            'note': f"🎬 {q} FHD (MP4)" if h >= 1080 else (f"🎬 {q} HD (MP4)" if h >= 720 else f"🎬 {q} (MP4)"),
+                            'ext': 'mp4' if is_mp4 else 'webm',
+                            'height': h,
+                            'hasAudio': bool(af.get('audioQuality')),
+                            'sizeBytes': size_bytes
+                        })
+
+                audio_streams = [af for af in adaptive if af.get('url') and 'audio' in (af.get('mimeType') or '')]
+                if audio_streams:
+                    best_audio = audio_streams[0]
+                    clen = best_audio.get('contentLength')
+                    size_bytes = int(clen) if clen and clen.isdigit() else None
+                    formats.append({
+                        'directUrl': best_audio['url'],
+                        'token': best_audio['url'],
+                        'videoId': video_id,
+                        'url': url,
+                        'note': '🎵 High Quality Audio (M4A / MP3)',
+                        'ext': 'm4a',
+                        'isAudio': True,
+                        'sizeBytes': size_bytes
+                    })
+
+                if formats:
+                    break
+            except Exception as e:
+                LAST_DIRECT_ERR = f"Innertube exception ({c['name']}): {str(e)}"
 
         if formats:
             return {
@@ -331,10 +390,9 @@ def extract_youtube_direct(url):
                 'videoId': video_id,
                 'url': url,
                 'formats': formats,
-                'maxResolution': formats[0].get('note', '360p'),
+                'maxResolution': formats[0].get('note', '1080p'),
                 'type': 'youtube'
             }
-        LAST_DIRECT_ERR = f"Innertube returned {len(raw_formats)} formats but none had direct url"
     except Exception as e:
         LAST_DIRECT_ERR = f"Innertube exception: {str(e)}"
     return None
@@ -897,13 +955,7 @@ class handler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps(yt_result).encode('utf-8'))
                 return
-            else:
-                self.send_response(502)
-                self.send_header('Content-Type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                self.wfile.write(json.dumps({'error': f'YouTube engine error: {LAST_DIRECT_ERR}'}).encode('utf-8'))
-                return
+            # If direct resolution fails (e.g. signature deciphering needed), fall through to yt-dlp below
 
         # 7. Core yt-dlp Universal Engine (YouTube fallback for other formats, Vimeo, etc.)
         try:

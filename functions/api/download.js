@@ -19,45 +19,62 @@ export async function onRequestHead(context) {
 }
 
 async function resolveYoutubeFreshStream(videoId) {
-  try {
-    const headers = {
-      'Content-Type': 'application/json',
-      'X-YouTube-Client-Name': '3',
-      'X-YouTube-Client-Version': '21.26.364',
-      'Origin': 'https://www.youtube.com',
-      'User-Agent': 'com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip'
-    };
-    const payload = {
-      videoId: videoId,
-      context: {
-        client: {
-          clientName: 'ANDROID',
-          clientVersion: '21.26.364',
-          androidSdkVersion: 30
-        }
-      },
-      playbackContext: {
-        contentPlaybackContext: {
-          html5Preference: 'HTML5_PREF_WANTS',
-          signatureTimestamp: 20717
-        }
-      },
-      contentCheckOk: true,
-      racyCheckOk: true
-    };
-    const resp = await fetch('https://www.youtube.com/youtubei/v1/player', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(6000)
-    });
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    const rawFormats = data?.streamingData?.formats || [];
-    for (const f of rawFormats) {
-      if (f.url) return f.url;
+  const clients = [
+    {
+      name: 'ANDROID_VR',
+      version: '1.61.48',
+      clientNameId: '28',
+      ua: 'Mozilla/5.0 (Linux; Android 10; Quest 2) AppleWebKit/537.36',
+      context: { clientName: 'ANDROID_VR', clientVersion: '1.61.48', deviceMake: 'Oculus', deviceModel: 'Quest 2', gl: 'US', hl: 'en' }
+    },
+    {
+      name: 'ANDROID',
+      version: '21.26.364',
+      clientNameId: '3',
+      ua: 'com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip',
+      context: { clientName: 'ANDROID', clientVersion: '21.26.364', androidSdkVersion: 30 }
     }
-  } catch (e) {}
+  ];
+
+  for (const c of clients) {
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        'X-YouTube-Client-Name': c.clientNameId,
+        'X-YouTube-Client-Version': c.version,
+        'Origin': 'https://www.youtube.com',
+        'User-Agent': c.ua
+      };
+      const payload = {
+        videoId: videoId,
+        context: { client: c.context },
+        playbackContext: {
+          contentPlaybackContext: {
+            html5Preference: 'HTML5_PREF_WANTS',
+            signatureTimestamp: 20717
+          }
+        },
+        contentCheckOk: true,
+        racyCheckOk: true
+      };
+      const resp = await fetch('https://www.youtube.com/youtubei/v1/player', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(6000)
+      });
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      const rawFormats = data?.streamingData?.formats || [];
+      for (const f of rawFormats) {
+        if (f.url) return f.url;
+      }
+      const adaptive = data?.streamingData?.adaptiveFormats || [];
+      for (const af of adaptive) {
+        if (af.url) return af.url;
+      }
+    } catch (e) {}
+  }
   return null;
 }
 
@@ -69,23 +86,20 @@ export async function onRequestGet(context) {
   const type = urlObj.searchParams.get('type') || '';
   const ytId = urlObj.searchParams.get('id') || urlObj.searchParams.get('ytId') || urlObj.searchParams.get('videoId');
 
-  // If this is a YouTube request (or targetUrl points to googlevideo/youtube), resolve freshly on this Cloudflare node
-  // to ensure Google Video IP-binding matches this worker instance's outbound IP!
   let resolvedYtId = ytId;
   if (!resolvedYtId && targetUrl) {
     const m = targetUrl.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_-]{11})/);
     if (m) resolvedYtId = m[1];
   }
 
-  if (type === 'youtube' || (targetUrl && (targetUrl.includes('googlevideo') || targetUrl.includes('youtube')))) {
-    if (resolvedYtId) {
-      try {
-        const freshUrl = await resolveYoutubeFreshStream(resolvedYtId);
-        if (freshUrl) {
-          targetUrl = freshUrl;
-        }
-      } catch (e) {}
-    }
+  // If no direct targetUrl provided, resolve freshly on this Cloudflare node
+  if ((!targetUrl || !targetUrl.startsWith('http')) && resolvedYtId) {
+    try {
+      const freshUrl = await resolveYoutubeFreshStream(resolvedYtId);
+      if (freshUrl) {
+        targetUrl = freshUrl;
+      }
+    } catch (e) {}
   }
 
   if (!targetUrl || !targetUrl.startsWith('http')) {

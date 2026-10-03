@@ -283,18 +283,18 @@ async function resolveYoutubeDirect(link) {
 
   const clients = [
     {
+      name: 'ANDROID_VR',
+      version: '1.61.48',
+      clientNameId: '28',
+      ua: 'Mozilla/5.0 (Linux; Android 10; Quest 2) AppleWebKit/537.36',
+      context: { clientName: 'ANDROID_VR', clientVersion: '1.61.48', deviceMake: 'Oculus', deviceModel: 'Quest 2', gl: 'US', hl: 'en' }
+    },
+    {
       name: 'ANDROID',
       version: '21.26.364',
       clientNameId: '3',
       ua: 'com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip',
       context: { clientName: 'ANDROID', clientVersion: '21.26.364', androidSdkVersion: 30 }
-    },
-    {
-      name: 'TVHTML5',
-      version: '7.20260707.07.00',
-      clientNameId: '7',
-      ua: 'Mozilla/5.0 (ChromiumStylePlatform) Cobalt/25.lts.30.1034943-gold (unlike Gecko), Unknown_TV_U',
-      context: { clientName: 'TVHTML5', clientVersion: '7.20260707.07.00', userAgent: 'Mozilla/5.0 (ChromiumStylePlatform) Cobalt/25.lts.30.1034943-gold (unlike Gecko), Unknown_TV_U', hl: 'en', gl: 'US' }
     }
   ];
 
@@ -359,20 +359,25 @@ async function resolveYoutubeDirect(link) {
         });
       }
 
-      // 2. High Quality Separate Streams (1080p, 720p, etc. if direct URL provided)
+      // 2. High Quality Streams (1080p, 720p, 480p with direct URLs)
       const adaptive = data.streamingData?.adaptiveFormats || [];
-      for (const af of adaptive) {
-        if (af.url && af.height && af.height >= 720) {
-          const q = af.qualityLabel || `${af.height}p`;
+      const videoAdaptive = adaptive.filter(af => af.url && af.height);
+      const seenHeights = new Set();
+      for (const af of videoAdaptive) {
+        const h = af.height;
+        if (h >= 360 && !seenHeights.has(h)) {
+          seenHeights.add(h);
+          const q = af.qualityLabel || `${h}p`;
+          const isMp4 = (af.mimeType || '').includes('mp4');
           formats.push({
             directUrl: af.url,
             token: af.url,
             videoId: vidId,
             url: link,
-            note: `🎬 ${q} HD (MP4 Stream)`,
-            ext: 'mp4',
-            height: af.height,
-            hasAudio: false,
+            note: h >= 1080 ? `🎬 ${q} FHD (MP4)` : (h >= 720 ? `🎬 ${q} HD (MP4)` : `🎬 ${q} (MP4)`),
+            ext: isMp4 ? 'mp4' : 'webm',
+            height: h,
+            hasAudio: Boolean(af.audioQuality),
             sizeBytes: af.contentLength ? parseInt(af.contentLength, 10) : undefined
           });
         }
@@ -657,6 +662,11 @@ export async function onRequestPost(context) {
     ? [
         { name: 'tikwm', run: () => resolveTikwm(inputUrl) },
         { name: 'cobalt', run: () => resolveCobalt(inputUrl, 'TikTok', cobaltInstanceUrl, preset) },
+      ]
+    : type === 'instagram'
+    ? [
+        { name: 'instagram-direct', run: () => resolveInstagramDirect(inputUrl) },
+        { name: 'cobalt', run: () => resolveCobalt(inputUrl, 'Instagram', cobaltInstanceUrl, preset) },
       ]
     : type === 'facebook'
     ? [
