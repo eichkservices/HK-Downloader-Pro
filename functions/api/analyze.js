@@ -517,6 +517,8 @@ export async function onRequestOptions() {
 export async function onRequestPost(context) {
   const { request, env } = context;
   const cobaltInstanceUrl = env.COBALT_INSTANCE_URL || '';
+  const DEFAULT_YTDLP_URL = 'https://hk-downloader-pro.vercel.app';
+  const ytdlpApiUrl = env.YTDLP_API_URL || DEFAULT_YTDLP_URL;
 
   let inputUrl;
   let preset;
@@ -654,8 +656,6 @@ export async function onRequestPost(context) {
   }
 
   // 2. Delegate to Python backend for complex/fallback media (Reddit, Twitter, etc.)
-  const DEFAULT_YTDLP_URL = 'https://hk-downloader-pro.vercel.app';
-  const ytdlpApiUrl = env.YTDLP_API_URL || DEFAULT_YTDLP_URL;
   if (ytdlpApiUrl) {
     try {
       const cleanApiUrl = ytdlpApiUrl.replace(/\/+$/, '');
