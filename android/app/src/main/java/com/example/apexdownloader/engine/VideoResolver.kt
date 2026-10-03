@@ -184,7 +184,7 @@ object VideoResolver {
      */
     fun extractYoutubeThumbnail(url: String): String {
         val id = Regex("(?:v=|youtu\\.be/|shorts/|embed/)([a-zA-Z0-9_-]{11})").find(url)?.groupValues?.get(1)
-        return if (id != null) "https://i.ytimg.com/vi/$id/hqdefault.jpg" else ""
+        return if (id != null) "https://i.ytimg.com/vi/$id/maxresdefault.jpg" else ""
     }
 }
 
@@ -316,7 +316,11 @@ private class YouTubeDirectResolver : Resolver {
                     }
 
                     val title = data.optJSONObject("videoDetails")?.optString("title", "YouTube Video") ?: "YouTube Video"
-                    val thumbnail = "https://img.youtube.com/vi/$vidId/hqdefault.jpg"
+                    var thumbnail = "https://i.ytimg.com/vi/$vidId/maxresdefault.jpg"
+                    val thumbsArr = data.optJSONObject("videoDetails")?.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
+                    if (thumbsArr != null && thumbsArr.length() > 0) {
+                        thumbnail = thumbsArr.getJSONObject(thumbsArr.length() - 1).optString("url", thumbnail)
+                    }
                     val streamingData = data.optJSONObject("streamingData")
                     val rawFormats = streamingData?.optJSONArray("formats") ?: JSONArray()
                     val adaptive = streamingData?.optJSONArray("adaptiveFormats") ?: JSONArray()

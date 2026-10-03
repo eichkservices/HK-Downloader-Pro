@@ -593,6 +593,7 @@ fun DownloaderScreen(
                                         model = item.thumbnail,
                                         contentDescription = null,
                                         contentScale = ContentScale.Crop,
+                                        alignment = Alignment.Center,
                                         modifier = Modifier.fillMaxSize(),
                                         loading = {
                                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -600,8 +601,28 @@ fun DownloaderScreen(
                                             }
                                         },
                                         error = {
-                                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                                Icon(Icons.Default.PlayCircle, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(24.dp))
+                                            val fallbackUrl = if (item.thumbnail.contains("maxresdefault.jpg")) {
+                                                item.thumbnail.replace("maxresdefault.jpg", "mqdefault.jpg")
+                                            } else if (item.thumbnail.contains("hq720.jpg")) {
+                                                item.thumbnail.replace("hq720.jpg", "hqdefault.jpg")
+                                            } else ""
+                                            if (fallbackUrl.isNotEmpty()) {
+                                                SubcomposeAsyncImage(
+                                                    model = fallbackUrl,
+                                                    contentDescription = null,
+                                                    contentScale = ContentScale.Crop,
+                                                    alignment = Alignment.Center,
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    error = {
+                                                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                                            Icon(Icons.Default.PlayCircle, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(24.dp))
+                                                        }
+                                                    }
+                                                )
+                                            } else {
+                                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                                    Icon(Icons.Default.PlayCircle, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(24.dp))
+                                                }
                                             }
                                         }
                                     )

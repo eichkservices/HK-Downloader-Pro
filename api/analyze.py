@@ -317,6 +317,11 @@ def extract_youtube_direct(url):
 
                 details = data.get('videoDetails', {})
                 title = details.get('title') or title
+                thumbs_list = details.get('thumbnail', {}).get('thumbnails', [])
+                if thumbs_list:
+                    thumb = thumbs_list[-1].get('url') or thumb
+                elif video_id:
+                    thumb = f'https://i.ytimg.com/vi/{video_id}/maxresdefault.jpg'
 
                 streamingData = data.get('streamingData', {})
                 raw_formats = streamingData.get('formats', [])

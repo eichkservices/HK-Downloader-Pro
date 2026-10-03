@@ -492,7 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // whatever the actual download resolver (Cobalt) returns.
     let title = null, thumbnail = null;
     const vidId = link.match(/(?:v=|youtu\.be\/|shorts\/)([a-zA-Z0-9_-]{11})/)?.[1];
-    if (vidId) thumbnail = `https://img.youtube.com/vi/${vidId}/hqdefault.jpg`;
+    if (vidId) thumbnail = `https://i.ytimg.com/vi/${vidId}/maxresdefault.jpg`;
     try {
       const oeResp = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(link)}&format=json`);
       if (oeResp.ok) {
@@ -527,7 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let lastErr = null;
     let title = 'YouTube Video';
-    const thumbnail = `https://img.youtube.com/vi/${vidId}/hqdefault.jpg`;
+    let thumbnail = `https://i.ytimg.com/vi/${vidId}/maxresdefault.jpg`;
     const formats = [];
 
     for (const c of clients) {
@@ -563,6 +563,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         title = data.videoDetails?.title || title;
+        const thumbsList = data.videoDetails?.thumbnail?.thumbnails || [];
+        if (thumbsList.length > 0) {
+          thumbnail = thumbsList[thumbsList.length - 1].url || thumbnail;
+        }
 
         const streamingData = data.streamingData || {};
         const rawFormats = streamingData.formats || [];
