@@ -932,7 +932,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function playVideoInCustomPlayer(title, blobUrl, ext, filename) {
+  let activePlayerAudio = null;
+
+  function playVideoInCustomPlayer(title, blobUrl, ext, filename, audioUrl = null) {
     currentActiveTitle = title || 'Playing Media';
     currentActiveBlobUrl = blobUrl;
     currentActiveExt = (ext || (filename ? filename.split('.').pop() : '') || 'mp4').toLowerCase();
@@ -940,6 +942,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     playerTitle.textContent = currentActiveTitle;
     if (playerErrorOverlay) playerErrorOverlay.classList.add('hidden');
+
+    if (activePlayerAudio) {
+      try { activePlayerAudio.pause(); activePlayerAudio.src = ''; } catch(e) {}
+      activePlayerAudio = null;
+    }
 
     const isAudio = ['mp3', 'm4a', 'opus', 'wav', 'ogg', 'aac'].includes(currentActiveExt);
 
@@ -955,6 +962,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     videoPlayer.src = blobUrl;
+
+    if (audioUrl && !isAudio) {
+      try {
+        activePlayerAudio = new Audio(audioUrl);
+        activePlayerAudio.volume = videoPlayer.volume;
+        activePlayerAudio.muted = videoPlayer.muted;
+        videoPlayer.onplay = () => activePlayerAudio?.play().catch(() => {});
+        videoPlayer.onpause = () => activePlayerAudio?.pause();
+        videoPlayer.onseeking = () => { if (activePlayerAudio) activePlayerAudio.currentTime = videoPlayer.currentTime; };
+        videoPlayer.onvolumechange = () => {
+          if (activePlayerAudio) {
+            activePlayerAudio.volume = videoPlayer.volume;
+            activePlayerAudio.muted = videoPlayer.muted;
+          }
+        };
+      } catch(e) {}
+    }
+
     playerModal.classList.remove('hidden');
 
     videoPlayer.play().catch(err => {
@@ -1271,24 +1296,31 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     try {
+      let mainUrl = tokenOrUrl;
+      let extraAudioUrl = formatObj?.audioUrl || null;
+      if (typeof tokenOrUrl === 'string' && tokenOrUrl.includes('|http')) {
+        mainUrl = tokenOrUrl.split('|')[0];
+        extraAudioUrl = tokenOrUrl.split('|')[1];
+      }
+
       let downloadEndpoint;
       const isYtStream = (formatObj?.type || '').toLowerCase() === 'youtube' ||
-                         (tokenOrUrl || '').includes('googlevideo') ||
-                         (tokenOrUrl || '').includes('youtube') ||
+                         (mainUrl || '').includes('googlevideo') ||
+                         (mainUrl || '').includes('youtube') ||
                          Boolean(formatObj?.videoId);
 
       if (isYtStream) {
-        const vidId = formatObj?.videoId || (tokenOrUrl || '').match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1] || '';
-        downloadEndpoint = `/api/download?type=youtube&id=${encodeURIComponent(vidId)}&url=${encodeURIComponent(tokenOrUrl)}&filename=${encodeURIComponent(filename)}`;
-      } else if (tokenOrUrl.startsWith('http')) {
+        const vidId = formatObj?.videoId || (mainUrl || '').match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1] || '';
+        downloadEndpoint = `/api/download?type=youtube&id=${encodeURIComponent(vidId)}&url=${encodeURIComponent(mainUrl)}&filename=${encodeURIComponent(filename)}`;
+      } else if (mainUrl.startsWith('http')) {
         // If cross-origin, route through Cloudflare Pages proxy to attach CORS headers
-        if (!tokenOrUrl.includes(window.location.hostname)) {
-          downloadEndpoint = `/api/download?url=${encodeURIComponent(tokenOrUrl)}&filename=${encodeURIComponent(filename)}`;
+        if (!mainUrl.includes(window.location.hostname)) {
+          downloadEndpoint = `/api/download?url=${encodeURIComponent(mainUrl)}&filename=${encodeURIComponent(filename)}`;
         } else {
-          downloadEndpoint = tokenOrUrl;
+          downloadEndpoint = mainUrl;
         }
       } else {
-        downloadEndpoint = `/api/download?token=${tokenOrUrl}&filename=${encodeURIComponent(filename)}`;
+        downloadEndpoint = `/api/download?token=${mainUrl}&filename=${encodeURIComponent(filename)}`;
       }
 
       let resp;
@@ -1296,17 +1328,17 @@ document.addEventListener('DOMContentLoaded', () => {
         resp = await fetch(downloadEndpoint, { signal: controller.signal });
       } catch (fetchErr) {
         // If proxy or direct fetch encounters a CORS network error, try direct URL
-        if (downloadEndpoint !== tokenOrUrl && tokenOrUrl.startsWith('http')) {
-          resp = await fetch(tokenOrUrl, { signal: controller.signal });
+        if (downloadEndpoint !== mainUrl && mainUrl.startsWith('http')) {
+          resp = await fetch(mainUrl, { signal: controller.signal });
         } else {
           throw fetchErr;
         }
       }
 
       if (!resp.ok) {
-        if (downloadEndpoint !== tokenOrUrl && tokenOrUrl.startsWith('http')) {
+        if (downloadEndpoint !== mainUrl && mainUrl.startsWith('http')) {
           try {
-            resp = await fetch(tokenOrUrl, { signal: controller.signal });
+            resp = await fetch(mainUrl, { signal: controller.signal });
           } catch (e) {}
         }
         if (!resp || !resp.ok) throw new Error(`Server status ${resp ? resp.status : 'error'}`);
@@ -1373,9 +1405,9 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
 
       const isAudio = ['mp3', 'm4a', 'opus', 'wav', 'ogg', 'aac'].includes(ext) || formatObj?.isAudio;
-      const libObj = { title: title || filename, filename, thumbnail, blobUrl, size: received, ext, isAudio };
+      const libObj = { title: title || filename, filename, thumbnail, blobUrl, size: received, ext, isAudio, audioUrl: extraAudioUrl };
 
-      actionsContainer.querySelector('.btn-play').addEventListener('click', () => playVideoInCustomPlayer(title || filename, blobUrl, ext, filename));
+      actionsContainer.querySelector('.btn-play').addEventListener('click', () => playVideoInCustomPlayer(title || filename, blobUrl, ext, filename, extraAudioUrl));
       actionsContainer.querySelector('.btn-openwith').addEventListener('click', () => openWithMedia(blobUrl));
       actionsContainer.querySelector('.btn-share').addEventListener('click', () => shareMedia(title || filename, blobUrl));
       actionsContainer.querySelector('.btn-del').addEventListener('click', () => promptDeleteConfirmation(cardElem, libObj));

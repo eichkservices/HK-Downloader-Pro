@@ -588,6 +588,40 @@ export async function onRequestPost(context) {
       }
     } catch (e) {}
   } else if (type === 'instagram') {
+    // Instagram DASH streams often separate video & audio; try Python backend first for full stream pairing
+    if (ytdlpApiUrl) {
+      try {
+        const cleanApiUrl = ytdlpApiUrl.replace(/\/+$/, '');
+        const resp = await fetch(`${cleanApiUrl}/api/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ inputUrl, preset }),
+          signal: AbortSignal.timeout(6000)
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.formats && Array.isArray(data.formats)) {
+            data.formats = capVideoFormats(data.formats);
+            data.formats.forEach(f => {
+              if (!f.token && f.directUrl) {
+                f.token = f.directUrl;
+              } else if (f.token && !f.token.startsWith('http')) {
+                f.token = f.directUrl || f.token;
+              }
+            });
+          }
+          return new Response(JSON.stringify(data), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+              'Access-Control-Allow-Headers': 'Content-Type'
+            }
+          });
+        }
+      } catch (e) {}
+    }
     try {
       const igData = await resolveInstagramDirect(inputUrl);
       if (igData && igData.formats && igData.formats.length > 0) {

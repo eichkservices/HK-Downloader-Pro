@@ -560,31 +560,37 @@ def extract_ytdlp(url):
     # Enforce strictly max 4 video options
     selected_video = selected_video[:4]
 
+    best_audio_stream = max(audio_streams, key=lambda a: a.get('abr') or 0) if audio_streams else None
+    best_audio_url = best_audio_stream['url'] if best_audio_stream else None
+
     formats = []
     for f in selected_video:
         url_stream = f['url']
         ext = f.get('ext') or 'mp4'
         h = f.get('height') or 720
-        has_audio = bool(f.get('acodec') and f.get('acodec') != 'none')
+        has_muxed_audio = bool(f.get('acodec') and f.get('acodec') != 'none')
+        audio_url = None if has_muxed_audio else best_audio_url
+        token_val = f"{url_stream}|{audio_url}" if audio_url else url_stream
+        has_any_audio = has_muxed_audio or bool(best_audio_url)
         formats.append({
             'directUrl': url_stream,
-            'token': url_stream,
-            'note': get_tier_label(h, has_audio),
+            'audioUrl': audio_url,
+            'token': token_val,
+            'note': get_tier_label(h, has_any_audio),
             'ext': ext,
             'sizeBytes': f.get('filesize') or f.get('filesize_approx'),
             'height': h,
-            'hasAudio': has_audio
+            'hasAudio': has_any_audio
         })
 
     # Add exactly 1 High Quality Audio option
-    if audio_streams:
-        best_audio = max(audio_streams, key=lambda a: a.get('abr') or 0)
+    if best_audio_stream:
         formats.append({
-            'directUrl': best_audio['url'],
-            'token': best_audio['url'],
-            'note': f"🎵 High Quality Audio ({best_audio.get('ext') or 'm4a'})",
-            'ext': best_audio.get('ext') or 'm4a',
-            'sizeBytes': best_audio.get('filesize') or best_audio.get('filesize_approx'),
+            'directUrl': best_audio_stream['url'],
+            'token': best_audio_stream['url'],
+            'note': f"🎵 High Quality Audio ({best_audio_stream.get('ext') or 'm4a'})",
+            'ext': best_audio_stream.get('ext') or 'm4a',
+            'sizeBytes': best_audio_stream.get('filesize') or best_audio_stream.get('filesize_approx'),
             'isAudio': True
         })
     elif formats and any(f.get('hasAudio') for f in formats):

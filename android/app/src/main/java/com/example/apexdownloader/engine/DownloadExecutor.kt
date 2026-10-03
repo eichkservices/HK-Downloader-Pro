@@ -1,6 +1,10 @@
 package com.example.apexdownloader.engine
 
 import android.content.Context
+import android.media.MediaCodec
+import android.media.MediaExtractor
+import android.media.MediaFormat
+import android.media.MediaMuxer
 import android.media.MediaScannerConnection
 import android.os.Environment
 import com.example.apexdownloader.data.DownloadItem
@@ -8,6 +12,7 @@ import com.example.apexdownloader.data.DownloadRepository
 import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.ByteBuffer
 
 /**
  * Does the actual downloading. Pulled out of DownloadEngine so the same
@@ -57,7 +62,13 @@ class DownloadExecutor(
                 !item.formatId.isNullOrEmpty() && (item.formatId.startsWith("http://") || item.formatId.startsWith("https://")) -> item.formatId
                 else -> getDirectDownloadUrl(item.url, item.type)
             }
-            downloadDirectFile(item, downloadUrl, finalFile)
+            if (downloadUrl.contains("|http")) {
+                val videoUrl = downloadUrl.substringBefore("|")
+                val audioUrl = downloadUrl.substringAfter("|")
+                downloadAndMuxDirectFiles(item, videoUrl, audioUrl, finalFile)
+            } else {
+                downloadDirectFile(item, downloadUrl, finalFile)
+            }
         }
     }
 
@@ -197,6 +208,126 @@ class DownloadExecutor(
             )
             repository.addOrUpdateDownload(finished)
             onProgress(finished)
+        }
+    }
+
+    private suspend fun downloadAndMuxDirectFiles(
+        item: DownloadItem,
+        videoUrl: String,
+        audioUrl: String,
+        destFile: File
+    ) {
+        val videoPart = File(destFile.parentFile, destFile.name + ".vid.part")
+        val audioPart = File(destFile.parentFile, destFile.name + ".aud.part")
+
+        try {
+            // 1. Download video track
+            repository.addOrUpdateDownload(item.copy(status = "downloading", speed = "Downloading video stream...", progress = 10f))
+            downloadDirectFile(item.copy(filename = videoPart.name), videoUrl, videoPart)
+
+            // 2. Download audio track
+            repository.addOrUpdateDownload(item.copy(status = "downloading", speed = "Downloading audio stream...", progress = 85f))
+            downloadDirectFile(item.copy(filename = audioPart.name), audioUrl, audioPart)
+
+            // 3. Native Muxing via MediaMuxer
+            repository.addOrUpdateDownload(item.copy(status = "downloading", speed = "Merging video & audio...", progress = 95f))
+            if (destFile.exists()) destFile.delete()
+
+            try {
+                muxVideoAndAudio(videoPart, audioPart, destFile)
+            } catch (muxErr: Exception) {
+                // If native muxing fails, fallback to using the video part directly
+                if (videoPart.exists() && !destFile.exists()) {
+                    videoPart.copyTo(destFile, overwrite = true)
+                }
+            }
+
+            try {
+                MediaScannerConnection.scanFile(
+                    context,
+                    arrayOf(destFile.absolutePath),
+                    arrayOf("video/mp4")
+                ) { _, _ -> }
+            } catch (e: Exception) {}
+
+            val finished = item.copy(
+                status = "completed",
+                progress = 100f,
+                downloadedSize = if (destFile.exists()) destFile.length() else 0L,
+                speed = "Done",
+                eta = "0s",
+                localPath = destFile.absolutePath
+            )
+            repository.addOrUpdateDownload(finished)
+            onProgress(finished)
+        } finally {
+            if (videoPart.exists()) videoPart.delete()
+            if (audioPart.exists()) audioPart.delete()
+        }
+    }
+
+    private fun muxVideoAndAudio(videoFile: File, audioFile: File, outputFile: File) {
+        var videoExtractor: MediaExtractor? = null
+        var audioExtractor: MediaExtractor? = null
+        var muxer: MediaMuxer? = null
+
+        try {
+            videoExtractor = MediaExtractor().apply { setDataSource(videoFile.absolutePath) }
+            audioExtractor = MediaExtractor().apply { setDataSource(audioFile.absolutePath) }
+            muxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+
+            var videoTrackIndex = -1
+            for (i in 0 until videoExtractor.trackCount) {
+                val format = videoExtractor.getTrackFormat(i)
+                val mime = format.getString(MediaFormat.KEY_MIME) ?: ""
+                if (mime.startsWith("video/")) {
+                    videoTrackIndex = muxer.addTrack(format)
+                    videoExtractor.selectTrack(i)
+                    break
+                }
+            }
+
+            var audioTrackIndex = -1
+            for (i in 0 until audioExtractor.trackCount) {
+                val format = audioExtractor.getTrackFormat(i)
+                val mime = format.getString(MediaFormat.KEY_MIME) ?: ""
+                if (mime.startsWith("audio/")) {
+                    audioTrackIndex = muxer.addTrack(format)
+                    audioExtractor.selectTrack(i)
+                    break
+                }
+            }
+
+            muxer.start()
+            val buffer = ByteBuffer.allocate(1024 * 1024)
+            val bufferInfo = MediaCodec.BufferInfo()
+
+            if (videoTrackIndex >= 0) {
+                while (true) {
+                    bufferInfo.size = videoExtractor.readSampleData(buffer, 0)
+                    if (bufferInfo.size < 0) break
+                    bufferInfo.presentationTimeUs = videoExtractor.sampleTime
+                    bufferInfo.flags = videoExtractor.sampleFlags
+                    muxer.writeSampleData(videoTrackIndex, buffer, bufferInfo)
+                    videoExtractor.advance()
+                }
+            }
+
+            if (audioTrackIndex >= 0) {
+                while (true) {
+                    bufferInfo.size = audioExtractor.readSampleData(buffer, 0)
+                    if (bufferInfo.size < 0) break
+                    bufferInfo.presentationTimeUs = audioExtractor.sampleTime
+                    bufferInfo.flags = audioExtractor.sampleFlags
+                    muxer.writeSampleData(audioTrackIndex, buffer, bufferInfo)
+                    audioExtractor.advance()
+                }
+            }
+        } finally {
+            try { muxer?.stop() } catch (e: Exception) {}
+            try { muxer?.release() } catch (e: Exception) {}
+            try { videoExtractor?.release() } catch (e: Exception) {}
+            try { audioExtractor?.release() } catch (e: Exception) {}
         }
     }
 
