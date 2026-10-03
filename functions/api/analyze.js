@@ -225,7 +225,7 @@ function capVideoFormats(formats) {
   if (!Array.isArray(formats)) return [];
   const videos = formats.filter(f => !f.isAudio && f.ext !== 'mp3' && f.ext !== 'm4a');
   const audios = formats.filter(f => f.isAudio || f.ext === 'mp3' || f.ext === 'm4a');
-  return [...videos.slice(0, 4), ...audios.slice(0, 1)];
+  return [...videos.slice(0, 5), ...audios.slice(0, 1)];
 }
 
 async function resolveTikwm(link) {
@@ -340,72 +340,202 @@ async function resolveYoutubeDirect(link) {
 
       title = data.videoDetails?.title || title;
 
-      // 1. Progressive muxed video streams (e.g. 360p / 720p with audio)
-      const rawFormats = data.streamingData?.formats || [];
+      const streamingData = data.streamingData || {};
+      const rawFormats = streamingData.formats || [];
+      const adaptive = streamingData.adaptiveFormats || [];
+
+      const audioStreams = adaptive.filter(af => af.url && (af.mimeType || '').includes('audio'));
+      let bestAudio = null;
+      if (audioStreams.length > 0) {
+        bestAudio = audioStreams.reduce((prev, curr) => {
+          const prevBitrate = prev.bitrate || prev.averageBitrate || 0;
+          const currBitrate = curr.bitrate || curr.averageBitrate || 0;
+          return currBitrate > prevBitrate ? curr : prev;
+        }, audioStreams[0]);
+      }
+      const bestAudioUrl = bestAudio ? bestAudio.url : null;
+
+      // Collect all video streams mapped by height
+      const videoMap = {};
+      // 1. Progressive streams (muxed audio)
       for (const f of rawFormats) {
-        if (!f.url) continue;
-        const quality = f.qualityLabel || `${f.height || 360}p`;
-        const clen = f.contentLength ? parseInt(f.contentLength, 10) : undefined;
+        if (f.url && f.height) {
+          const clen = f.contentLength ? parseInt(f.contentLength, 10) : undefined;
+          videoMap[f.height] = {
+            url: f.url,
+            height: f.height,
+            ext: 'mp4',
+            hasMuxedAudio: true,
+            qualityLabel: f.qualityLabel || `${f.height}p`,
+            sizeBytes: clen
+          };
+        }
+      }
+
+      // 2. Adaptive streams (video only)
+      for (const af of adaptive) {
+        if (af.url && af.height) {
+          const isMp4 = (af.mimeType || '').includes('mp4');
+          const existing = videoMap[af.height];
+          if (!existing || (!existing.hasMuxedAudio && isMp4)) {
+            const clen = af.contentLength ? parseInt(af.contentLength, 10) : undefined;
+            videoMap[af.height] = {
+              url: af.url,
+              height: af.height,
+              ext: isMp4 ? 'mp4' : 'webm',
+              hasMuxedAudio: false,
+              qualityLabel: af.qualityLabel || `${af.height}p`,
+              sizeBytes: clen
+            };
+          }
+        }
+      }
+
+      const availableHeights = Object.keys(videoMap).map(h => parseInt(h, 10)).sort((a, b) => b - a);
+      if (availableHeights.length === 0) continue;
+
+      const maxH = availableHeights[0];
+
+      // 1. Original Quality (if > 1080p, e.g. 4K 2160p or 2K 1440p)
+      if (maxH > 1080) {
+        const vf = videoMap[maxH];
+        const hasMuxed = vf.hasMuxedAudio;
+        const audioU = hasMuxed ? null : bestAudioUrl;
+        const tok = audioU ? `${vf.url}|${audioU}` : vf.url;
+        const qLabel = maxH >= 2160 ? '4K UHD' : (maxH >= 1440 ? '2K QHD' : `${maxH}p`);
         formats.push({
-          directUrl: f.url,
-          token: f.url,
+          directUrl: vf.url,
+          audioUrl: audioU,
+          token: tok,
           videoId: vidId,
           url: link,
-          note: `🎬 ${quality} (Standard MP4 with Audio)`,
-          ext: 'mp4',
-          height: f.height || 360,
+          note: `🎬 ${qLabel} (${maxH}p Original Quality)`,
+          ext: vf.ext,
+          height: maxH,
           hasAudio: true,
-          sizeBytes: clen
+          sizeBytes: vf.sizeBytes
         });
       }
 
-      // 2. High Quality Streams (1080p, 720p, 480p with direct URLs)
-      const adaptive = data.streamingData?.adaptiveFormats || [];
-      const videoAdaptive = adaptive.filter(af => af.url && af.height);
-      const seenHeights = new Set();
-      for (const af of videoAdaptive) {
-        const h = af.height;
-        if (h >= 360 && !seenHeights.has(h)) {
-          seenHeights.add(h);
-          const q = af.qualityLabel || `${h}p`;
-          const isMp4 = (af.mimeType || '').includes('mp4');
+      // 2. 1080p FHD
+      if (videoMap[1080]) {
+        const vf = videoMap[1080];
+        const hasMuxed = vf.hasMuxedAudio;
+        const audioU = hasMuxed ? null : bestAudioUrl;
+        const tok = audioU ? `${vf.url}|${audioU}` : vf.url;
+        const isOrig = (maxH === 1080);
+        const noteStr = isOrig ? '🎬 1080p FHD (Original Quality MP4)' : '🎬 1080p FHD (MP4)';
+        formats.push({
+          directUrl: vf.url,
+          audioUrl: audioU,
+          token: tok,
+          videoId: vidId,
+          url: link,
+          note: noteStr,
+          ext: vf.ext,
+          height: 1080,
+          hasAudio: true,
+          sizeBytes: vf.sizeBytes
+        });
+      }
+
+      // 3. 720p HD
+      if (videoMap[720]) {
+        const vf = videoMap[720];
+        const hasMuxed = vf.hasMuxedAudio;
+        const audioU = hasMuxed ? null : bestAudioUrl;
+        const tok = audioU ? `${vf.url}|${audioU}` : vf.url;
+        const isOrig = (maxH === 720);
+        const noteStr = isOrig ? '🎬 720p HD (Original Quality MP4)' : '🎬 720p HD (MP4)';
+        formats.push({
+          directUrl: vf.url,
+          audioUrl: audioU,
+          token: tok,
+          videoId: vidId,
+          url: link,
+          note: noteStr,
+          ext: vf.ext,
+          height: 720,
+          hasAudio: true,
+          sizeBytes: vf.sizeBytes
+        });
+      }
+
+      // 4. 480p SD (if available and needed)
+      if (videoMap[480] && (formats.length < 2 || maxH === 480)) {
+        const vf = videoMap[480];
+        const hasMuxed = vf.hasMuxedAudio;
+        const audioU = hasMuxed ? null : bestAudioUrl;
+        const tok = audioU ? `${vf.url}|${audioU}` : vf.url;
+        const isOrig = (maxH === 480);
+        const noteStr = isOrig ? '🎬 480p SD (Original Quality MP4)' : '🎬 480p SD (MP4)';
+        formats.push({
+          directUrl: vf.url,
+          audioUrl: audioU,
+          token: tok,
+          videoId: vidId,
+          url: link,
+          note: noteStr,
+          ext: vf.ext,
+          height: 480,
+          hasAudio: true,
+          sizeBytes: vf.sizeBytes
+        });
+      }
+
+      // 5. 360p Standard
+      if (videoMap[360]) {
+        const vf = videoMap[360];
+        const hasMuxed = vf.hasMuxedAudio;
+        const audioU = hasMuxed ? null : bestAudioUrl;
+        const tok = audioU ? `${vf.url}|${audioU}` : vf.url;
+        const isOrig = (maxH === 360);
+        const noteStr = isOrig ? '🎬 360p (Original Quality MP4)' : '🎬 360p (Standard MP4 with Audio)';
+        formats.push({
+          directUrl: vf.url,
+          audioUrl: audioU,
+          token: tok,
+          videoId: vidId,
+          url: link,
+          note: noteStr,
+          ext: vf.ext,
+          height: 360,
+          hasAudio: true,
+          sizeBytes: vf.sizeBytes
+        });
+      } else if (formats.length === 0 && availableHeights.length > 0) {
+        for (const h of availableHeights.slice(0, 3)) {
+          const vf = videoMap[h];
+          const hasMuxed = vf.hasMuxedAudio;
+          const audioU = hasMuxed ? null : bestAudioUrl;
+          const tok = audioU ? `${vf.url}|${audioU}` : vf.url;
           formats.push({
-            directUrl: af.url,
-            token: af.url,
+            directUrl: vf.url,
+            audioUrl: audioU,
+            token: tok,
             videoId: vidId,
             url: link,
-            note: h >= 1080 ? `🎬 ${q} FHD (MP4)` : (h >= 720 ? `🎬 ${q} HD (MP4)` : `🎬 ${q} (MP4)`),
-            ext: isMp4 ? 'mp4' : 'webm',
+            note: `🎬 ${h}p (MP4)`,
+            ext: vf.ext,
             height: h,
-            hasAudio: Boolean(af.audioQuality),
-            sizeBytes: af.contentLength ? parseInt(af.contentLength, 10) : undefined
+            hasAudio: true,
+            sizeBytes: vf.sizeBytes
           });
         }
       }
 
-      // 3. Dedicated Audio format
-      const audioStreams = adaptive.filter(af => af.url && (af.mimeType || '').includes('audio'));
-      if (audioStreams.length > 0) {
-        const bestAudio = audioStreams[0];
+      // 6. High Quality Audio
+      if (bestAudio) {
+        const clen = bestAudio.contentLength ? parseInt(bestAudio.contentLength, 10) : undefined;
         formats.push({
           directUrl: bestAudio.url,
           token: bestAudio.url,
           videoId: vidId,
           url: link,
-          note: `🎵 High Quality Audio (M4A / MP3)`,
+          note: '🎵 High Quality Audio (M4A / MP3)',
           ext: 'm4a',
           isAudio: true,
-          sizeBytes: bestAudio.contentLength ? parseInt(bestAudio.contentLength, 10) : undefined
-        });
-      } else if (formats.length > 0 && formats[0].directUrl) {
-        formats.push({
-          directUrl: formats[0].directUrl,
-          token: formats[0].directUrl,
-          videoId: vidId,
-          url: link,
-          note: `🎵 Audio Track (MP3)`,
-          ext: 'mp3',
-          isAudio: true
+          sizeBytes: clen
         });
       }
 

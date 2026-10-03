@@ -320,53 +320,181 @@ def extract_youtube_direct(url):
 
                 streamingData = data.get('streamingData', {})
                 raw_formats = streamingData.get('formats', [])
-                for f in raw_formats:
-                    stream_url = f.get('url')
-                    if not stream_url:
-                        continue
-                    quality = f.get('qualityLabel') or f"{f.get('height', 360)}p"
-                    clen = f.get('contentLength')
-                    size_bytes = int(clen) if clen and clen.isdigit() else None
-                    formats.append({
-                        'directUrl': stream_url,
-                        'token': stream_url,
-                        'videoId': video_id,
-                        'url': url,
-                        'note': f"🎬 {quality} (Standard MP4 with Audio)",
-                        'ext': 'mp4',
-                        'height': f.get('height') or 360,
-                        'hasAudio': True,
-                        'sizeBytes': size_bytes
-                    })
-
                 adaptive = streamingData.get('adaptiveFormats', [])
-                video_adaptive = [af for af in adaptive if af.get('url') and af.get('height')]
-                seen_heights = set()
-                for af in video_adaptive:
-                    h = af.get('height', 0)
-                    if h >= 360 and h not in seen_heights:
-                        seen_heights.add(h)
-                        q = af.get('qualityLabel') or f"{h}p"
-                        is_mp4 = 'mp4' in (af.get('mimeType') or '')
-                        clen = af.get('contentLength')
-                        size_bytes = int(clen) if clen and clen.isdigit() else None
-                        formats.append({
-                            'directUrl': af['url'],
-                            'token': af['url'],
-                            'videoId': video_id,
-                            'url': url,
-                            'note': f"🎬 {q} FHD (MP4)" if h >= 1080 else (f"🎬 {q} HD (MP4)" if h >= 720 else f"🎬 {q} (MP4)"),
-                            'ext': 'mp4' if is_mp4 else 'webm',
-                            'height': h,
-                            'hasAudio': bool(af.get('audioQuality')),
-                            'sizeBytes': size_bytes
-                        })
 
                 audio_streams = [af for af in adaptive if af.get('url') and 'audio' in (af.get('mimeType') or '')]
+                best_audio = None
                 if audio_streams:
-                    best_audio = audio_streams[0]
+                    best_audio = max(audio_streams, key=lambda a: int(a.get('bitrate') or a.get('averageBitrate') or 0))
+                best_audio_url = best_audio['url'] if best_audio else None
+
+                # Collect all video streams mapped by height
+                video_map = {}
+                # 1. Progressive streams (muxed audio)
+                for f in raw_formats:
+                    u = f.get('url')
+                    h = f.get('height')
+                    if u and h:
+                        clen = f.get('contentLength')
+                        video_map[h] = {
+                            'url': u,
+                            'height': h,
+                            'ext': 'mp4',
+                            'hasMuxedAudio': True,
+                            'qualityLabel': f.get('qualityLabel') or f'{h}p',
+                            'sizeBytes': int(clen) if clen and str(clen).isdigit() else None
+                        }
+
+                # 2. Adaptive streams (video only)
+                for af in adaptive:
+                    u = af.get('url')
+                    h = af.get('height')
+                    if u and h:
+                        is_mp4 = 'mp4' in (af.get('mimeType') or '')
+                        existing = video_map.get(h)
+                        if not existing or (not existing.get('hasMuxedAudio') and is_mp4):
+                            clen = af.get('contentLength')
+                            video_map[h] = {
+                                'url': u,
+                                'height': h,
+                                'ext': 'mp4' if is_mp4 else 'webm',
+                                'hasMuxedAudio': False,
+                                'qualityLabel': af.get('qualityLabel') or f'{h}p',
+                                'sizeBytes': int(clen) if clen and str(clen).isdigit() else None
+                            }
+
+                available_heights = sorted(video_map.keys(), reverse=True)
+                if not available_heights:
+                    continue
+
+                max_h = available_heights[0]
+
+                # 1. Original Quality (if > 1080p, e.g. 4K 2160p or 2K 1440p)
+                if max_h > 1080:
+                    vf = video_map[max_h]
+                    has_muxed = vf['hasMuxedAudio']
+                    audio_u = None if has_muxed else best_audio_url
+                    tok = f"{vf['url']}|{audio_u}" if audio_u else vf['url']
+                    q_label = '4K UHD' if max_h >= 2160 else ('2K QHD' if max_h >= 1440 else f'{max_h}p')
+                    formats.append({
+                        'directUrl': vf['url'],
+                        'audioUrl': audio_u,
+                        'token': tok,
+                        'videoId': video_id,
+                        'url': url,
+                        'note': f"🎬 {q_label} ({max_h}p Original Quality)",
+                        'ext': vf['ext'],
+                        'height': max_h,
+                        'hasAudio': True,
+                        'sizeBytes': vf['sizeBytes']
+                    })
+
+                # 2. 1080p FHD
+                if 1080 in video_map:
+                    vf = video_map[1080]
+                    has_muxed = vf['hasMuxedAudio']
+                    audio_u = None if has_muxed else best_audio_url
+                    tok = f"{vf['url']}|{audio_u}" if audio_u else vf['url']
+                    is_orig = (max_h == 1080)
+                    note_str = "🎬 1080p FHD (Original Quality MP4)" if is_orig else "🎬 1080p FHD (MP4)"
+                    formats.append({
+                        'directUrl': vf['url'],
+                        'audioUrl': audio_u,
+                        'token': tok,
+                        'videoId': video_id,
+                        'url': url,
+                        'note': note_str,
+                        'ext': vf['ext'],
+                        'height': 1080,
+                        'hasAudio': True,
+                        'sizeBytes': vf['sizeBytes']
+                    })
+
+                # 3. 720p HD
+                if 720 in video_map:
+                    vf = video_map[720]
+                    has_muxed = vf['hasMuxedAudio']
+                    audio_u = None if has_muxed else best_audio_url
+                    tok = f"{vf['url']}|{audio_u}" if audio_u else vf['url']
+                    is_orig = (max_h == 720)
+                    note_str = "🎬 720p HD (Original Quality MP4)" if is_orig else "🎬 720p HD (MP4)"
+                    formats.append({
+                        'directUrl': vf['url'],
+                        'audioUrl': audio_u,
+                        'token': tok,
+                        'videoId': video_id,
+                        'url': url,
+                        'note': note_str,
+                        'ext': vf['ext'],
+                        'height': 720,
+                        'hasAudio': True,
+                        'sizeBytes': vf['sizeBytes']
+                    })
+
+                # 4. 480p SD (if available and needed)
+                if 480 in video_map and (len(formats) < 2 or max_h == 480):
+                    vf = video_map[480]
+                    has_muxed = vf['hasMuxedAudio']
+                    audio_u = None if has_muxed else best_audio_url
+                    tok = f"{vf['url']}|{audio_u}" if audio_u else vf['url']
+                    is_orig = (max_h == 480)
+                    note_str = "🎬 480p SD (Original Quality MP4)" if is_orig else "🎬 480p SD (MP4)"
+                    formats.append({
+                        'directUrl': vf['url'],
+                        'audioUrl': audio_u,
+                        'token': tok,
+                        'videoId': video_id,
+                        'url': url,
+                        'note': note_str,
+                        'ext': vf['ext'],
+                        'height': 480,
+                        'hasAudio': True,
+                        'sizeBytes': vf['sizeBytes']
+                    })
+
+                # 5. 360p Standard
+                if 360 in video_map:
+                    vf = video_map[360]
+                    has_muxed = vf['hasMuxedAudio']
+                    audio_u = None if has_muxed else best_audio_url
+                    tok = f"{vf['url']}|{audio_u}" if audio_u else vf['url']
+                    is_orig = (max_h == 360)
+                    note_str = "🎬 360p (Original Quality MP4)" if is_orig else "🎬 360p (Standard MP4 with Audio)"
+                    formats.append({
+                        'directUrl': vf['url'],
+                        'audioUrl': audio_u,
+                        'token': tok,
+                        'videoId': video_id,
+                        'url': url,
+                        'note': note_str,
+                        'ext': vf['ext'],
+                        'height': 360,
+                        'hasAudio': True,
+                        'sizeBytes': vf['sizeBytes']
+                    })
+                elif not formats and available_heights:
+                    for h in available_heights[:3]:
+                        vf = video_map[h]
+                        has_muxed = vf['hasMuxedAudio']
+                        audio_u = None if has_muxed else best_audio_url
+                        tok = f"{vf['url']}|{audio_u}" if audio_u else vf['url']
+                        formats.append({
+                            'directUrl': vf['url'],
+                            'audioUrl': audio_u,
+                            'token': tok,
+                            'videoId': video_id,
+                            'url': url,
+                            'note': f"🎬 {h}p (MP4)",
+                            'ext': vf['ext'],
+                            'height': h,
+                            'hasAudio': True,
+                            'sizeBytes': vf['sizeBytes']
+                        })
+
+                # 6. High Quality Audio Track
+                if best_audio:
                     clen = best_audio.get('contentLength')
-                    size_bytes = int(clen) if clen and clen.isdigit() else None
+                    size_bytes = int(clen) if clen and str(clen).isdigit() else None
                     formats.append({
                         'directUrl': best_audio['url'],
                         'token': best_audio['url'],

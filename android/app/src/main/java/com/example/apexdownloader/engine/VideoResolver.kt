@@ -319,46 +319,120 @@ private class YouTubeDirectResolver : Resolver {
                     val thumbnail = "https://img.youtube.com/vi/$vidId/hqdefault.jpg"
                     val streamingData = data.optJSONObject("streamingData")
                     val rawFormats = streamingData?.optJSONArray("formats") ?: JSONArray()
+                    val adaptive = streamingData?.optJSONArray("adaptiveFormats") ?: JSONArray()
                     val formats = mutableListOf<VideoFormat>()
 
-                    // 1. Progressive streams
-                    for (i in 0 until rawFormats.length()) {
-                        val f = rawFormats.getJSONObject(i)
-                        val streamUrl = f.optString("url")
-                        if (streamUrl.isNotEmpty()) {
-                            val quality = f.optString("qualityLabel", "${f.optInt("height", 360)}p")
-                            val clen = f.optLong("contentLength", -1L).takeIf { it > 0 }
-                            formats.add(VideoFormat(streamUrl, "$quality · Standard MP4 Video", "mp4", clen))
-                        }
-                    }
-
-                    // 2. High Quality Adaptive streams (1080p, 720p, 480p)
-                    val adaptive = streamingData?.optJSONArray("adaptiveFormats") ?: JSONArray()
-                    val seenHeights = mutableSetOf<Int>()
-                    for (i in 0 until adaptive.length()) {
-                        val af = adaptive.getJSONObject(i)
-                        val streamUrl = af.optString("url")
-                        val height = af.optInt("height", 0)
-                        if (streamUrl.isNotEmpty() && height >= 360 && height !in seenHeights) {
-                            seenHeights.add(height)
-                            val q = af.optString("qualityLabel", "${height}p")
-                            val isMp4 = af.optString("mimeType").contains("mp4")
-                            val clen = af.optLong("contentLength", -1L).takeIf { it > 0 }
-                            val note = if (height >= 1080) "$q FHD · MP4 Video" else if (height >= 720) "$q HD · MP4 Video" else "$q · MP4 Video"
-                            formats.add(VideoFormat(streamUrl, note, if (isMp4) "mp4" else "webm", clen))
-                        }
-                    }
-
-                    // 3. Audio formats
+                    var bestAudioUrl: String? = null
+                    var bestAudioClen: Long? = null
+                    var highestAudioBitrate = 0
                     for (i in 0 until adaptive.length()) {
                         val af = adaptive.getJSONObject(i)
                         val streamUrl = af.optString("url")
                         val mime = af.optString("mimeType")
                         if (streamUrl.isNotEmpty() && mime.contains("audio")) {
-                            val clen = af.optLong("contentLength", -1L).takeIf { it > 0 }
-                            formats.add(VideoFormat(streamUrl, "🎵 High Quality Audio (M4A / MP3)", "m4a", clen))
-                            break
+                            val bitrate = af.optInt("bitrate", af.optInt("averageBitrate", 0))
+                            if (bitrate > highestAudioBitrate || bestAudioUrl == null) {
+                                highestAudioBitrate = bitrate
+                                bestAudioUrl = streamUrl
+                                bestAudioClen = af.optLong("contentLength", -1L).takeIf { it > 0 }
+                            }
                         }
+                    }
+
+                    data class YtStream(val url: String, val height: Int, val ext: String, val hasMuxedAudio: Boolean, val clen: Long?)
+                    val videoMap = mutableMapOf<Int, YtStream>()
+
+                    // 1. Progressive streams (muxed audio)
+                    for (i in 0 until rawFormats.length()) {
+                        val f = rawFormats.getJSONObject(i)
+                        val streamUrl = f.optString("url")
+                        val height = f.optInt("height", 0)
+                        if (streamUrl.isNotEmpty() && height > 0) {
+                            val clen = f.optLong("contentLength", -1L).takeIf { it > 0 }
+                            videoMap[height] = YtStream(streamUrl, height, "mp4", true, clen)
+                        }
+                    }
+
+                    // 2. Adaptive streams (video only)
+                    for (i in 0 until adaptive.length()) {
+                        val af = adaptive.getJSONObject(i)
+                        val streamUrl = af.optString("url")
+                        val height = af.optInt("height", 0)
+                        if (streamUrl.isNotEmpty() && height > 0) {
+                            val isMp4 = af.optString("mimeType").contains("mp4")
+                            val existing = videoMap[height]
+                            if (existing == null || (!existing.hasMuxedAudio && isMp4)) {
+                                val clen = af.optLong("contentLength", -1L).takeIf { it > 0 }
+                                videoMap[height] = YtStream(streamUrl, height, if (isMp4) "mp4" else "webm", false, clen)
+                            }
+                        }
+                    }
+
+                    val availableHeights = videoMap.keys.sortedDescending()
+                    if (availableHeights.isEmpty()) continue
+
+                    val maxH = availableHeights.first()
+
+                    // 1. Original Quality (if > 1080p, e.g. 4K 2160p or 2K 1440p)
+                    if (maxH > 1080) {
+                        val vf = videoMap[maxH]!!
+                        val audioU = if (vf.hasMuxedAudio) null else bestAudioUrl
+                        val tok = if (audioU != null) "${vf.url}|$audioU" else vf.url
+                        val qLabel = if (maxH >= 2160) "4K UHD" else (if (maxH >= 1440) "2K QHD" else "${maxH}p")
+                        formats.add(VideoFormat(tok, "$qLabel (${maxH}p Original Quality) · MP4", vf.ext, vf.clen))
+                    }
+
+                    // 2. 1080p FHD
+                    videoMap[1080]?.let { vf ->
+                        val audioU = if (vf.hasMuxedAudio) null else bestAudioUrl
+                        val tok = if (audioU != null) "${vf.url}|$audioU" else vf.url
+                        val isOrig = (maxH == 1080)
+                        val noteStr = if (isOrig) "1080p FHD (Original Quality) · MP4" else "1080p FHD · MP4"
+                        formats.add(VideoFormat(tok, noteStr, vf.ext, vf.clen))
+                    }
+
+                    // 3. 720p HD
+                    videoMap[720]?.let { vf ->
+                        val audioU = if (vf.hasMuxedAudio) null else bestAudioUrl
+                        val tok = if (audioU != null) "${vf.url}|$audioU" else vf.url
+                        val isOrig = (maxH == 720)
+                        val noteStr = if (isOrig) "720p HD (Original Quality) · MP4" else "720p HD · MP4"
+                        formats.add(VideoFormat(tok, noteStr, vf.ext, vf.clen))
+                    }
+
+                    // 4. 480p SD (if available and needed)
+                    videoMap[480]?.let { vf ->
+                        if (formats.size < 2 || maxH == 480) {
+                            val audioU = if (vf.hasMuxedAudio) null else bestAudioUrl
+                            val tok = if (audioU != null) "${vf.url}|$audioU" else vf.url
+                            val isOrig = (maxH == 480)
+                            val noteStr = if (isOrig) "480p SD (Original Quality) · MP4" else "480p SD · MP4"
+                            formats.add(VideoFormat(tok, noteStr, vf.ext, vf.clen))
+                        }
+                    }
+
+                    // 5. 360p Standard
+                    videoMap[360]?.let { vf ->
+                        val audioU = if (vf.hasMuxedAudio) null else bestAudioUrl
+                        val tok = if (audioU != null) "${vf.url}|$audioU" else vf.url
+                        val isOrig = (maxH == 360)
+                        val noteStr = if (isOrig) "360p (Original Quality) · MP4" else "360p · Standard MP4 with Audio"
+                        formats.add(VideoFormat(tok, noteStr, vf.ext, vf.clen))
+                    }
+
+                    // Fallback if none of standard tiers matched
+                    if (formats.isEmpty() && availableHeights.isNotEmpty()) {
+                        for (h in availableHeights.take(3)) {
+                            val vf = videoMap[h]!!
+                            val audioU = if (vf.hasMuxedAudio) null else bestAudioUrl
+                            val tok = if (audioU != null) "${vf.url}|$audioU" else vf.url
+                            formats.add(VideoFormat(tok, "${h}p · MP4", vf.ext, vf.clen))
+                        }
+                    }
+
+                    // 6. High Quality Audio Track
+                    if (bestAudioUrl != null) {
+                        formats.add(VideoFormat(bestAudioUrl, "🎵 High Quality Audio (M4A / MP3)", "m4a", bestAudioClen))
                     }
 
                     if (formats.isNotEmpty()) {
