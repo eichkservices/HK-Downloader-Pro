@@ -87,7 +87,8 @@ class DownloadExecutor(
         item: DownloadItem,
         url: String,
         destFile: File,
-        isRetryAfter416: Boolean = false
+        isRetryAfter416: Boolean = false,
+        markCompleted: Boolean = true
     ) {
         val partFile = File(destFile.parentFile, destFile.name + ".part")
         val existingBytes = if (partFile.exists()) partFile.length() else 0L
@@ -117,7 +118,7 @@ class DownloadExecutor(
                 // the current resource (stale file, or the resource changed).
                 // Only safe move is to drop it and start over, once.
                 partFile.delete()
-                downloadDirectFile(item, url, destFile, isRetryAfter416 = true)
+                downloadDirectFile(item, url, destFile, isRetryAfter416 = true, markCompleted = markCompleted)
                 return
             }
             if (!response.isSuccessful) throw Exception("Failed with HTTP code ${response.code}")
@@ -133,9 +134,11 @@ class DownloadExecutor(
             }
 
             var totalRead = if (isResuming) existingBytes else 0L
-            repository.addOrUpdateDownload(
-                item.copy(totalSize = totalBytes, downloadedSize = totalRead, localPath = destFile.absolutePath)
-            )
+            if (markCompleted) {
+                repository.addOrUpdateDownload(
+                    item.copy(totalSize = totalBytes, downloadedSize = totalRead, localPath = destFile.absolutePath)
+                )
+            }
 
             val speedTracker = SpeedTracker()
             speedTracker.record(System.currentTimeMillis(), totalRead)
@@ -163,16 +166,18 @@ class DownloadExecutor(
                                 formatEta(((totalBytes - totalRead) / speedBps).toLong())
                             } else "--"
 
-                            val updated = item.copy(
-                                status = "downloading",
-                                progress = progress,
-                                downloadedSize = totalRead,
-                                speed = speedStr,
-                                eta = eta,
-                                localPath = destFile.absolutePath
-                            )
-                            repository.addOrUpdateDownload(updated)
-                            onProgress(updated)
+                            if (markCompleted) {
+                                val updated = item.copy(
+                                    status = "downloading",
+                                    progress = progress,
+                                    downloadedSize = totalRead,
+                                    speed = speedStr,
+                                    eta = eta,
+                                    localPath = destFile.absolutePath
+                                )
+                                repository.addOrUpdateDownload(updated)
+                                onProgress(updated)
+                            }
                             lastUpdate = now
                         }
                     }
@@ -190,24 +195,26 @@ class DownloadExecutor(
                 partFile.delete()
             }
 
-            try {
-                MediaScannerConnection.scanFile(
-                    context,
-                    arrayOf(destFile.absolutePath),
-                    arrayOf(if (destFile.name.endsWith(".mp3", ignoreCase = true)) "audio/mpeg" else "video/mp4")
-                ) { _, _ -> }
-            } catch (e: Exception) {}
+            if (markCompleted) {
+                try {
+                    MediaScannerConnection.scanFile(
+                        context,
+                        arrayOf(destFile.absolutePath),
+                        arrayOf(if (destFile.name.endsWith(".mp3", ignoreCase = true)) "audio/mpeg" else "video/mp4")
+                    ) { _, _ -> }
+                } catch (e: Exception) {}
 
-            val finished = item.copy(
-                status = "completed",
-                progress = 100f,
-                downloadedSize = totalRead,
-                speed = "Done",
-                eta = "0s",
-                localPath = destFile.absolutePath
-            )
-            repository.addOrUpdateDownload(finished)
-            onProgress(finished)
+                val finished = item.copy(
+                    status = "completed",
+                    progress = 100f,
+                    downloadedSize = totalRead,
+                    speed = "Done",
+                    eta = "0s",
+                    localPath = destFile.absolutePath
+                )
+                repository.addOrUpdateDownload(finished)
+                onProgress(finished)
+            }
         }
     }
 
@@ -223,11 +230,11 @@ class DownloadExecutor(
         try {
             // 1. Download video track
             repository.addOrUpdateDownload(item.copy(status = "downloading", speed = "Downloading video stream...", progress = 10f))
-            downloadDirectFile(item.copy(filename = videoPart.name), videoUrl, videoPart)
+            downloadDirectFile(item.copy(filename = videoPart.name), videoUrl, videoPart, markCompleted = false)
 
             // 2. Download audio track
             repository.addOrUpdateDownload(item.copy(status = "downloading", speed = "Downloading audio stream...", progress = 85f))
-            downloadDirectFile(item.copy(filename = audioPart.name), audioUrl, audioPart)
+            downloadDirectFile(item.copy(filename = audioPart.name), audioUrl, audioPart, markCompleted = false)
 
             // 3. Native Muxing via MediaMuxer
             repository.addOrUpdateDownload(item.copy(status = "downloading", speed = "Merging video & audio...", progress = 95f))
@@ -304,6 +311,7 @@ class DownloadExecutor(
 
             if (videoTrackIndex >= 0) {
                 while (true) {
+                    bufferInfo.offset = 0
                     bufferInfo.size = videoExtractor.readSampleData(buffer, 0)
                     if (bufferInfo.size < 0) break
                     bufferInfo.presentationTimeUs = videoExtractor.sampleTime
@@ -315,6 +323,7 @@ class DownloadExecutor(
 
             if (audioTrackIndex >= 0) {
                 while (true) {
+                    bufferInfo.offset = 0
                     bufferInfo.size = audioExtractor.readSampleData(buffer, 0)
                     if (bufferInfo.size < 0) break
                     bufferInfo.presentationTimeUs = audioExtractor.sampleTime

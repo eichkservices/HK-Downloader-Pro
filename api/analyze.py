@@ -634,7 +634,15 @@ def extract_ytdlp(url):
             continue
         playable_raw.append(f)
 
-    # 2. Separate video streams and audio streams
+    # 2. Separate video streams, progressive streams, and audio streams
+    progressive_streams = [
+        f for f in playable_raw
+        if f.get('ext') == 'mp4' and (
+            'xpv_progressive' in (f.get('url') or '') or
+            f.get('format_id') in ['1', '2', '3'] or
+            (f.get('vcodec') and f.get('vcodec') != 'none' and f.get('acodec') and f.get('acodec') != 'none')
+        )
+    ]
     video_streams = [f for f in playable_raw if f.get('vcodec') and f.get('vcodec') != 'none' and f.get('height')]
     audio_streams = [f for f in playable_raw if (not f.get('vcodec') or f.get('vcodec') == 'none') and f.get('acodec') and f.get('acodec') != 'none']
 
@@ -697,6 +705,20 @@ def extract_ytdlp(url):
     best_audio_url = best_audio_stream['url'] if best_audio_stream else None
 
     formats = []
+
+    # If progressive stream exists (e.g. Instagram Reels standard progressive MP4 with built-in audio)
+    if progressive_streams:
+        prog = progressive_streams[0]
+        formats.append({
+            'directUrl': prog['url'],
+            'audioUrl': None,
+            'token': prog['url'],
+            'note': '🎬 720p HD (Standard MP4 with Audio)',
+            'ext': 'mp4',
+            'height': 720,
+            'hasAudio': True
+        })
+
     for f in selected_video:
         url_stream = f['url']
         ext = f.get('ext') or 'mp4'
@@ -705,6 +727,9 @@ def extract_ytdlp(url):
         audio_url = None if has_muxed_audio else best_audio_url
         token_val = f"{url_stream}|{audio_url}" if audio_url else url_stream
         has_any_audio = has_muxed_audio or bool(best_audio_url)
+        # Don't add duplicate 720p if progressive already added
+        if progressive_streams and h == 720 and not has_muxed_audio:
+            continue
         formats.append({
             'directUrl': url_stream,
             'audioUrl': audio_url,
