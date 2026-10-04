@@ -661,9 +661,9 @@ private class UniversalCloudResolver : Resolver {
     private val client = NetworkClient.client
 
     private val endpoints = listOf(
-        "https://hkdownloader.online/api/analyze",
+        "https://hk-downloader-pro.pages.dev/api/analyze",
         "https://hk-downloader-pro.vercel.app/api/analyze",
-        "https://hk-downloader-pro.pages.dev/api/analyze"
+        "https://hkdownloader.online/api/analyze"
     )
 
     override suspend fun resolve(url: String, type: String, ctx: ResolverContext): ResolveOutcome {
@@ -705,9 +705,10 @@ private class UniversalCloudResolver : Resolver {
                                 ?: fObj.optLong("size", -1L).takeIf { it > 0 }
 
                             val resolvedUrl = when {
+                                token.contains("|http") -> token
                                 directUrl.isNotEmpty() -> directUrl
                                 token.startsWith("http") -> token
-                                token.isNotEmpty() -> "https://hkdownloader.online/api/download?url=${java.net.URLEncoder.encode(token, "UTF-8")}"
+                                token.isNotEmpty() -> "https://hk-downloader-pro.pages.dev/api/download?url=${java.net.URLEncoder.encode(token, "UTF-8")}"
                                 else -> ""
                             }
 
@@ -741,7 +742,8 @@ private class InstagramDirectResolver : Resolver {
 
         val endpoints = listOf(
             "https://www.instagram.com/p/$shortcode/?__a=1&__d=dis",
-            "https://www.instagram.com/reel/$shortcode/?__a=1&__d=dis"
+            "https://www.instagram.com/reel/$shortcode/?__a=1&__d=dis",
+            "https://www.instagram.com/p/$shortcode/embed/captioned/"
         )
 
         for (endpoint in endpoints) {
@@ -757,32 +759,56 @@ private class InstagramDirectResolver : Resolver {
                 client.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) return@use
                     val bodyStr = response.body?.string() ?: return@use
-                    val json = JSONObject(bodyStr)
 
-                    val items = json.optJSONArray("items")
-                    val item = items?.optJSONObject(0)
-                    val media = item ?: json.optJSONObject("graphql")?.optJSONObject("shortcode_media")
+                    if (endpoint.contains("embed/captioned")) {
+                        val videoMatch = Regex("\"video_url\"\\s*:\\s*\"([^\"]+)\"").find(bodyStr)
+                            ?: Regex("video_url&quot;:&quot;([^&]+)&quot;").find(bodyStr)
+                            ?: Regex("src=\"([^\"]+\\.mp4[^\"]*)\"").find(bodyStr)
+                        val thumbMatch = Regex("\"display_url\"\\s*:\\s*\"([^\"]+)\"").find(bodyStr)
+                            ?: Regex("property=\"og:image\"\\s+content=\"([^\"]+)\"").find(bodyStr)
 
-                    if (media != null) {
-                        val videoVersions = media.optJSONArray("video_versions")
-                        val videoUrl = if (videoVersions != null && videoVersions.length() > 0) {
-                            videoVersions.getJSONObject(0).optString("url")
-                        } else {
-                            media.optString("video_url")
-                        }
+                        if (videoMatch != null) {
+                            val cleanVideoUrl = videoMatch.groupValues[1]
+                                .replace("\\u0026", "&")
+                                .replace("&amp;", "&")
+                                .replace("\\", "")
+                            val cleanThumb = thumbMatch?.groupValues?.get(1)
+                                ?.replace("\\u0026", "&")
+                                ?.replace("&amp;", "&")
+                                ?.replace("\\", "") ?: ""
 
-                        val caption = media.optJSONObject("caption")?.optString("text")
-                            ?: media.optJSONObject("edge_media_to_caption")?.optJSONArray("edges")?.optJSONObject(0)?.optJSONObject("node")?.optString("text")
-                            ?: "Instagram Reel"
-
-                        val thumb = media.optJSONObject("image_versions2")?.optJSONArray("candidates")?.optJSONObject(0)?.optString("url")
-                            ?: media.optString("display_url")
-
-                        if (videoUrl.isNotEmpty()) {
                             val formats = listOf(
-                                VideoFormat(videoUrl, "🎬 HD Video (MP4)", "mp4", VideoResolver.probeContentLength(videoUrl))
+                                VideoFormat(cleanVideoUrl, "🎬 HD Video with Audio (MP4)", "mp4", VideoResolver.probeContentLength(cleanVideoUrl))
                             )
-                            return ResolveOutcome.Success(caption.take(80), thumb, formats)
+                            return ResolveOutcome.Success("Instagram Reel", cleanThumb, formats)
+                        }
+                    } else {
+                        val json = JSONObject(bodyStr)
+                        val items = json.optJSONArray("items")
+                        val item = items?.optJSONObject(0)
+                        val media = item ?: json.optJSONObject("graphql")?.optJSONObject("shortcode_media")
+
+                        if (media != null) {
+                            val videoVersions = media.optJSONArray("video_versions")
+                            val videoUrl = if (videoVersions != null && videoVersions.length() > 0) {
+                                videoVersions.getJSONObject(0).optString("url")
+                            } else {
+                                media.optString("video_url")
+                            }
+
+                            val caption = media.optJSONObject("caption")?.optString("text")
+                                ?: media.optJSONObject("edge_media_to_caption")?.optJSONArray("edges")?.optJSONObject(0)?.optJSONObject("node")?.optString("text")
+                                ?: "Instagram Reel"
+
+                            val thumb = media.optJSONObject("image_versions2")?.optJSONArray("candidates")?.optJSONObject(0)?.optString("url")
+                                ?: media.optString("display_url")
+
+                            if (videoUrl.isNotEmpty()) {
+                                val formats = listOf(
+                                    VideoFormat(videoUrl, "🎬 HD Video (MP4)", "mp4", VideoResolver.probeContentLength(videoUrl))
+                                )
+                                return ResolveOutcome.Success(caption.take(80), thumb, formats)
+                            }
                         }
                     }
                 }

@@ -125,28 +125,43 @@ export async function onRequestGet(context) {
       referer = 'https://www.pinterest.com/';
     }
 
-    const upstreamHeaders = {
-      'User-Agent': targetUrl.includes('googlevideo')
-        ? 'com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip'
-        : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
-    };
-    if (referer) upstreamHeaders['Referer'] = referer;
+    const isYt = targetUrl.includes('googlevideo') || targetUrl.includes('youtube');
+    const uasToTry = isYt ? [
+      'com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip',
+      'Mozilla/5.0 (Linux; Android 10; Quest 2) AppleWebKit/537.36',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36'
+    ] : [
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36'
+    ];
 
     const rangeHeader = request.headers.get('Range');
-    if (rangeHeader) {
-      upstreamHeaders['Range'] = rangeHeader;
+    let upstream = null;
+
+    for (const ua of uasToTry) {
+      const upstreamHeaders = { 'User-Agent': ua };
+      if (referer) upstreamHeaders['Referer'] = referer;
+      if (rangeHeader) upstreamHeaders['Range'] = rangeHeader;
+
+      try {
+        upstream = await fetch(targetUrl, { headers: upstreamHeaders });
+        if (upstream.ok || upstream.status === 206) break;
+      } catch (e) {}
     }
 
-    let upstream = await fetch(targetUrl, {
-      headers: upstreamHeaders
-    });
-
     // If googlevideo returned 403 due to IP mismatch, attempt on-demand re-resolution
-    if (upstream.status === 403 && resolvedYtId) {
+    if ((!upstream || upstream.status === 403) && resolvedYtId) {
       const freshUrl = await resolveYoutubeFreshStream(resolvedYtId);
       if (freshUrl && freshUrl !== targetUrl) {
         targetUrl = freshUrl;
-        upstream = await fetch(targetUrl, { headers: upstreamHeaders });
+        for (const ua of uasToTry) {
+          const upstreamHeaders = { 'User-Agent': ua };
+          if (referer) upstreamHeaders['Referer'] = referer;
+          if (rangeHeader) upstreamHeaders['Range'] = rangeHeader;
+          try {
+            upstream = await fetch(targetUrl, { headers: upstreamHeaders });
+            if (upstream.ok || upstream.status === 206) break;
+          } catch (e) {}
+        }
       }
     }
 
