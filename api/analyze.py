@@ -537,12 +537,6 @@ def extract_ytdlp(url):
         'no_warnings': True,
         'skip_download': True,
         'socket_timeout': 8,
-        'js_runtimes': {'node': {}},
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['visionos']
-            }
-        },
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15'
         }
@@ -588,11 +582,11 @@ def extract_ytdlp(url):
     try:
         if 'youtube.com' in url or 'youtu.be' in url:
             client_candidates = [
-                None, # Default multi-client strategy with Node JS runtime
                 ['visionos'],
-                ['web_embedded'],
+                ['android_creator'],
                 ['tv_embedded'],
-                ['android_vr']
+                ['android_vr'],
+                ['web_embedded']
             ]
             client_log = {}
             info = None
