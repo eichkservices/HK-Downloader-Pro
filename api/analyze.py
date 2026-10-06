@@ -588,18 +588,21 @@ def extract_ytdlp(url):
     try:
         if 'youtube.com' in url or 'youtu.be' in url:
             client_candidates = [
+                None, # Default multi-client strategy with Node JS runtime
                 ['visionos'],
+                ['web_embedded'],
                 ['tv_embedded'],
-                ['android_vr'],
-                ['web'],
-                ['mweb']
+                ['android_vr']
             ]
             client_log = {}
             info = None
             last_err = None
             for client_list in client_candidates:
-                key = "+".join(client_list)
-                ydl_opts['extractor_args'] = {'youtube': {'player_client': client_list}}
+                key = "+".join(client_list) if client_list else "default"
+                if client_list:
+                    ydl_opts['extractor_args'] = {'youtube': {'player_client': client_list}}
+                else:
+                    ydl_opts.pop('extractor_args', None)
                 try:
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                         cand_info = ydl.extract_info(url, download=False)
