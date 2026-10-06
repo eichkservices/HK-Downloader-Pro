@@ -676,6 +676,7 @@ export async function onRequestPost(context) {
 
   inputUrl = cleanUrl(inputUrl);
   const type = identifyLinkType(inputUrl);
+  let ytDirectFallback = null;
 
   // 1. Direct Edge & Universal Resolvers
   if (type === 'youtube') {
