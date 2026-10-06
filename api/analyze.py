@@ -587,11 +587,11 @@ def extract_ytdlp(url):
     try:
         if 'youtube.com' in url or 'youtu.be' in url:
             client_candidates = [
-                ['visionos', 'android'],
                 ['visionos'],
-                ['android_vr', 'visionos'],
-                ['android'],
-                ['web', 'visionos']
+                ['tv_embedded'],
+                ['android_vr'],
+                ['visionos', 'android'],
+                ['android']
             ]
             client_log = {}
             info = None
@@ -601,9 +601,15 @@ def extract_ytdlp(url):
                 ydl_opts['extractor_args'] = {'youtube': {'player_client': client_list}}
                 try:
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        info = ydl.extract_info(url, download=False)
-                        if info and info.get('formats'):
-                            break
+                        cand_info = ydl.extract_info(url, download=False)
+                        if cand_info and cand_info.get('formats'):
+                            cand_fmts = cand_info.get('formats', [])
+                            cand_v_fmts = [f for f in cand_fmts if f.get('height') and f.get('vcodec') != 'none']
+                            if len(cand_v_fmts) >= 2:
+                                info = cand_info
+                                break
+                            elif not info:
+                                info = cand_info
                 except Exception as e:
                     client_log[key] = str(e)[:120]
                     last_err = e
@@ -1034,9 +1040,9 @@ class handler(BaseHTTPRequestHandler):
             yver = 'unknown'
         self.wfile.write(json.dumps({
             'status': 'ok',
-            'service': 'HK Downloader Pro Universal Engine v2.6.4',
+            'service': 'HK Downloader Pro Universal Engine v2.6.5',
             'ytdlp_version': yver,
-            'build': 'visionos-v2.6.4'
+            'build': 'visionos-v2.6.5'
         }).encode('utf-8'))
 
     def do_POST(self):

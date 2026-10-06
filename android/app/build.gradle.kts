@@ -27,8 +27,8 @@ android {
         applicationId = "com.example.apexdownloader"
         minSdk = 24
         targetSdk = 36
-        versionCode = 14
-        versionName = "2.6.4"
+        versionCode = 15
+        versionName = "2.6.5"
     }
 
     signingConfigs {
