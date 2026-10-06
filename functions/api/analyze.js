@@ -678,10 +678,11 @@ export async function onRequestPost(context) {
   const type = identifyLinkType(inputUrl);
 
   // 1. Direct Edge Resolvers (Instant response for YouTube, TikTok, Facebook, Pinterest)
+  let ytDirectFallback = null;
   if (type === 'youtube') {
     try {
       const ytData = await resolveYoutubeDirect(inputUrl);
-      if (ytData && ytData.formats && ytData.formats.length > 0) {
+      if (ytData && ytData.formats && ytData.formats.length >= 2) {
         return new Response(JSON.stringify(ytData), {
           status: 200,
           headers: {
@@ -691,6 +692,8 @@ export async function onRequestPost(context) {
             'Access-Control-Allow-Headers': 'Content-Type'
           }
         });
+      } else if (ytData && ytData.formats && ytData.formats.length > 0) {
+        ytDirectFallback = ytData;
       }
     } catch (e) {}
   } else if (type === 'tiktok') {
@@ -737,6 +740,8 @@ export async function onRequestPost(context) {
         if (resp.ok) {
           const data = await resp.json();
           if (data.formats && Array.isArray(data.formats)) {
+            // Guarantee 100% that Instagram downloads have audio (filter out silent DASH video tracks)
+            data.formats = data.formats.filter(f => f.hasAudio || f.isAudio || f.ext === 'mp3' || f.ext === 'm4a');
             data.formats = capVideoFormats(data.formats);
             data.formats.forEach(f => {
               if (!f.token && f.directUrl) {
@@ -761,6 +766,7 @@ export async function onRequestPost(context) {
     try {
       const igData = await resolveInstagramDirect(inputUrl);
       if (igData && igData.formats && igData.formats.length > 0) {
+        igData.formats = igData.formats.filter(f => f.hasAudio || f.isAudio || f.ext === 'mp3' || f.ext === 'm4a');
         return new Response(JSON.stringify(igData), {
           status: 200,
           headers: {
@@ -874,6 +880,18 @@ export async function onRequestPost(context) {
     } catch (e) {
       failures.push(`${resolver.name}: ${e.message}`);
     }
+  }
+
+  if (ytDirectFallback && ytDirectFallback.formats && ytDirectFallback.formats.length > 0) {
+    return new Response(JSON.stringify(ytDirectFallback), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      }
+    });
   }
 
   return new Response(JSON.stringify({

@@ -704,6 +704,8 @@ def extract_ytdlp(url):
     best_audio_stream = max(audio_streams, key=lambda a: a.get('abr') or 0) if audio_streams else None
     best_audio_url = best_audio_stream['url'] if best_audio_stream else None
 
+    is_instagram = 'instagram.com' in url
+
     formats = []
 
     # If progressive stream exists (e.g. Instagram Reels standard progressive MP4 with built-in audio)
@@ -719,27 +721,29 @@ def extract_ytdlp(url):
             'hasAudio': True
         })
 
-    for f in selected_video:
-        url_stream = f['url']
-        ext = f.get('ext') or 'mp4'
-        h = f.get('height') or 720
-        has_muxed_audio = bool(f.get('acodec') and f.get('acodec') != 'none')
-        audio_url = None if has_muxed_audio else best_audio_url
-        token_val = f"{url_stream}|{audio_url}" if audio_url else url_stream
-        has_any_audio = has_muxed_audio or bool(best_audio_url)
-        # Don't add duplicate 720p if progressive already added
-        if progressive_streams and h == 720 and not has_muxed_audio:
-            continue
-        formats.append({
-            'directUrl': url_stream,
-            'audioUrl': audio_url,
-            'token': token_val,
-            'note': get_tier_label(h, has_any_audio),
-            'ext': ext,
-            'sizeBytes': f.get('filesize') or f.get('filesize_approx'),
-            'height': h,
-            'hasAudio': has_any_audio
-        })
+    # Only include DASH video streams if NOT Instagram (since Instagram DASH video streams are silent VP9 without audio on direct download)
+    if not is_instagram:
+        for f in selected_video:
+            url_stream = f['url']
+            ext = f.get('ext') or 'mp4'
+            h = f.get('height') or 720
+            has_muxed_audio = bool(f.get('acodec') and f.get('acodec') != 'none')
+            audio_url = None if has_muxed_audio else best_audio_url
+            token_val = f"{url_stream}|{audio_url}" if audio_url else url_stream
+            has_any_audio = has_muxed_audio or bool(best_audio_url)
+            # Don't add duplicate 720p if progressive already added
+            if progressive_streams and h == 720 and not has_muxed_audio:
+                continue
+            formats.append({
+                'directUrl': url_stream,
+                'audioUrl': audio_url,
+                'token': token_val,
+                'note': get_tier_label(h, has_any_audio),
+                'ext': ext,
+                'sizeBytes': f.get('filesize') or f.get('filesize_approx'),
+                'height': h,
+                'hasAudio': has_any_audio
+            })
 
     # Add exactly 1 High Quality Audio option
     if best_audio_stream:
@@ -1030,9 +1034,9 @@ class handler(BaseHTTPRequestHandler):
             yver = 'unknown'
         self.wfile.write(json.dumps({
             'status': 'ok',
-            'service': 'HK Downloader Pro Universal Engine v2.5.4',
+            'service': 'HK Downloader Pro Universal Engine v2.6.4',
             'ytdlp_version': yver,
-            'build': 'visionos-v2.5.4'
+            'build': 'visionos-v2.6.4'
         }).encode('utf-8'))
 
     def do_POST(self):
@@ -1112,14 +1116,36 @@ class handler(BaseHTTPRequestHandler):
         # 6. YouTube Direct Engine (Instant 300ms Innertube resolution, bypasses datacenter bot-checks)
         if 'youtube.com' in url or 'youtu.be' in url:
             yt_result = extract_youtube_direct(url)
-            if yt_result:
+            # If direct returns multiple formats (e.g. 1080p, 720p, 360p, audio), return immediately
+            if yt_result and len(yt_result.get('formats', [])) >= 2:
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
                 self.wfile.write(json.dumps(yt_result).encode('utf-8'))
                 return
-            # If direct resolution fails (e.g. signature deciphering needed), fall through to yt-dlp below
+            
+            # If direct resolution returned < 2 formats (e.g. only 360p on VEVO), try yt-dlp for full qualities
+            try:
+                ytdlp_result = extract_ytdlp(url)
+                if ytdlp_result and len(ytdlp_result.get('formats', [])) > 0:
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    self.wfile.write(json.dumps(ytdlp_result).encode('utf-8'))
+                    return
+            except Exception:
+                pass
+
+            # If yt-dlp failed but we had the single direct format, use it
+            if yt_result and len(yt_result.get('formats', [])) > 0:
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps(yt_result).encode('utf-8'))
+                return
 
         # 7. Core yt-dlp Universal Engine (YouTube fallback for other formats, Vimeo, etc.)
         try:
