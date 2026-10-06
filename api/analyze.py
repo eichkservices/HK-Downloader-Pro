@@ -1119,22 +1119,11 @@ class handler(BaseHTTPRequestHandler):
                 return
             # If rapid extraction fails, fall through to core yt-dlp universal engine below
 
-        # 6. YouTube Direct Engine (Instant 300ms Innertube resolution, bypasses datacenter bot-checks)
+        # 6. YouTube Universal Engine (visionos multi-quality resolution for 4K/1080p/720p/480p/360p/audio)
         if 'youtube.com' in url or 'youtu.be' in url:
-            yt_result = extract_youtube_direct(url)
-            # If direct returns multiple formats (e.g. 1080p, 720p, 360p, audio), return immediately
-            if yt_result and len(yt_result.get('formats', [])) >= 2:
-                self.send_response(200)
-                self.send_header('Content-Type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                self.wfile.write(json.dumps(yt_result).encode('utf-8'))
-                return
-            
-            # If direct resolution returned < 2 formats (e.g. only 360p on VEVO), try yt-dlp for full qualities
             try:
                 ytdlp_result = extract_ytdlp(url)
-                if ytdlp_result and len(ytdlp_result.get('formats', [])) > 0:
+                if ytdlp_result and len(ytdlp_result.get('formats', [])) >= 2:
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json')
                     self.send_header('Access-Control-Allow-Origin', '*')
@@ -1144,7 +1133,8 @@ class handler(BaseHTTPRequestHandler):
             except Exception:
                 pass
 
-            # If yt-dlp failed but we had the single direct format, use it
+            # Fast direct Innertube fallback if yt-dlp was blocked
+            yt_result = extract_youtube_direct(url)
             if yt_result and len(yt_result.get('formats', [])) > 0:
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
