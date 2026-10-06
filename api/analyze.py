@@ -537,13 +537,14 @@ def extract_ytdlp(url):
         'no_warnings': True,
         'skip_download': True,
         'socket_timeout': 8,
+        'js_runtimes': {'node': {}},
         'extractor_args': {
             'youtube': {
-                'player_client': ['visionos', 'android']
+                'player_client': ['visionos']
             }
         },
         'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15'
         }
     }
 
@@ -590,8 +591,8 @@ def extract_ytdlp(url):
                 ['visionos'],
                 ['tv_embedded'],
                 ['android_vr'],
-                ['visionos', 'android'],
-                ['android']
+                ['web'],
+                ['mweb']
             ]
             client_log = {}
             info = None
