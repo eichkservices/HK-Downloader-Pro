@@ -1141,57 +1141,54 @@ class handler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps(yt_result).encode('utf-8'))
                 return
 
-        # 7. Core yt-dlp Universal Engine (YouTube fallback for other formats, Vimeo, etc.)
-        try:
-            ytdlp_result = extract_ytdlp(url)
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            self.wfile.write(json.dumps(ytdlp_result).encode('utf-8'))
-            return
-        except Exception as e:
-            err_msg = str(e)
+        # 7. Core yt-dlp Universal Engine (Vimeo, SoundCloud, and other platforms)
+        if 'youtube.com' not in url and 'youtu.be' not in url:
+            try:
+                ytdlp_result = extract_ytdlp(url)
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps(ytdlp_result).encode('utf-8'))
+                return
+            except Exception as e:
+                err_msg = str(e)
 
-            # Fallback for Facebook if yt-dlp was attempted first
-            if 'facebook.com' in url or 'fb.watch' in url:
-                fb_result = extract_facebook_direct(url)
-                if fb_result:
-                    self.send_response(200)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Access-Control-Allow-Origin', '*')
-                    self.end_headers()
-                    self.wfile.write(json.dumps(fb_result).encode('utf-8'))
-                    return
+                # Fallback for Facebook if yt-dlp was attempted first
+                if 'facebook.com' in url or 'fb.watch' in url:
+                    fb_result = extract_facebook_direct(url)
+                    if fb_result:
+                        self.send_response(200)
+                        self.send_header('Content-Type', 'application/json')
+                        self.send_header('Access-Control-Allow-Origin', '*')
+                        self.end_headers()
+                        self.wfile.write(json.dumps(fb_result).encode('utf-8'))
+                        return
 
-            # Fallback for Pinterest
-            if 'pinterest.com' in url or 'pin.it' in url:
-                pin_result = extract_pinterest(url)
-                if pin_result:
-                    self.send_response(200)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Access-Control-Allow-Origin', '*')
-                    self.end_headers()
-                    self.wfile.write(json.dumps(pin_result).encode('utf-8'))
-                    return
+                # Fallback for Pinterest
+                if 'pinterest.com' in url or 'pin.it' in url:
+                    pin_result = extract_pinterest(url)
+                    if pin_result:
+                        self.send_response(200)
+                        self.send_header('Content-Type', 'application/json')
+                        self.send_header('Access-Control-Allow-Origin', '*')
+                        self.end_headers()
+                        self.wfile.write(json.dumps(pin_result).encode('utf-8'))
+                        return
 
-            # Fallback for YouTube if yt-dlp was bot-blocked on datacenter IP
-            if 'youtube.com' in url or 'youtu.be' in url:
-                yt_result = extract_youtube_direct(url)
-                if yt_result:
-                    self.send_response(200)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Access-Control-Allow-Origin', '*')
-                    self.end_headers()
-                    self.wfile.write(json.dumps(yt_result).encode('utf-8'))
-                    return
+                # User-friendly explanation for Instagram authentication requirement
+                if 'instagram.com' in url:
+                    err_msg = "Instagram restricts unauthenticated server downloads. Use HK Downloader Android App (v2.5.0) or configure an Instagram session cookie in settings."
 
-            # User-friendly explanation for Instagram authentication requirement
-            if 'instagram.com' in url:
-                err_msg = "Instagram restricts unauthenticated server downloads. Use HK Downloader Android App (v2.5.0) or configure an Instagram session cookie in settings."
+                self.send_response(502)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': err_msg}).encode('utf-8'))
+                return
 
-            self.send_response(502)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            self.wfile.write(json.dumps({'error': err_msg}).encode('utf-8'))
+        self.send_response(502)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps({'error': 'Unable to resolve streams for this YouTube video. Please try another link or download via HK Downloader Android app.'}).encode('utf-8'))
