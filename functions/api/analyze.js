@@ -677,12 +677,39 @@ export async function onRequestPost(context) {
   inputUrl = cleanUrl(inputUrl);
   const type = identifyLinkType(inputUrl);
 
-  // 1. Direct Edge Resolvers (Instant response for YouTube, TikTok, Facebook, Pinterest)
-  let ytDirectFallback = null;
+  // 1. Direct Edge & Universal Resolvers
   if (type === 'youtube') {
+    // Try universal backend first for full resolution tiers (4K, 1080p, 720p, 480p, 360p, audio)
+    if (ytdlpApiUrl) {
+      try {
+        const cleanApiUrl = ytdlpApiUrl.replace(/\/+$/, '');
+        const resp = await fetch(`${cleanApiUrl}/api/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ inputUrl, preset }),
+          signal: AbortSignal.timeout(12000)
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.formats && Array.isArray(data.formats) && data.formats.length >= 2) {
+            data.formats = capVideoFormats(data.formats);
+            return new Response(JSON.stringify(data), {
+              status: 200,
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+              }
+            });
+          }
+        }
+      } catch (e) {}
+    }
+
     try {
       const ytData = await resolveYoutubeDirect(inputUrl);
-      if (ytData && ytData.formats && ytData.formats.length >= 2) {
+      if (ytData && ytData.formats && ytData.formats.length > 0) {
         return new Response(JSON.stringify(ytData), {
           status: 200,
           headers: {
@@ -692,8 +719,6 @@ export async function onRequestPost(context) {
             'Access-Control-Allow-Headers': 'Content-Type'
           }
         });
-      } else if (ytData && ytData.formats && ytData.formats.length > 0) {
-        ytDirectFallback = ytData;
       }
     } catch (e) {}
   } else if (type === 'tiktok') {
