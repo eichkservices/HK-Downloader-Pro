@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Monetag Vignette Banner Script -->
-  <script>(function(s){s.dataset.zone='12038882',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
+  <!-- Monetag Vignette Banner Script (Commented out to prevent floating center popup dialog) -->
+  <!-- <script>(function(s){s.dataset.zone='12038882',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script> -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>HK Downloader Pro – Free Video & Audio Downloader (4K, 1080p, MP3)</title>
@@ -43,7 +43,7 @@
     "applicationCategory": "MultimediaApplication",
     "operatingSystem": "All",
     "browserRequirements": "Requires JavaScript. Requires HTML5.",
-    "softwareVersion": "2.8.1",
+    "softwareVersion": "2.8.2",
     "offers": {
       "@type": "Offer",
       "price": "0",
@@ -62,7 +62,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20108%20108%22%3E%3Crect%20width%3D%22108%22%20height%3D%22108%22%20rx%3D%2224%22%20fill%3D%22%230d1017%22/%3E%3Cpath%20d%3D%22M37%2C38%20L42.5%2C38%20L54%2C52.8%20L65.5%2C38%20L71%2C38%20L54%2C58.3%20Z%22%20fill%3D%22%2322d3ee%22/%3E%3Cpath%20d%3D%22M37%2C58%20L42.5%2C58%20L54%2C72.8%20L65.5%2C58%20L71%2C58%20L54%2C78.3%20Z%22%20fill%3D%22%23ff8a3d%22/%3E%3C/svg%3E">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=2.8.1">
+  <link rel="stylesheet" href="style.css?v=2.8.2">
 </head>
 <body>
   <div class="mobile-frame">
@@ -85,7 +85,7 @@
         </svg>
         <div style="display: flex; align-items: center; gap: 8px;">
           <h1 class="header-title" style="margin: 0; font-size: 17px; font-weight: 700; white-space: nowrap;">HK Downloader Pro</h1>
-          <span class="app-version-badge" title="Live Web Engine v2.8.1">v2.8.1</span>
+          <span class="app-version-badge" title="Live Web Engine v2.8.2">v2.8.2</span>
         </div>
       </div>
       
@@ -122,7 +122,7 @@
             <span class="apk-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.463 11.463 0 0 0-9.94 0L4.61 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L5.36 9.48C2.5 11.24.5 14.34.5 18h23c0-3.66-2-6.76-4.9-8.52z"></path></svg></span>
             <div class="apk-text">
               <strong>Download Android App (APK)</strong>
-              <small>Install native app v2.8.1 directly on your phone</small>
+              <small>Install native app v2.8.2 directly on your phone</small>
             </div>
             <span class="apk-arrow">↓</span>
           </a>
@@ -297,31 +297,36 @@
       <!-- Task-Based Sponsored Spotlight Ad Unit -->
       <div class="task-ad-section">
         <div class="task-ad-header">
-          <span class="task-ad-tag">SPONSORED SPOTLIGHT</span>
+          <span class="task-ad-tag"><span class="ad-pulse"></span> SPONSORED VIDEO AD</span>
           <span id="taskAdCountdown" class="task-ad-countdown">Ad finishes with download</span>
         </div>
 
         <div id="taskAdContainer" class="task-ad-container">
-          <!-- Rich Sponsored Creative Card -->
-          <div class="task-ad-creative" id="taskAdCreative">
-            <div class="task-ad-visual">
-              <div id="taskAdIcon" class="task-ad-icon-box">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.463 11.463 0 0 0-9.94 0L4.61 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L5.36 9.48C2.5 11.24.5 14.34.5 18h23c0-3.66-2-6.76-4.9-8.52z"></path></svg>
+          <!-- Rich Video Ad Player (Plays short sponsor video while downloading) -->
+          <div id="taskAdVideoWrap" class="task-ad-video-wrap">
+            <video id="taskAdVideo" class="task-ad-video-element" autoplay muted loop playsinline></video>
+            <div class="task-ad-video-overlay">
+              <div class="task-ad-top-pills">
+                <span class="ad-live-badge">FEATURED SPONSOR</span>
+                <button id="btnTaskAdAudio" class="btn-ad-audio" type="button" title="Toggle Sound">
+                  <svg id="adAudioMutedIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+                  <svg id="adAudioUnmutedIcon" class="hidden" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                </button>
               </div>
-              <div class="task-ad-text">
-                <div class="task-ad-badge-row">
-                  <span id="taskAdBadge" class="task-badge-pill">OFFICIAL APP</span>
+              <div class="task-ad-bottom-bar">
+                <div class="task-ad-video-info">
+                  <h5 id="taskAdVideoTitle" class="ad-video-title">Special Sponsored Offer</h5>
+                  <span id="taskAdVideoDomain" class="ad-video-domain">Sponsored • ad-network.com</span>
                 </div>
-                <h5 id="taskAdTitle">HK Downloader Pro for Android</h5>
-                <p id="taskAdDesc">Supercharge your downloads with instant offline library, 4K batch queues, and no limits.</p>
+                <a id="taskAdVideoCta" href="#" target="_blank" rel="noopener sponsored" class="btn-ad-cta">
+                  <span id="taskAdCtaText">Visit Sponsor</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
+                </a>
               </div>
             </div>
-            <a id="taskAdCta" href="hk-downloader-pro.apk" download class="task-ad-btn">
-              <span id="taskAdCtaText">Get Free APK</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            </a>
           </div>
-          <!-- Slot for Monetag Native Banner or custom ad network tag -->
+
+          <!-- Dynamic 3rd Party Banner Slot (Monetag / Adsterra / PropellerAds iframe or script) -->
           <div id="monetagTaskAdSlot" class="monetag-task-slot"></div>
         </div>
       </div>
@@ -494,10 +499,10 @@
     </div>
   </div>
 
-  <div class="version-corner-tag" title="HK Downloader Pro Web Engine v2.8.1">
-    <span class="pulse-dot"></span> Web v2.8.1 • <a href="hk-downloader-pro.apk" download>APK v2.8.1</a>
+  <div class="version-corner-tag" title="HK Downloader Pro Web Engine v2.8.2">
+    <span class="pulse-dot"></span> Web v2.8.2 • <a href="hk-downloader-pro.apk" download>APK v2.8.2</a>
   </div>
 
-  <script src="app.js?v=2.8.1"></script>
+  <script src="app.js?v=2.8.2"></script>
 </body>
 </html>

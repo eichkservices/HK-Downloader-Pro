@@ -28,52 +28,64 @@ document.addEventListener('DOMContentLoaded', () => {
   const taskProgressBar      = document.getElementById('taskProgressBar');
   const taskAdCountdown      = document.getElementById('taskAdCountdown');
   const taskAdContainer      = document.getElementById('taskAdContainer');
-  const taskAdIcon           = document.getElementById('taskAdIcon');
-  const taskAdBadge          = document.getElementById('taskAdBadge');
-  const taskAdTitle          = document.getElementById('taskAdTitle');
-  const taskAdDesc           = document.getElementById('taskAdDesc');
-  const taskAdCta            = document.getElementById('taskAdCta');
+  const taskAdVideo          = document.getElementById('taskAdVideo');
+  const btnTaskAdAudio       = document.getElementById('btnTaskAdAudio');
+  const adAudioMutedIcon     = document.getElementById('adAudioMutedIcon');
+  const adAudioUnmutedIcon   = document.getElementById('adAudioUnmutedIcon');
+  const taskAdVideoTitle     = document.getElementById('taskAdVideoTitle');
+  const taskAdVideoDomain    = document.getElementById('taskAdVideoDomain');
+  const taskAdVideoCta       = document.getElementById('taskAdVideoCta');
   const taskAdCtaText        = document.getElementById('taskAdCtaText');
   const taskCompleteActions  = document.getElementById('taskCompleteActions');
   const btnTaskPlay          = document.getElementById('btnTaskPlay');
   const btnTaskSave          = document.getElementById('btnTaskSave');
   const btnTaskCloseDone     = document.getElementById('btnTaskCloseDone');
 
+  // Monetag Direct Link (SmartLink) configuration - paste your Monetag direct link to monetize every ad click!
+  const MONETAG_DIRECT_LINK = localStorage.getItem('monetagDirectLink') || 'https://hkdownloader.online/apk';
+
   const TASK_AD_CREATIVES = [
     {
-      title: 'HK Downloader Pro for Android',
-      desc: 'Supercharge your downloads with background batch queues, 4K 60fps streams, and no ads on mobile.',
-      badge: 'OFFICIAL APP',
+      title: 'Ultra Fast Cloud Media Streamer',
+      domain: 'Sponsored • cloudstream.io',
+      ctaText: 'Visit Sponsor',
+      videoUrl: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+      targetUrl: MONETAG_DIRECT_LINK
+    },
+    {
+      title: 'High-Speed Gaming & VPN Network',
+      domain: 'Sponsored • fastnet.pro',
+      ctaText: 'Explore Offer',
+      videoUrl: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/friday.mp4',
+      targetUrl: MONETAG_DIRECT_LINK
+    },
+    {
+      title: 'HK Downloader Pro Native Android App',
+      domain: 'Official App • hkdownloader.online',
       ctaText: 'Get Free APK',
-      ctaUrl: 'hk-downloader-pro.apk',
-      isDownload: true,
-      icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.463 11.463 0 0 0-9.94 0L4.61 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L5.36 9.48C2.5 11.24.5 14.34.5 18h23c0-3.66-2-6.76-4.9-8.52z"></path></svg>`
-    },
-    {
-      title: 'High-Speed Cloud Media Storage',
-      desc: 'Instantly store, stream, and backup your videos with encrypted high-speed cloud sync.',
-      badge: 'SPONSORED',
-      ctaText: 'Explore Cloud',
-      ctaUrl: 'https://hkdownloader.online/apk',
-      isDownload: false,
-      icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>`
-    },
-    {
-      title: 'Ultra Audio Studio Extractor',
-      desc: 'Lossless 320kbps MP3 & M4A sound extraction engine for music producers and listeners.',
-      badge: 'FEATURED TOOL',
-      ctaText: 'Learn More',
-      ctaUrl: 'https://hkdownloader.online/apk',
-      isDownload: false,
-      icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>`
+      videoUrl: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+      targetUrl: 'hk-downloader-pro.apk',
+      isDownload: true
     }
   ];
   let taskAdIndex = 0;
+
+  if (btnTaskAdAudio && taskAdVideo) {
+    btnTaskAdAudio.addEventListener('click', (e) => {
+      e.stopPropagation();
+      taskAdVideo.muted = !taskAdVideo.muted;
+      if (adAudioMutedIcon && adAudioUnmutedIcon) {
+        adAudioMutedIcon.classList.toggle('hidden', !taskAdVideo.muted);
+        adAudioUnmutedIcon.classList.toggle('hidden', taskAdVideo.muted);
+      }
+    });
+  }
 
   if (taskDownloadModal) {
     taskDownloadModal.addEventListener('click', (e) => {
       if (e.target === taskDownloadModal) {
         taskDownloadModal.classList.add('hidden');
+        if (taskAdVideo) taskAdVideo.pause();
       }
     });
   }
@@ -1484,19 +1496,26 @@ document.addEventListener('DOMContentLoaded', () => {
       activeDownloadCount = Math.max(0, activeDownloadCount - 1);
     };
 
-    // ── Setup Task-Based Download Station Modal & Ad Spotlight ──
+    // ── Setup Task-Based Video Ad Player ──
     const ad = TASK_AD_CREATIVES[taskAdIndex % TASK_AD_CREATIVES.length];
     taskAdIndex++;
-    if (taskAdTitle) taskAdTitle.textContent = ad.title;
-    if (taskAdDesc) taskAdDesc.textContent = ad.desc;
-    if (taskAdBadge) taskAdBadge.textContent = ad.badge;
+    if (taskAdVideoTitle) taskAdVideoTitle.textContent = ad.title;
+    if (taskAdVideoDomain) taskAdVideoDomain.textContent = ad.domain;
     if (taskAdCtaText) taskAdCtaText.textContent = ad.ctaText;
-    if (taskAdCta) {
-      taskAdCta.href = ad.ctaUrl;
-      if (ad.isDownload) taskAdCta.setAttribute('download', '');
-      else taskAdCta.removeAttribute('download');
+    if (taskAdVideoCta) {
+      taskAdVideoCta.href = ad.targetUrl;
+      if (ad.isDownload) taskAdVideoCta.setAttribute('download', '');
+      else taskAdVideoCta.removeAttribute('download');
     }
-    if (taskAdIcon) taskAdIcon.innerHTML = ad.icon;
+    if (taskAdVideo) {
+      taskAdVideo.src = ad.videoUrl;
+      taskAdVideo.muted = true;
+      if (adAudioMutedIcon && adAudioUnmutedIcon) {
+        adAudioMutedIcon.classList.remove('hidden');
+        adAudioUnmutedIcon.classList.add('hidden');
+      }
+      taskAdVideo.play().catch(() => {});
+    }
 
     if (taskTitle) taskTitle.textContent = title || filename;
     if (taskThumb && taskThumbFallback) {
@@ -1531,6 +1550,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnMinimizeTask) {
       btnMinimizeTask.onclick = () => {
         if (taskDownloadModal) taskDownloadModal.classList.add('hidden');
+        if (taskAdVideo) taskAdVideo.pause();
         showToast('Running in background', 'Track your download in Active Downloads below.');
       };
     }
@@ -1538,6 +1558,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const cancelDownload = () => {
       controller.abort();
       if (taskDownloadModal) taskDownloadModal.classList.add('hidden');
+      if (taskAdVideo) taskAdVideo.pause();
       cardElem.classList.add('failed');
       percent.textContent = 'Cancelled';
       statusText.textContent = 'Cancelled';
@@ -1681,6 +1702,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (taskSpeedEtaBadge) taskSpeedEtaBadge.textContent = 'Saved to Device';
       if (taskAdCountdown) taskAdCountdown.textContent = 'Task Completed';
       if (taskCompleteActions) taskCompleteActions.classList.remove('hidden');
+      if (taskAdVideo) taskAdVideo.pause();
 
       if (btnTaskPlay) {
         btnTaskPlay.onclick = () => {

@@ -1444,98 +1444,153 @@ html, body {
 }
 
 .task-ad-container {
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid var(--glass-border);
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--glass-border-strong);
   border-radius: var(--radius-md);
-  padding: 14px;
+  padding: 8px;
   position: relative;
   overflow: hidden;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-.task-ad-visual {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.task-ad-icon-box {
-  width: 44px;
-  height: 44px;
+.task-ad-video-wrap {
+  position: relative;
+  width: 100%;
+  height: 180px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, rgba(255, 138, 61, 0.18), rgba(34, 211, 238, 0.15));
-  border: 1px solid var(--glass-border-strong);
+  overflow: hidden;
+  background: #000;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--accent-orange);
-  flex-shrink: 0;
 }
 
-.task-ad-text {
+.task-ad-video-element {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.task-ad-video-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, transparent 40%, rgba(0,0,0,0.85) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px 12px;
+  pointer-events: none;
+}
+
+.task-ad-top-pills {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.ad-live-badge {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.65);
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(4px);
+}
+
+.btn-ad-audio {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: all 0.2s ease;
+}
+
+.btn-ad-audio:hover {
+  background: var(--accent-orange);
+  color: #1a0b02;
+  border-color: var(--accent-orange);
+  transform: scale(1.05);
+}
+
+.task-ad-bottom-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+.task-ad-video-info {
   min-width: 0;
   flex: 1;
 }
 
-.task-ad-badge-row {
-  margin-bottom: 2px;
-}
-
-.task-badge-pill {
-  font-size: 9px;
-  font-weight: 800;
-  padding: 1px 5px;
-  border-radius: 3px;
-  background: rgba(255, 138, 61, 0.18);
-  color: var(--accent-orange);
-  display: inline-block;
-  letter-spacing: 0.04em;
-}
-
-.task-ad-text h5 {
+.ad-video-title {
   margin: 0;
   font-size: 13px;
   font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1.3;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.task-ad-text p {
-  margin: 3px 0 0;
-  font-size: 11px;
-  color: var(--text-secondary);
-  line-height: 1.35;
+.ad-video-domain {
+  font-size: 10px;
+  color: var(--accent-orange);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  display: block;
+  margin-top: 2px;
 }
 
-.task-ad-btn {
-  margin-top: 10px;
+.btn-ad-cta {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid var(--glass-border-strong);
+  gap: 4px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, var(--accent-orange), #ff6a1f);
+  color: #1a0b02 !important;
+  font-size: 11px;
+  font-weight: 800;
   border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 700;
   text-decoration: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  flex-shrink: 0;
+  box-shadow: 0 2px 10px rgba(255, 138, 61, 0.4);
+  transition: transform 0.15s ease;
 }
 
-.task-ad-btn:hover {
-  background: var(--accent-orange);
-  color: #1a0b02;
-  border-color: var(--accent-orange);
-  transform: translateY(-1px);
+.btn-ad-cta:hover {
+  transform: scale(1.03);
+}
+
+.ad-pulse {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+  margin-right: 5px;
+  box-shadow: 0 0 8px var(--accent-cyan);
+  animation: pulseDot 1.4s infinite;
 }
 
 .monetag-task-slot {
   width: 100%;
-  margin-top: 8px;
+  margin-top: 6px;
   display: flex;
   justify-content: center;
   overflow: hidden;
