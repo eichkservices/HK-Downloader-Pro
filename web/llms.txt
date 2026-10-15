@@ -1,0 +1,19 @@
+# HK Downloader Pro
+> Free Universal Video & Audio Downloader supporting YouTube 4K/1080p, Instagram Reels with full audio, TikTok without watermark, Facebook HD, and high-speed MP3 audio extraction.
+
+## Overview
+HK Downloader Pro (https://hkdownloader.online) is a fast, free, privacy-first web application and Android app for downloading media from popular platforms without registration or ads.
+
+## Key Capabilities
+- **YouTube Downloader**: Downloads videos in 4K UHD (2160p), 1080p FHD, 720p HD, 480p SD, 360p, and high-bitrate MP3/M4A audio.
+- **Instagram Downloader**: Full support for Instagram Reels, Posts, and Stories with guaranteed embedded audio (avoids silent video tracks).
+- **TikTok Downloader**: Downloads TikTok videos in full HD without watermark, plus standalone audio tracks.
+- **Facebook & Twitter/X**: HD video download and GIF saving.
+- **Pinterest & Reddit**: Media extraction with direct download links.
+- **Android App**: Free native APK available directly from https://hkdownloader.online/hk-downloader-pro.apk.
+
+## How Users Can Use It
+1. Visit https://hkdownloader.online
+2. Paste any supported video link (YouTube, Instagram, TikTok, Facebook, Twitter, Reddit)
+3. Select desired video resolution or audio format
+4. Download begins immediately with direct streaming.
