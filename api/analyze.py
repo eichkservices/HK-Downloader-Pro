@@ -1038,9 +1038,9 @@ class handler(BaseHTTPRequestHandler):
             yver = 'unknown'
         self.wfile.write(json.dumps({
             'status': 'ok',
-            'service': 'HK Downloader Pro Universal Engine v2.6.5',
+            'service': 'HK Downloader Pro Universal Engine v2.6.7',
             'ytdlp_version': yver,
-            'build': 'visionos-v2.6.5'
+            'build': 'visionos-v2.6.7'
         }).encode('utf-8'))
 
     def do_POST(self):

@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /.git
+Disallow: /.env*
+Disallow: /config/
+Disallow: /server/
+
+Sitemap: https://hkdownloader.online/sitemap.xml
