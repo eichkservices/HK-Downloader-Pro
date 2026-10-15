@@ -41,34 +41,48 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnTaskSave          = document.getElementById('btnTaskSave');
   const btnTaskCloseDone     = document.getElementById('btnTaskCloseDone');
 
-  // Monetag Direct Link (SmartLink) configuration - paste your Monetag direct link to monetize every ad click!
-  const MONETAG_DIRECT_LINK = localStorage.getItem('monetagDirectLink') || 'https://hkdownloader.online/apk';
+  // Official Monetag Direct Link (SmartLink) - Live CPM Advertiser Offer Stream
+  const MONETAG_DIRECT_LINK = 'https://uplcm.com/4/12041858';
 
   const TASK_AD_CREATIVES = [
     {
-      title: 'Ultra Fast Cloud Media Streamer',
-      domain: 'Sponsored • cloudstream.io',
+      title: 'Verified Partner Offer & High-Speed Media',
+      domain: 'Sponsored • monetag.com',
       ctaText: 'Visit Sponsor',
       videoUrl: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
       targetUrl: MONETAG_DIRECT_LINK
     },
     {
-      title: 'High-Speed Gaming & VPN Network',
-      domain: 'Sponsored • fastnet.pro',
+      title: 'High-Speed Cloud Storage & VPN Network',
+      domain: 'Sponsored • verified-partner',
       ctaText: 'Explore Offer',
       videoUrl: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/friday.mp4',
       targetUrl: MONETAG_DIRECT_LINK
     },
     {
-      title: 'HK Downloader Pro Native Android App',
-      domain: 'Official App • hkdownloader.online',
-      ctaText: 'Get Free APK',
+      title: 'Trending Digital Deals & Recommended Tools',
+      domain: 'Sponsored • direct-offers',
+      ctaText: 'Check Offer',
       videoUrl: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
-      targetUrl: 'hk-downloader-pro.apk',
-      isDownload: true
+      targetUrl: MONETAG_DIRECT_LINK
     }
   ];
   let taskAdIndex = 0;
+
+  const taskAdVideoWrap = document.getElementById('taskAdVideoWrap');
+  if (taskAdVideoWrap) {
+    taskAdVideoWrap.style.cursor = 'pointer';
+    taskAdVideoWrap.addEventListener('click', (e) => {
+      // Don't trigger if user clicked the audio mute/unmute button or the CTA anchor
+      if (e.target.closest('#btnTaskAdAudio') || e.target.closest('#taskAdVideoCta')) {
+        return;
+      }
+      const targetUrl = taskAdVideoCta?.href || MONETAG_DIRECT_LINK;
+      if (targetUrl && targetUrl !== '#' && !targetUrl.startsWith('javascript:')) {
+        window.open(targetUrl, '_blank', 'noopener,noreferrer');
+      }
+    });
+  }
 
   if (btnTaskAdAudio && taskAdVideo) {
     btnTaskAdAudio.addEventListener('click', (e) => {
@@ -1503,7 +1517,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (taskAdVideoDomain) taskAdVideoDomain.textContent = ad.domain;
     if (taskAdCtaText) taskAdCtaText.textContent = ad.ctaText;
     if (taskAdVideoCta) {
-      taskAdVideoCta.href = ad.targetUrl;
+      taskAdVideoCta.href = ad.targetUrl || MONETAG_DIRECT_LINK;
+      taskAdVideoCta.target = '_blank';
+      taskAdVideoCta.rel = 'noopener sponsored';
       if (ad.isDownload) taskAdVideoCta.setAttribute('download', '');
       else taskAdVideoCta.removeAttribute('download');
     }
@@ -1836,8 +1852,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         <div class="dl-card-ad-strip">
           <span class="ad-pill">SPONSORED</span>
-          <span style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">HK Downloader App: 10x faster background downloads</span>
-          <a href="hk-downloader-pro.apk" download class="ad-cta-link">Get APK</a>
+          <span style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Special Sponsor Deal • Fast Media & Tools</span>
+          <a href="${MONETAG_DIRECT_LINK}" target="_blank" rel="noopener sponsored" class="ad-cta-link">Visit Sponsor</a>
         </div>
       </div>
     `;
