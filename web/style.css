@@ -1232,5 +1232,433 @@ html, body {
   text-decoration: underline;
 }
 
+/* ============================================================
+   Task-Based Download Station & Ad Spotlight Modal
+   ============================================================ */
+.task-download-card {
+  padding: 18px 20px 22px;
+  max-width: 480px;
+  background: var(--bg-2);
+  border: 1px solid var(--glass-border-strong);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow-lift);
+}
+
+.task-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.task-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.task-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-task-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-task-action:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border-color: var(--glass-border-strong);
+}
+
+.btn-task-action.danger:hover {
+  background: rgba(251, 113, 133, 0.15);
+  color: var(--accent-red);
+  border-color: rgba(251, 113, 133, 0.35);
+}
+
+/* Media Meta Summary inside Task Modal */
+.task-meta-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+}
+
+.task-thumb-wrap {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--glass-border);
+}
+
+.task-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.task-thumb-fallback {
+  color: var(--accent-orange);
+}
+
+.task-info-wrap {
+  min-width: 0;
+  flex: 1;
+}
+
+.task-title {
+  margin: 0 0 6px 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-stream-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.badge-mini {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+}
+
+.badge-mini.badge-orange {
+  color: var(--accent-orange);
+  background: rgba(255, 138, 61, 0.12);
+  border: 1px solid rgba(255, 138, 61, 0.25);
+  font-family: var(--font-mono);
+}
+
+/* Real-Time Progress Box */
+.task-progress-box {
+  margin-top: 14px;
+}
+
+.task-progress-labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.task-pct {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--accent-orange);
+  font-family: var(--font-mono);
+}
+
+.task-size {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.task-bar-track {
+  height: 6px;
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.task-bar-fill {
+  height: 100%;
+  border-radius: 100px;
+  background: linear-gradient(90deg, var(--accent-orange), #ff6a1f);
+  box-shadow: 0 0 10px rgba(255, 138, 61, 0.5);
+  transition: width 0.25s ease;
+}
+
+/* Task-Based Ad Section */
+.task-ad-section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--glass-border);
+}
+
+.task-ad-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.task-ad-tag {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--accent-cyan);
+  background: rgba(34, 211, 238, 0.12);
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(34, 211, 238, 0.25);
+}
+
+.task-ad-countdown {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.task-ad-container {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.task-ad-visual {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.task-ad-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, rgba(255, 138, 61, 0.18), rgba(34, 211, 238, 0.15));
+  border: 1px solid var(--glass-border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-orange);
+  flex-shrink: 0;
+}
+
+.task-ad-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.task-ad-badge-row {
+  margin-bottom: 2px;
+}
+
+.task-badge-pill {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(255, 138, 61, 0.18);
+  color: var(--accent-orange);
+  display: inline-block;
+  letter-spacing: 0.04em;
+}
+
+.task-ad-text h5 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.task-ad-text p {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.task-ad-btn {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--glass-border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.task-ad-btn:hover {
+  background: var(--accent-orange);
+  color: #1a0b02;
+  border-color: var(--accent-orange);
+  transform: translateY(-1px);
+}
+
+.monetag-task-slot {
+  width: 100%;
+  margin-top: 8px;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Completion Actions in Task Modal */
+.task-complete-actions {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(52, 211, 153, 0.3);
+  animation: completePulse 0.6s ease;
+}
+
+.complete-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent-green);
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 12px;
+  background: rgba(52, 211, 153, 0.12);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+}
+
+.complete-btn-row {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-complete-play {
+  flex: 1;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, var(--accent-orange), #ff6a1f);
+  color: #1a0b02;
+  font-weight: 800;
+  font-size: 13px;
+  border: none;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.btn-complete-play:hover {
+  transform: scale(1.02);
+}
+
+.btn-complete-save {
+  flex: 1;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  border: 1px solid var(--glass-border-strong);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn-complete-save:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.btn-complete-close {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.btn-complete-close:hover {
+  color: var(--text-primary);
+}
+
+/* In-Card Mini Ad Strip (for active downloads in list) */
+.dl-card-ad-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+}
+
+.dl-card-ad-strip .ad-pill {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--accent-cyan);
+  background: rgba(34, 211, 238, 0.12);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.dl-card-ad-strip .ad-cta-link {
+  color: var(--accent-orange);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.dl-card-ad-strip .ad-cta-link:hover {
+  text-decoration: underline;
+}
+
 
 

@@ -43,7 +43,7 @@
     "applicationCategory": "MultimediaApplication",
     "operatingSystem": "All",
     "browserRequirements": "Requires JavaScript. Requires HTML5.",
-    "softwareVersion": "2.8.0",
+    "softwareVersion": "2.8.1",
     "offers": {
       "@type": "Offer",
       "price": "0",
@@ -62,7 +62,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20108%20108%22%3E%3Crect%20width%3D%22108%22%20height%3D%22108%22%20rx%3D%2224%22%20fill%3D%22%230d1017%22/%3E%3Cpath%20d%3D%22M37%2C38%20L42.5%2C38%20L54%2C52.8%20L65.5%2C38%20L71%2C38%20L54%2C58.3%20Z%22%20fill%3D%22%2322d3ee%22/%3E%3Cpath%20d%3D%22M37%2C58%20L42.5%2C58%20L54%2C72.8%20L65.5%2C58%20L71%2C58%20L54%2C78.3%20Z%22%20fill%3D%22%23ff8a3d%22/%3E%3C/svg%3E">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=2.8.0">
+  <link rel="stylesheet" href="style.css?v=2.8.1">
 </head>
 <body>
   <div class="mobile-frame">
@@ -85,7 +85,7 @@
         </svg>
         <div style="display: flex; align-items: center; gap: 8px;">
           <h1 class="header-title" style="margin: 0; font-size: 17px; font-weight: 700; white-space: nowrap;">HK Downloader Pro</h1>
-          <span class="app-version-badge" title="Live Web Engine v2.8.0">v2.8.0</span>
+          <span class="app-version-badge" title="Live Web Engine v2.8.1">v2.8.1</span>
         </div>
       </div>
       
@@ -122,7 +122,7 @@
             <span class="apk-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.463 11.463 0 0 0-9.94 0L4.61 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L5.36 9.48C2.5 11.24.5 14.34.5 18h23c0-3.66-2-6.76-4.9-8.52z"></path></svg></span>
             <div class="apk-text">
               <strong>Download Android App (APK)</strong>
-              <small>Install native app v2.8.0 directly on your phone</small>
+              <small>Install native app v2.8.1 directly on your phone</small>
             </div>
             <span class="apk-arrow">↓</span>
           </a>
@@ -244,6 +244,105 @@
         <div id="formatList" class="format-list">
           <!-- Formats populated dynamically -->
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Task-Based Download Station Modal with Integrated Ad Spotlight -->
+  <div id="taskDownloadModal" class="modal-overlay hidden">
+    <div class="modal-card task-download-card">
+      <div class="task-modal-header">
+        <div class="task-header-left">
+          <span class="task-live-indicator"><span class="pulse-dot"></span> <span id="taskStatusHeading">Downloading Media...</span></span>
+        </div>
+        <div class="task-header-actions">
+          <button id="btnMinimizeTask" class="btn-task-action" title="Minimize & Run in Background">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline></svg>
+            <span>Minimize</span>
+          </button>
+          <button id="btnCancelTaskModal" class="btn-task-action danger" title="Cancel Download">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Media Info Summary -->
+      <div class="task-meta-summary">
+        <div class="task-thumb-wrap">
+          <img id="taskThumb" src="" alt="Thumbnail" class="task-thumb">
+          <div id="taskThumbFallback" class="task-thumb-fallback hidden">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+          </div>
+        </div>
+        <div class="task-info-wrap">
+          <h4 id="taskTitle" class="task-title">Media Title</h4>
+          <div class="task-stream-badges">
+            <span id="taskQualityBadge" class="badge-mini">1080p MP4</span>
+            <span id="taskSpeedEtaBadge" class="badge-mini badge-orange">Preparing stream...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-Time Progress Section -->
+      <div class="task-progress-box">
+        <div class="task-progress-labels">
+          <span id="taskProgressPct" class="task-pct">0%</span>
+          <span id="taskProgressSize" class="task-size">Connecting...</span>
+        </div>
+        <div class="task-bar-track">
+          <div id="taskProgressBar" class="task-bar-fill" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Task-Based Sponsored Spotlight Ad Unit -->
+      <div class="task-ad-section">
+        <div class="task-ad-header">
+          <span class="task-ad-tag">SPONSORED SPOTLIGHT</span>
+          <span id="taskAdCountdown" class="task-ad-countdown">Ad finishes with download</span>
+        </div>
+
+        <div id="taskAdContainer" class="task-ad-container">
+          <!-- Rich Sponsored Creative Card -->
+          <div class="task-ad-creative" id="taskAdCreative">
+            <div class="task-ad-visual">
+              <div id="taskAdIcon" class="task-ad-icon-box">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.463 11.463 0 0 0-9.94 0L4.61 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L5.36 9.48C2.5 11.24.5 14.34.5 18h23c0-3.66-2-6.76-4.9-8.52z"></path></svg>
+              </div>
+              <div class="task-ad-text">
+                <div class="task-ad-badge-row">
+                  <span id="taskAdBadge" class="task-badge-pill">OFFICIAL APP</span>
+                </div>
+                <h5 id="taskAdTitle">HK Downloader Pro for Android</h5>
+                <p id="taskAdDesc">Supercharge your downloads with instant offline library, 4K batch queues, and no limits.</p>
+              </div>
+            </div>
+            <a id="taskAdCta" href="hk-downloader-pro.apk" download class="task-ad-btn">
+              <span id="taskAdCtaText">Get Free APK</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            </a>
+          </div>
+          <!-- Slot for Monetag Native Banner or custom ad network tag -->
+          <div id="monetagTaskAdSlot" class="monetag-task-slot"></div>
+        </div>
+      </div>
+
+      <!-- Completion Actions (Hidden during download, revealed on completion) -->
+      <div id="taskCompleteActions" class="task-complete-actions hidden">
+        <div class="complete-banner">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>Download Complete & Ready!</span>
+        </div>
+        <div class="complete-btn-row">
+          <button id="btnTaskPlay" class="btn-complete-play">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            <span>Play in HK Player</span>
+          </button>
+          <button id="btnTaskSave" class="btn-complete-save">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span>Save to Device</span>
+          </button>
+        </div>
+        <button id="btnTaskCloseDone" class="btn-complete-close">Done & Return</button>
       </div>
     </div>
   </div>
@@ -395,10 +494,10 @@
     </div>
   </div>
 
-  <div class="version-corner-tag" title="HK Downloader Pro Web Engine v2.8.0">
-    <span class="pulse-dot"></span> Web v2.8.0 • <a href="hk-downloader-pro.apk" download>APK v2.8.0</a>
+  <div class="version-corner-tag" title="HK Downloader Pro Web Engine v2.8.1">
+    <span class="pulse-dot"></span> Web v2.8.1 • <a href="hk-downloader-pro.apk" download>APK v2.8.1</a>
   </div>
 
-  <script src="app.js?v=2.8.0"></script>
+  <script src="app.js?v=2.8.1"></script>
 </body>
 </html>

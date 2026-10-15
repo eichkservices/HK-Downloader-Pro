@@ -13,6 +13,71 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalTypeBadge     = document.getElementById('modalTypeBadge');
   const formatList         = document.getElementById('formatList');
 
+  // Task-Based Download Station Modal Elements
+  const taskDownloadModal    = document.getElementById('taskDownloadModal');
+  const taskStatusHeading    = document.getElementById('taskStatusHeading');
+  const btnMinimizeTask      = document.getElementById('btnMinimizeTask');
+  const btnCancelTaskModal   = document.getElementById('btnCancelTaskModal');
+  const taskThumb            = document.getElementById('taskThumb');
+  const taskThumbFallback    = document.getElementById('taskThumbFallback');
+  const taskTitle            = document.getElementById('taskTitle');
+  const taskQualityBadge     = document.getElementById('taskQualityBadge');
+  const taskSpeedEtaBadge    = document.getElementById('taskSpeedEtaBadge');
+  const taskProgressPct      = document.getElementById('taskProgressPct');
+  const taskProgressSize     = document.getElementById('taskProgressSize');
+  const taskProgressBar      = document.getElementById('taskProgressBar');
+  const taskAdCountdown      = document.getElementById('taskAdCountdown');
+  const taskAdContainer      = document.getElementById('taskAdContainer');
+  const taskAdIcon           = document.getElementById('taskAdIcon');
+  const taskAdBadge          = document.getElementById('taskAdBadge');
+  const taskAdTitle          = document.getElementById('taskAdTitle');
+  const taskAdDesc           = document.getElementById('taskAdDesc');
+  const taskAdCta            = document.getElementById('taskAdCta');
+  const taskAdCtaText        = document.getElementById('taskAdCtaText');
+  const taskCompleteActions  = document.getElementById('taskCompleteActions');
+  const btnTaskPlay          = document.getElementById('btnTaskPlay');
+  const btnTaskSave          = document.getElementById('btnTaskSave');
+  const btnTaskCloseDone     = document.getElementById('btnTaskCloseDone');
+
+  const TASK_AD_CREATIVES = [
+    {
+      title: 'HK Downloader Pro for Android',
+      desc: 'Supercharge your downloads with background batch queues, 4K 60fps streams, and no ads on mobile.',
+      badge: 'OFFICIAL APP',
+      ctaText: 'Get Free APK',
+      ctaUrl: 'hk-downloader-pro.apk',
+      isDownload: true,
+      icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.463 11.463 0 0 0-9.94 0L4.61 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L5.36 9.48C2.5 11.24.5 14.34.5 18h23c0-3.66-2-6.76-4.9-8.52z"></path></svg>`
+    },
+    {
+      title: 'High-Speed Cloud Media Storage',
+      desc: 'Instantly store, stream, and backup your videos with encrypted high-speed cloud sync.',
+      badge: 'SPONSORED',
+      ctaText: 'Explore Cloud',
+      ctaUrl: 'https://hkdownloader.online/apk',
+      isDownload: false,
+      icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>`
+    },
+    {
+      title: 'Ultra Audio Studio Extractor',
+      desc: 'Lossless 320kbps MP3 & M4A sound extraction engine for music producers and listeners.',
+      badge: 'FEATURED TOOL',
+      ctaText: 'Learn More',
+      ctaUrl: 'https://hkdownloader.online/apk',
+      isDownload: false,
+      icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>`
+    }
+  ];
+  let taskAdIndex = 0;
+
+  if (taskDownloadModal) {
+    taskDownloadModal.addEventListener('click', (e) => {
+      if (e.target === taskDownloadModal) {
+        taskDownloadModal.classList.add('hidden');
+      }
+    });
+  }
+
   // ── APEX Engine: Rolling Speed Sampler (800ms window → accurate, smooth readouts)
   class SpeedSampler {
     constructor(windowMs = 800) {
@@ -1403,10 +1468,10 @@ document.addEventListener('DOMContentLoaded', () => {
     deleteModal.classList.add('hidden');
   });
 
-  // 8. Download Execution Engine (Supports Node Server Token + Client Direct Streams)
+  // 8. Download Execution Engine with Task-Based Ad Wait-Time Station
   async function startDownload(tokenOrUrl, filename, title, thumbnail, knownSize, formatObj) {
     const card = addDownloadCard(title, filename, thumbnail);
-    const { cardElem, bar, percent, meta, statusText, btnCancel, actionsContainer } = card;
+    const { cardElem, bar, percent, meta, statusText, btnCancel, actionsContainer, adStrip } = card;
 
     const controller = new AbortController();
 
@@ -1419,14 +1484,80 @@ document.addEventListener('DOMContentLoaded', () => {
       activeDownloadCount = Math.max(0, activeDownloadCount - 1);
     };
 
-    btnCancel.addEventListener('click', () => {
+    // ── Setup Task-Based Download Station Modal & Ad Spotlight ──
+    const ad = TASK_AD_CREATIVES[taskAdIndex % TASK_AD_CREATIVES.length];
+    taskAdIndex++;
+    if (taskAdTitle) taskAdTitle.textContent = ad.title;
+    if (taskAdDesc) taskAdDesc.textContent = ad.desc;
+    if (taskAdBadge) taskAdBadge.textContent = ad.badge;
+    if (taskAdCtaText) taskAdCtaText.textContent = ad.ctaText;
+    if (taskAdCta) {
+      taskAdCta.href = ad.ctaUrl;
+      if (ad.isDownload) taskAdCta.setAttribute('download', '');
+      else taskAdCta.removeAttribute('download');
+    }
+    if (taskAdIcon) taskAdIcon.innerHTML = ad.icon;
+
+    if (taskTitle) taskTitle.textContent = title || filename;
+    if (taskThumb && taskThumbFallback) {
+      if (thumbnail) {
+        taskThumb.src = thumbnail;
+        taskThumb.classList.remove('hidden');
+        taskThumbFallback.classList.add('hidden');
+      } else {
+        taskThumb.classList.add('hidden');
+        taskThumbFallback.classList.remove('hidden');
+      }
+    }
+
+    const qNote = formatObj?.note || (formatObj?.ext ? formatObj.ext.toUpperCase() : 'MP4');
+    if (taskQualityBadge) taskQualityBadge.textContent = qNote;
+    if (taskSpeedEtaBadge) taskSpeedEtaBadge.textContent = 'Preparing stream…';
+    if (taskProgressPct) {
+      taskProgressPct.textContent = '0%';
+      taskProgressPct.style.color = 'var(--accent-orange)';
+    }
+    if (taskProgressSize) taskProgressSize.textContent = 'Connecting…';
+    if (taskProgressBar) {
+      taskProgressBar.style.width = '0%';
+      taskProgressBar.style.background = 'linear-gradient(90deg, var(--accent-orange), #ff6a1f)';
+    }
+    if (taskStatusHeading) taskStatusHeading.textContent = 'Downloading Media…';
+    if (taskAdCountdown) taskAdCountdown.textContent = 'Ad finishes with download';
+    if (taskCompleteActions) taskCompleteActions.classList.add('hidden');
+
+    if (taskDownloadModal) taskDownloadModal.classList.remove('hidden');
+
+    if (btnMinimizeTask) {
+      btnMinimizeTask.onclick = () => {
+        if (taskDownloadModal) taskDownloadModal.classList.add('hidden');
+        showToast('Running in background', 'Track your download in Active Downloads below.');
+      };
+    }
+
+    const cancelDownload = () => {
       controller.abort();
+      if (taskDownloadModal) taskDownloadModal.classList.add('hidden');
       cardElem.classList.add('failed');
       percent.textContent = 'Cancelled';
       statusText.textContent = 'Cancelled';
       meta.textContent = 'Download cancelled';
+      if (adStrip) adStrip.remove();
       releaseCount();
       refreshAmbientFromActivity();
+    };
+
+    btnCancel.addEventListener('click', cancelDownload);
+    if (btnCancelTaskModal) {
+      btnCancelTaskModal.onclick = cancelDownload;
+    }
+
+    // Allow user to click active card to re-open Task Modal if minimized
+    cardElem.addEventListener('click', (e) => {
+      if (e.target.closest('button') || e.target.closest('a')) return;
+      if (!cardElem.classList.contains('completed') && !cardElem.classList.contains('failed')) {
+        if (taskDownloadModal) taskDownloadModal.classList.remove('hidden');
+      }
     });
 
     try {
@@ -1496,9 +1627,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const pct          = totalSize ? Math.round((received / totalSize) * 100) : null;
         const eta          = totalSize && currentSpeed > 0 ? Math.round((totalSize - received) / currentSpeed) : null;
 
+        // Update list card
         bar.style.width      = pct != null ? `${pct}%` : '50%';
         percent.textContent  = pct != null ? `${pct}%` : '…';
         meta.textContent     = `${fmtBytes(received)}${totalSize ? ' / ' + fmtBytes(totalSize) : ''}    ${fmtSpeed(currentSpeed)}${eta ? '    ' + fmtEta(eta) : ''}`;
+
+        // Sync with Task Modal
+        if (taskProgressBar) taskProgressBar.style.width = pct != null ? `${pct}%` : '50%';
+        if (taskProgressPct) taskProgressPct.textContent = pct != null ? `${pct}%` : '…';
+        if (taskProgressSize) taskProgressSize.textContent = `${fmtBytes(received)}${totalSize ? ' / ' + fmtBytes(totalSize) : ''}`;
+        if (taskSpeedEtaBadge) {
+          if (eta != null && eta > 0) {
+            taskSpeedEtaBadge.textContent = `${fmtSpeed(currentSpeed)} • ~${eta}s left`;
+            if (taskAdCountdown) taskAdCountdown.textContent = `Ad finishes with download (~${eta}s)`;
+          } else {
+            taskSpeedEtaBadge.textContent = fmtSpeed(currentSpeed);
+          }
+        }
       }
 
       // Complete download with dynamic MIME type
@@ -1518,9 +1663,46 @@ document.addEventListener('DOMContentLoaded', () => {
       percent.textContent = '100%';
       statusText.textContent = 'Finished';
       meta.textContent = 'Saved to Downloads';
+      if (adStrip) adStrip.remove();
       showToast('Download complete', title || filename);
       releaseCount();
       flashAmbientState('state-completed');
+
+      // Update Task Modal completion state
+      if (taskProgressBar) {
+        taskProgressBar.style.width = '100%';
+        taskProgressBar.style.background = 'var(--accent-green)';
+      }
+      if (taskProgressPct) {
+        taskProgressPct.textContent = '100%';
+        taskProgressPct.style.color = 'var(--accent-green)';
+      }
+      if (taskStatusHeading) taskStatusHeading.textContent = 'Download Complete!';
+      if (taskSpeedEtaBadge) taskSpeedEtaBadge.textContent = 'Saved to Device';
+      if (taskAdCountdown) taskAdCountdown.textContent = 'Task Completed';
+      if (taskCompleteActions) taskCompleteActions.classList.remove('hidden');
+
+      if (btnTaskPlay) {
+        btnTaskPlay.onclick = () => {
+          if (taskDownloadModal) taskDownloadModal.classList.add('hidden');
+          playVideoInCustomPlayer(title || filename, blobUrl, ext, filename, extraAudioUrl);
+        };
+      }
+      if (btnTaskSave) {
+        btnTaskSave.onclick = () => {
+          const dlLink = document.createElement('a');
+          dlLink.href = blobUrl;
+          dlLink.download = filename;
+          document.body.appendChild(dlLink);
+          dlLink.click();
+          document.body.removeChild(dlLink);
+        };
+      }
+      if (btnTaskCloseDone) {
+        btnTaskCloseDone.onclick = () => {
+          if (taskDownloadModal) taskDownloadModal.classList.add('hidden');
+        };
+      }
 
       actionsContainer.innerHTML = `
         <button class="btn-card-action btn-play" title="Play Media">
@@ -1574,9 +1756,15 @@ document.addEventListener('DOMContentLoaded', () => {
             percent.textContent = '100%';
             statusText.textContent = 'Finished';
             meta.textContent = 'Saved to Device Downloads';
+            if (adStrip) adStrip.remove();
             showToast('Download started', title || filename);
             releaseCount();
             flashAmbientState('state-completed');
+
+            if (taskProgressBar) taskProgressBar.style.width = '100%';
+            if (taskProgressPct) taskProgressPct.textContent = '100%';
+            if (taskStatusHeading) taskStatusHeading.textContent = 'Download Started!';
+            if (taskCompleteActions) taskCompleteActions.classList.remove('hidden');
           }, 1200);
           return;
         }
@@ -1585,9 +1773,13 @@ document.addEventListener('DOMContentLoaded', () => {
         percent.textContent = 'Failed';
         statusText.textContent = 'Failed';
         meta.textContent = err.message;
+        if (adStrip) adStrip.remove();
         showToast('Download failed', err.message, true);
         releaseCount();
         flashAmbientState('state-failed');
+
+        if (taskStatusHeading) taskStatusHeading.textContent = 'Download Failed';
+        if (taskAdCountdown) taskAdCountdown.textContent = 'Error occurred';
       }
     }
   }
@@ -1597,6 +1789,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const cardElem = document.createElement('div');
     cardElem.className = 'dl-card';
+    cardElem.style.cursor = 'pointer';
     const thumbHtml = thumbnail
       ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" style="position:absolute;z-index:0;opacity:0.35"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg><img src="${thumbnail}" alt="thumb" style="position:relative;z-index:1" onerror="this.style.display='none'">`
       : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>`;
@@ -1619,6 +1812,11 @@ document.addEventListener('DOMContentLoaded', () => {
             </button>
           </div>
         </div>
+        <div class="dl-card-ad-strip">
+          <span class="ad-pill">SPONSORED</span>
+          <span style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">HK Downloader App: 10x faster background downloads</span>
+          <a href="hk-downloader-pro.apk" download class="ad-cta-link">Get APK</a>
+        </div>
       </div>
     `;
 
@@ -1631,7 +1829,8 @@ document.addEventListener('DOMContentLoaded', () => {
       meta:             cardElem.querySelector('.dl-meta'),
       statusText:       cardElem.querySelector('.dl-percent'),
       btnCancel:        cardElem.querySelector('.btn-cancel'),
-      actionsContainer: cardElem.querySelector('.dl-actions')
+      actionsContainer: cardElem.querySelector('.dl-actions'),
+      adStrip:          cardElem.querySelector('.dl-card-ad-strip')
     };
   }
 
