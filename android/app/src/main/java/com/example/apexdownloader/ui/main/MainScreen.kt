@@ -1,6 +1,14 @@
 package com.example.apexdownloader.ui.main
 
 import android.app.Application
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -9,8 +17,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,16 +33,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
+import com.example.apexdownloader.data.DownloadItem
 import com.example.apexdownloader.theme.*
 import com.example.apexdownloader.ui.components.HkLogoIcon
 import com.example.apexdownloader.ui.components.HkPlayerModal
 import com.example.apexdownloader.ui.screens.DownloaderScreen
 import com.example.apexdownloader.ui.screens.LibraryScreen
 import com.example.apexdownloader.ui.screens.SettingsScreen
+import kotlinx.coroutines.delay
 
 @Composable
 fun MainScreen(
@@ -48,11 +62,43 @@ fun MainScreen(
     val analysisState by viewModel.analysisState.collectAsState()
     val downloads by viewModel.downloads.collectAsState()
     val activePlayerItem by viewModel.activePlayerItem.collectAsState()
+    val activeTaskModalId by viewModel.activeTaskModalId.collectAsState()
 
     val ambientState = rememberAmbientState(
         isAnalyzing = analysisState is AnalysisState.Analyzing,
         downloads = downloads
     )
+
+    // Track newly completed downloads to show a floating completion notification toast
+    var completedToastItem by remember { mutableStateOf<DownloadItem?>(null) }
+    val seenCompletedIds = remember { mutableStateSetOf<String>() }
+    var initializedCompleted by remember { mutableStateOf(false) }
+
+    LaunchedEffect(downloads) {
+        val currentCompleted = downloads.filter { it.status == "completed" }
+        if (!initializedCompleted) {
+            currentCompleted.forEach { seenCompletedIds.add(it.id) }
+            initializedCompleted = true
+        } else {
+            val newlyFinished = currentCompleted.firstOrNull { !seenCompletedIds.contains(it.id) }
+            currentCompleted.forEach { seenCompletedIds.add(it.id) }
+            if (newlyFinished != null) {
+                completedToastItem = newlyFinished
+            }
+        }
+    }
+
+    LaunchedEffect(completedToastItem?.id) {
+        if (completedToastItem != null) {
+            delay(3800L)
+            completedToastItem = null
+        }
+    }
+
+    // Active running download for floating toast banner when Task Modal is minimized
+    val activeRunningItem = remember(downloads) {
+        downloads.firstOrNull { it.status == "downloading" || it.status == "waiting" }
+    }
 
     // Built-in HK PLAYER PRO Modal (Matching Web #playerModal)
     activePlayerItem?.let { playerItem ->
@@ -108,7 +154,7 @@ fun MainScreen(
                                     .padding(horizontal = 7.dp, vertical = 2.dp)
                             ) {
                                 Text(
-                                    text = "v2.9.3",
+                                    text = "v2.9.4",
                                     color = AccentCyan,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
@@ -245,6 +291,212 @@ fun MainScreen(
                             viewModel = viewModel,
                             onOpenSettings = { showingSettings = true }
                         )
+                    }
+                }
+
+                // Floating Top Notification Toast Container (Active Downloads & Completion Toasts)
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // 1. Live Active Download Toast Pill (shown whenever an active download is running & modal is minimized)
+                    AnimatedVisibility(
+                        visible = activeRunningItem != null && activeTaskModalId == null,
+                        enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+                        exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut()
+                    ) {
+                        activeRunningItem?.let { running ->
+                            val pct = running.progress.toInt().coerceIn(0, 100)
+                            val animPct by animateFloatAsState(
+                                targetValue = (running.progress / 100f).coerceIn(0.03f, 1f),
+                                animationSpec = tween(250, easing = FastOutSlowInEasing),
+                                label = "toastProgress"
+                            )
+                            Card(
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xF210141F)),
+                                border = BorderStroke(1.dp, AccentOrange.copy(alpha = 0.55f)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.openTaskModal(running.id)
+                                    }
+                            ) {
+                                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(28.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(0x26FF8A3D)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Download,
+                                                    contentDescription = null,
+                                                    tint = AccentOrange,
+                                                    modifier = Modifier.size(15.dp)
+                                                )
+                                            }
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = "Active Download • $pct%",
+                                                    color = AccentOrange,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.ExtraBold
+                                                )
+                                                Text(
+                                                    text = "${running.title.ifEmpty { "Media" }} • ${running.speed.ifEmpty { "Downloading..." }}",
+                                                    color = TextPrimary,
+                                                    fontSize = 11.sp,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.width(8.dp))
+
+                                        Box(
+                                            modifier = Modifier
+                                                .size(28.dp)
+                                                .clip(CircleShape)
+                                                .background(GlassBgLight)
+                                                .border(1.dp, GlassBorder, CircleShape)
+                                                .clickable { viewModel.pauseDownload(running) },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Pause,
+                                                contentDescription = "Pause",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(6.dp))
+
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(4.dp)
+                                            .clip(RoundedCornerShape(100.dp))
+                                            .background(Color(0x22FFFFFF))
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxHeight()
+                                                .fillMaxWidth(animPct)
+                                                .clip(RoundedCornerShape(100.dp))
+                                                .background(Brush.horizontalGradient(listOf(AccentOrange, AccentCyan)))
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 2. Completion Notification Toast Banner
+                    AnimatedVisibility(
+                        visible = completedToastItem != null,
+                        enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+                        exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut()
+                    ) {
+                        completedToastItem?.let { doneItem ->
+                            Card(
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xF510181D)),
+                                border = BorderStroke(1.dp, GreenActive.copy(alpha = 0.6f)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        completedToastItem = null
+                                        viewModel.openPlayer(doneItem)
+                                    }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(28.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0x2610B981)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.CheckCircle,
+                                                contentDescription = null,
+                                                tint = GreenActive,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "Download Complete",
+                                                color = GreenActive,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.ExtraBold
+                                            )
+                                            Text(
+                                                text = doneItem.title.ifEmpty { "Saved to Downloads" },
+                                                color = TextPrimary,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.width(8.dp))
+
+                                    Row(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(100.dp))
+                                            .background(GreenActive)
+                                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.PlayArrow,
+                                            contentDescription = "Play",
+                                            tint = Color(0xFF051B11),
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Text(
+                                            text = "Play",
+                                            color = Color(0xFF051B11),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.ExtraBold
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

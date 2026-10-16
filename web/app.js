@@ -123,6 +123,74 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 3200);
   }
 
+  // Very tiny, subtle 140ms two-note crystal completion chime via Web Audio API
+  function playTinyCompletionChime() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, now);          // A5 (55ms)
+      osc.frequency.setValueAtTime(1318.5, now + 0.055); // E6 (85ms)
+
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.055, now + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0008, now + 0.145);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.15);
+      setTimeout(() => { try { ctx.close(); } catch (e) {} }, 250);
+    } catch (e) {}
+  }
+
+  // Persistent Live Active Download Notification Toast Pill
+  let activeDlToastEl = null;
+  function updateActiveDownloadToast(title, pct, speedText, onClickOpen) {
+    if (!toastContainer) return;
+    if (!activeDlToastEl) {
+      activeDlToastEl = document.createElement('div');
+      activeDlToastEl.className = 'toast-banner active-dl-toast show';
+      activeDlToastEl.style.cursor = 'pointer';
+      activeDlToastEl.style.pointerEvents = 'auto';
+      activeDlToastEl.innerHTML = `
+        <div class="toast-icon" style="background: rgba(255,138,61,0.18); color: #ff8a3d;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        </div>
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <div class="toast-title" id="activeToastTitle" style="color:#ff8a3d; font-size:11px;">Active Download</div>
+            <span id="activeToastPct" style="color:#22d3ee; font-size:11px; font-weight:800;">0%</span>
+          </div>
+          <div class="toast-subtitle" id="activeToastSub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Downloading...</div>
+          <div style="width:100%; height:4px; background:rgba(255,255,255,0.12); border-radius:99px; margin-top:5px; overflow:hidden;">
+            <div id="activeToastBar" style="height:100%; width:5%; background:linear-gradient(90deg, #ff8a3d, #22d3ee); border-radius:99px; transition:width 0.2s ease;"></div>
+          </div>
+        </div>
+      `;
+      toastContainer.prepend(activeDlToastEl);
+    }
+    if (onClickOpen) activeDlToastEl.onclick = onClickOpen;
+    const pctEl = activeDlToastEl.querySelector('#activeToastPct');
+    const subEl = activeDlToastEl.querySelector('#activeToastSub');
+    const barEl = activeDlToastEl.querySelector('#activeToastBar');
+    if (pctEl) pctEl.textContent = pct != null ? `${pct}%` : 'LIVE';
+    if (subEl) subEl.textContent = `${title || 'Media'} • ${speedText || 'Downloading...'}`;
+    if (barEl) barEl.style.width = pct != null ? `${Math.max(4, pct)}%` : '35%';
+  }
+
+  function hideActiveDownloadToast() {
+    if (activeDlToastEl) {
+      activeDlToastEl.remove();
+      activeDlToastEl = null;
+    }
+  }
+
   // Ambient animated background reacts to overall app activity. Only one
   // state at a time (this is a page-wide mood, not per-download-item), with
   // simple priority: analyzing > actively downloading > a brief flash for
@@ -1501,12 +1569,16 @@ document.addEventListener('DOMContentLoaded', () => {
       btnMinimizeTask.onclick = () => {
         if (taskDownloadModal) taskDownloadModal.classList.add('hidden');
         if (taskAdVideo) taskAdVideo.pause();
-        showToast('Running in background', 'Track your download in Active Downloads below.');
+        updateActiveDownloadToast(title || filename, 0, 'Running in background • Tap to open', () => {
+          hideActiveDownloadToast();
+          if (taskDownloadModal) taskDownloadModal.classList.remove('hidden');
+        });
       };
     }
 
     const cancelDownload = () => {
       controller.abort();
+      hideActiveDownloadToast();
       if (taskDownloadModal) taskDownloadModal.classList.add('hidden');
       if (taskAdVideo) taskAdVideo.pause();
       cardElem.classList.add('failed');
@@ -1527,6 +1599,7 @@ document.addEventListener('DOMContentLoaded', () => {
     cardElem.addEventListener('click', (e) => {
       if (e.target.closest('button') || e.target.closest('a')) return;
       if (!cardElem.classList.contains('completed') && !cardElem.classList.contains('failed')) {
+        hideActiveDownloadToast();
         if (taskDownloadModal) taskDownloadModal.classList.remove('hidden');
       }
     });
@@ -1615,6 +1688,19 @@ document.addEventListener('DOMContentLoaded', () => {
             taskSpeedEtaBadge.textContent = fmtSpeed(currentSpeed);
           }
         }
+
+        // Update floating Active Download Toast when Task Modal is minimized
+        if (!taskDownloadModal || taskDownloadModal.classList.contains('hidden')) {
+          updateActiveDownloadToast(
+            title || filename,
+            pct,
+            `${fmtSpeed(currentSpeed)}${eta ? ' • ' + fmtEta(eta) : ''}`,
+            () => {
+              hideActiveDownloadToast();
+              if (taskDownloadModal) taskDownloadModal.classList.remove('hidden');
+            }
+          );
+        }
       }
 
       // Complete download with dynamic MIME type
@@ -1629,6 +1715,8 @@ document.addEventListener('DOMContentLoaded', () => {
       a.click();
       document.body.removeChild(a);
 
+      hideActiveDownloadToast();
+      playTinyCompletionChime();
       cardElem.classList.add('completed');
       bar.style.width = '100%';
       percent.textContent = '100%';
@@ -1705,6 +1793,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderLibraryGrid();
 
     } catch (err) {
+      hideActiveDownloadToast();
       if (err.name !== 'AbortError') {
         // Fallback: If browser fetch encounters CORS or memory error, trigger native browser download!
         if (tokenOrUrl && tokenOrUrl.startsWith('http')) {
@@ -1722,6 +1811,7 @@ document.addEventListener('DOMContentLoaded', () => {
           document.body.removeChild(a);
 
           setTimeout(() => {
+            playTinyCompletionChime();
             cardElem.classList.remove('failed');
             cardElem.classList.add('completed');
             bar.style.width = '100%';

@@ -45,43 +45,69 @@ class DownloadEngine(
         DownloadNotifications.ensureChannel(context)
         val notificationId = DownloadNotifications.notificationIdFor(item.id)
 
+        // Immediately show active download notification in system tray
+        try {
+            val initialNotification = DownloadNotifications.buildProgressNotification(
+                context = context,
+                downloadId = item.id,
+                title = startingItem.title,
+                progressPercent = startingItem.progress.toInt(),
+                statusText = startingItem.speed,
+                indeterminate = startingItem.progress <= 0f
+            )
+            NotificationManagerCompat.from(context).notify(notificationId, initialNotification)
+        } catch (_: SecurityException) {
+        } catch (_: Exception) {
+        }
+
         val job = engineScope.launch {
             val executor = DownloadExecutor(context, repository) { updated ->
                 if (repository.isDeleted(item.id) || repository.isPaused(item.id)) return@DownloadExecutor
-                val statusText = "${updated.speed} · ${updated.eta}"
+                val statusText = if (updated.eta.isNotEmpty() && updated.eta != "--") {
+                    "${updated.speed} · ${updated.eta}"
+                } else {
+                    updated.speed.ifEmpty { "Downloading..." }
+                }
                 try {
                     val notification = DownloadNotifications.buildProgressNotification(
-                        context,
-                        item.id,
-                        updated.title,
-                        updated.progress.toInt(),
-                        statusText
+                        context = context,
+                        downloadId = item.id,
+                        title = updated.title,
+                        progressPercent = updated.progress.toInt(),
+                        statusText = statusText,
+                        indeterminate = false
                     )
                     NotificationManagerCompat.from(context).notify(notificationId, notification)
-                } catch (e: SecurityException) {
-                } catch (e: Exception) {
+                } catch (_: SecurityException) {
+                } catch (_: Exception) {
                 }
             }
 
             try {
                 executor.execute(startingItem, desktopServerUrl, formatId ?: item.formatId)
                 if (!repository.isDeleted(item.id) && !repository.isPaused(item.id)) {
+                    // Play tiny subtle completion chime sound
+                    DownloadNotifications.playTinyCompletionChime()
                     try {
                         val notification = DownloadNotifications.buildFinishedNotification(
-                            context, item.id, item.title, "Finished", true
+                            context = context,
+                            downloadId = item.id,
+                            title = item.title,
+                            statusText = "Saved to Downloads • Tap to open",
+                            success = true
                         )
                         NotificationManagerCompat.from(context).notify(notificationId, notification)
-                    } catch (e: SecurityException) {}
+                    } catch (_: SecurityException) {}
                 }
             } catch (e: CancellationException) {
                 try {
                     NotificationManagerCompat.from(context).cancel(notificationId)
-                } catch (ex: Exception) {}
+                } catch (_: Exception) {}
             } catch (e: Exception) {
                 if (repository.isDeleted(item.id) || repository.isPaused(item.id)) {
                     try {
                         NotificationManagerCompat.from(context).cancel(notificationId)
-                    } catch (ex: Exception) {}
+                    } catch (_: Exception) {}
                     return@launch
                 }
                 val message = e.message ?: "Download failed"
@@ -91,10 +117,14 @@ class DownloadEngine(
                 )
                 try {
                     val notification = DownloadNotifications.buildFinishedNotification(
-                        context, item.id, item.title, "Failed: $message", false
+                        context = context,
+                        downloadId = item.id,
+                        title = item.title,
+                        statusText = "Failed: $message",
+                        success = false
                     )
                     NotificationManagerCompat.from(context).notify(notificationId, notification)
-                } catch (ex: SecurityException) {}
+                } catch (_: SecurityException) {}
             } finally {
                 activeJobs.remove(item.id)
             }
