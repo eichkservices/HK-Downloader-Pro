@@ -1215,6 +1215,102 @@ html, body {
   overflow: hidden;
 }
 
+/* ---------- Sponsored Card Banner (Native Ad Unit) ---------- */
+.sponsored-banner-section {
+  margin: 14px 0 8px;
+}
+
+.sponsored-card-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, rgba(255, 138, 61, 0.08), rgba(34, 211, 238, 0.04));
+  border: 1px solid rgba(255, 138, 61, 0.24);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: all 0.22s ease;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.sponsored-card-banner:hover {
+  border-color: var(--accent-orange);
+  background: linear-gradient(135deg, rgba(255, 138, 61, 0.14), rgba(34, 211, 238, 0.08));
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(255, 138, 61, 0.18);
+}
+
+.sponsored-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sponsored-card-pill-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 4px;
+}
+
+.sponsored-card-pill {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(255, 138, 61, 0.18);
+  color: var(--accent-orange);
+  border: 1px solid rgba(255, 138, 61, 0.35);
+}
+
+.sponsored-card-domain {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.sponsored-card-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sponsored-card-desc {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-sponsored-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 13px;
+  background: linear-gradient(135deg, var(--accent-orange), #ff6a1f);
+  color: #1a0b02 !important;
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(255, 138, 61, 0.35);
+  transition: transform 0.15s ease;
+}
+
+.btn-sponsored-cta:hover {
+  transform: scale(1.04);
+}
+
 .legal-footer {
   margin: 24px 0 32px;
   text-align: center;

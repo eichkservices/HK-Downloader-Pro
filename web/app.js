@@ -84,6 +84,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const sponsoredCardBanner = document.getElementById('sponsoredCardBanner');
+  if (sponsoredCardBanner) {
+    sponsoredCardBanner.href = MONETAG_DIRECT_LINK;
+  }
+
   if (btnTaskAdAudio && taskAdVideo) {
     btnTaskAdAudio.addEventListener('click', (e) => {
       e.stopPropagation();
