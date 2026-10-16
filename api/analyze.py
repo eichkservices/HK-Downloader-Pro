@@ -185,7 +185,95 @@ def extract_pinterest(url):
             }
     except Exception:
         pass
-    return None
+def extract_twitter(url):
+    try:
+        api_url = f"https://twitsave.com/info?url={urllib.parse.quote(url)}"
+        req = urllib.request.Request(api_url, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36'
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            page_html = resp.read().decode('utf-8', errors='ignore')
+
+        # 1. Title
+        title = "Twitter / X Video"
+        title_match = re.search(r'<div[^>]*class="[^"]*leading-tight[^"]*"[^>]*>.*?<p[^>]*class="[^"]*m-2[^"]*"[^>]*>([^<]+)</p>', page_html, re.DOTALL)
+        if not title_match:
+            title_match = re.search(r'<div[^>]*class="[^"]*leading-tight[^"]*"[^>]*>.*?<p[^>]*>([^<]+)</p>', page_html, re.DOTALL)
+        if title_match:
+            title = html.unescape(title_match.group(1).strip())
+        else:
+            og_title = re.search(r'property="og:title"\s+content="([^"]+)"', page_html)
+            if og_title:
+                title = html.unescape(og_title.group(1).strip())
+
+        # 2. Thumbnail
+        thumbnail = ""
+        thumb_match = re.search(r'(https://pbs\.twimg\.com/[^\s"\'<>]+\.(?:jpg|jpeg|png|webp))', page_html)
+        if thumb_match:
+            thumbnail = thumb_match.group(1)
+
+        # 3. Formats from download?file= matches
+        links = re.findall(r'href="https://twitsave\.com/download\?file=([^"&]+)"[^>]*>(.*?)</a>', page_html, re.DOTALL)
+        formats = []
+        seen_urls = set()
+
+        for b64_token, link_body in links:
+            try:
+                padded = b64_token + '=' * ((4 - len(b64_token) % 4) % 4)
+                direct_url = base64.b64decode(urllib.parse.unquote(padded)).decode('utf-8', errors='ignore')
+                if not direct_url.startswith('http') or direct_url in seen_urls:
+                    continue
+                seen_urls.add(direct_url)
+
+                res_match = re.search(r'Resolution:\s*(\d+)x(\d+)', link_body)
+                h = 720
+                w = 1280
+                if res_match:
+                    w = int(res_match.group(1))
+                    h = int(res_match.group(2))
+                tier = min(w, h)
+                if tier >= 1080:
+                    note = f"🎬 1080p FHD ({w}x{h} MP4)"
+                elif tier >= 720:
+                    note = f"🎬 720p HD ({w}x{h} MP4)"
+                elif tier >= 480:
+                    note = f"🎬 480p SD ({w}x{h} MP4)"
+                else:
+                    note = f"🎬 {tier}p ({w}x{h} MP4)"
+
+                formats.append({
+                    'directUrl': direct_url,
+                    'token': direct_url,
+                    'note': note,
+                    'ext': 'mp4',
+                    'height': tier,
+                    'hasAudio': True
+                })
+            except Exception:
+                continue
+
+        if formats:
+            best_stream = formats[0]['directUrl']
+            formats.append({
+                'directUrl': best_stream,
+                'token': best_stream,
+                'note': '🎵 High Quality Audio (MP3)',
+                'ext': 'mp3',
+                'isAudio': True
+            })
+
+        if not formats:
+            return None
+
+        return {
+            'title': title,
+            'thumbnail': thumbnail,
+            'type': 'twitter',
+            'formats': formats,
+            'maxResolution': f"{formats[0].get('height', 720)}p"
+        }
+    except Exception:
+        return None
 
 def extract_facebook_direct(url):
     headers = {
@@ -261,6 +349,13 @@ def extract_youtube_direct(url):
 
         clients = [
             {
+                'name': 'IOS',
+                'version': '20.03.02',
+                'clientNameId': '5',
+                'ua': 'com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)',
+                'context': {'clientName': 'IOS', 'clientVersion': '20.03.02', 'deviceMake': 'Apple', 'deviceModel': 'iPhone16,2', 'gl': 'US', 'hl': 'en'}
+            },
+            {
                 'name': 'ANDROID_VR',
                 'version': '1.61.48',
                 'clientNameId': '28',
@@ -333,63 +428,74 @@ def extract_youtube_direct(url):
                     best_audio = max(audio_streams, key=lambda a: int(a.get('bitrate') or a.get('averageBitrate') or 0))
                 best_audio_url = best_audio['url'] if best_audio else None
 
-                # Collect all video streams mapped by height
+                def parse_normalized_tier(f_dict):
+                    q_label = f_dict.get('qualityLabel') or ''
+                    m_label = re.search(r'(\d{3,4})p', q_label)
+                    if m_label:
+                        return int(m_label.group(1))
+                    w = int(f_dict.get('width') or 0)
+                    h = int(f_dict.get('height') or 0)
+                    if w > 0 and h > 0:
+                        return min(w, h)
+                    return h if h > 0 else 360
+
+                # Collect all video streams mapped by normalized tier
                 video_map = {}
                 # 1. Progressive streams (muxed audio)
                 for f in raw_formats:
                     u = f.get('url')
-                    h = f.get('height')
-                    if u and h:
+                    if u:
+                        tier = parse_normalized_tier(f)
                         clen = f.get('contentLength')
-                        video_map[h] = {
+                        video_map[tier] = {
                             'url': u,
-                            'height': h,
+                            'height': tier,
                             'ext': 'mp4',
                             'hasMuxedAudio': True,
-                            'qualityLabel': f.get('qualityLabel') or f'{h}p',
+                            'qualityLabel': f.get('qualityLabel') or f'{tier}p',
                             'sizeBytes': int(clen) if clen and str(clen).isdigit() else None
                         }
 
                 # 2. Adaptive streams (video only)
                 for af in adaptive:
                     u = af.get('url')
-                    h = af.get('height')
-                    if u and h:
+                    if u:
+                        tier = parse_normalized_tier(af)
                         is_mp4 = 'mp4' in (af.get('mimeType') or '')
-                        existing = video_map.get(h)
+                        existing = video_map.get(tier)
                         if not existing or (not existing.get('hasMuxedAudio') and is_mp4):
                             clen = af.get('contentLength')
-                            video_map[h] = {
+                            video_map[tier] = {
                                 'url': u,
-                                'height': h,
+                                'height': tier,
                                 'ext': 'mp4' if is_mp4 else 'webm',
                                 'hasMuxedAudio': False,
-                                'qualityLabel': af.get('qualityLabel') or f'{h}p',
+                                'qualityLabel': af.get('qualityLabel') or f'{tier}p',
                                 'sizeBytes': int(clen) if clen and str(clen).isdigit() else None
                             }
 
-                available_heights = sorted(video_map.keys(), reverse=True)
-                if not available_heights:
+                available_tiers = sorted(video_map.keys(), reverse=True)
+                if not available_tiers:
                     continue
 
-                max_h = available_heights[0]
+                max_tier = available_tiers[0]
 
                 # 1. Original Quality (if > 1080p, e.g. 4K 2160p or 2K 1440p)
-                if max_h > 1080:
-                    vf = video_map[max_h]
+                if max_tier > 1080:
+                    vf = video_map[max_tier]
                     has_muxed = vf['hasMuxedAudio']
                     audio_u = None if has_muxed else best_audio_url
                     tok = f"{vf['url']}|{audio_u}" if audio_u else vf['url']
-                    q_label = '4K UHD' if max_h >= 2160 else ('2K QHD' if max_h >= 1440 else f'{max_h}p')
+                    q_label = '4K UHD' if max_tier >= 2160 else ('2K QHD' if max_tier >= 1440 else f'{max_tier}p')
                     formats.append({
                         'directUrl': vf['url'],
                         'audioUrl': audio_u,
                         'token': tok,
                         'videoId': video_id,
                         'url': url,
-                        'note': f"🎬 {q_label} ({max_h}p Original Quality)",
+                        'note': f"🎬 {q_label} ({max_tier}p Original Quality)",
                         'ext': vf['ext'],
-                        'height': max_h,
+                        'height': max_tier,
                         'hasAudio': True,
                         'sizeBytes': vf['sizeBytes']
                     })
@@ -400,8 +506,7 @@ def extract_youtube_direct(url):
                     has_muxed = vf['hasMuxedAudio']
                     audio_u = None if has_muxed else best_audio_url
                     tok = f"{vf['url']}|{audio_u}" if audio_u else vf['url']
-                    is_orig = (max_h == 1080)
-                    note_str = "🎬 1080p FHD (Original Quality MP4)" if is_orig else "🎬 1080p FHD (MP4)"
+                    note_str = "🎬 1080p FHD (Original Quality MP4)" if (max_tier == 1080) else "🎬 1080p FHD (MP4)"
                     formats.append({
                         'directUrl': vf['url'],
                         'audioUrl': audio_u,
@@ -421,8 +526,7 @@ def extract_youtube_direct(url):
                     has_muxed = vf['hasMuxedAudio']
                     audio_u = None if has_muxed else best_audio_url
                     tok = f"{vf['url']}|{audio_u}" if audio_u else vf['url']
-                    is_orig = (max_h == 720)
-                    note_str = "🎬 720p HD (Original Quality MP4)" if is_orig else "🎬 720p HD (MP4)"
+                    note_str = "🎬 720p HD (Original Quality MP4)" if (max_tier == 720) else "🎬 720p HD (MP4)"
                     formats.append({
                         'directUrl': vf['url'],
                         'audioUrl': audio_u,
@@ -436,14 +540,13 @@ def extract_youtube_direct(url):
                         'sizeBytes': vf['sizeBytes']
                     })
 
-                # 4. 480p SD (if available and needed)
-                if 480 in video_map and (len(formats) < 2 or max_h == 480):
+                # 4. 480p SD
+                if 480 in video_map:
                     vf = video_map[480]
                     has_muxed = vf['hasMuxedAudio']
                     audio_u = None if has_muxed else best_audio_url
                     tok = f"{vf['url']}|{audio_u}" if audio_u else vf['url']
-                    is_orig = (max_h == 480)
-                    note_str = "🎬 480p SD (Original Quality MP4)" if is_orig else "🎬 480p SD (MP4)"
+                    note_str = "🎬 480p SD (Original Quality MP4)" if (max_tier == 480) else "🎬 480p SD (MP4)"
                     formats.append({
                         'directUrl': vf['url'],
                         'audioUrl': audio_u,
@@ -463,8 +566,7 @@ def extract_youtube_direct(url):
                     has_muxed = vf['hasMuxedAudio']
                     audio_u = None if has_muxed else best_audio_url
                     tok = f"{vf['url']}|{audio_u}" if audio_u else vf['url']
-                    is_orig = (max_h == 360)
-                    note_str = "🎬 360p (Original Quality MP4)" if is_orig else "🎬 360p (Standard MP4 with Audio)"
+                    note_str = "🎬 360p (Original Quality MP4)" if (max_tier == 360) else "🎬 360p Standard (MP4)"
                     formats.append({
                         'directUrl': vf['url'],
                         'audioUrl': audio_u,
@@ -477,8 +579,28 @@ def extract_youtube_direct(url):
                         'hasAudio': True,
                         'sizeBytes': vf['sizeBytes']
                     })
-                elif not formats and available_heights:
-                    for h in available_heights[:3]:
+
+                # 6. 240p Data Saver
+                if 240 in video_map and len(formats) < 5:
+                    vf = video_map[240]
+                    has_muxed = vf['hasMuxedAudio']
+                    audio_u = None if has_muxed else best_audio_url
+                    tok = f"{vf['url']}|{audio_u}" if audio_u else vf['url']
+                    formats.append({
+                        'directUrl': vf['url'],
+                        'audioUrl': audio_u,
+                        'token': tok,
+                        'videoId': video_id,
+                        'url': url,
+                        'note': '🎬 240p Data Saver (MP4)',
+                        'ext': vf['ext'],
+                        'height': 240,
+                        'hasAudio': True,
+                        'sizeBytes': vf['sizeBytes']
+                    })
+
+                if not formats and available_tiers:
+                    for h in available_tiers[:4]:
                         vf = video_map[h]
                         has_muxed = vf['hasMuxedAudio']
                         audio_u = None if has_muxed else best_audio_url
@@ -1117,7 +1239,18 @@ class handler(BaseHTTPRequestHandler):
                 return
             # If rapid extraction fails, fall through to core yt-dlp universal engine below
 
-        # 6. YouTube Universal Engine (visionos multi-quality resolution for 4K/1080p/720p/480p/360p/audio)
+        # 6. Twitter / X Direct Engine (TwitSave + direct stream resolution)
+        if 'twitter.com' in url or 'x.com' in url:
+            tw_result = extract_twitter(url)
+            if tw_result:
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps(tw_result).encode('utf-8'))
+                return
+
+        # 7. YouTube Universal Engine (visionos multi-quality resolution for 4K/1080p/720p/480p/360p/audio)
         if 'youtube.com' in url or 'youtu.be' in url:
             try:
                 ytdlp_result = extract_ytdlp(url)

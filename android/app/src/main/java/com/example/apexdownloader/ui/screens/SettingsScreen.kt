@@ -35,20 +35,6 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null
 ) {
-    val desktopUrl by viewModel.desktopServerUrl.collectAsState()
-    var urlInput by remember { mutableStateOf(desktopUrl) }
-
-    LaunchedEffect(desktopUrl) {
-        urlInput = desktopUrl
-    }
-
-    val cobaltUrl by viewModel.cobaltInstanceUrl.collectAsState()
-    var cobaltInput by remember { mutableStateOf(cobaltUrl) }
-
-    LaunchedEffect(cobaltUrl) {
-        cobaltInput = cobaltUrl
-    }
-
     val scrollState = rememberScrollState()
 
     Column(
@@ -84,67 +70,10 @@ fun SettingsScreen(
             )
         }
 
-        // Card 1: Desktop Sync Connection
-        Card(
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = BgPanel),
-            border = BorderStroke(1.dp, GlassBorder),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Desktop Sync Connection",
-                    color = TextPrimary,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(bottom = 6.dp)
-                )
-
-                Text(
-                    text = "Enter the local network IP and port of your PC running the HK Desktop App to download and convert YouTube videos at maximum speed.",
-                    color = TextSecondary,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
-                    modifier = Modifier.padding(bottom = 14.dp)
-                )
-
-                OutlinedTextField(
-                    value = urlInput,
-                    onValueChange = { urlInput = it },
-                    placeholder = { Text("e.g. http://192.168.1.100:3982", color = TextTertiary) },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary,
-                        focusedBorderColor = AccentOrange,
-                        unfocusedBorderColor = GlassBorder,
-                        focusedContainerColor = Color(0xFF0F131D),
-                        unfocusedContainerColor = Color(0xFF0F131D)
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp)
-                )
-
-                Button(
-                    onClick = {
-                        viewModel.saveDesktopServerUrl(urlInput.trim())
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentOrange),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Save Connection Settings", color = Color(0xFF1A0B02), fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Card 2: Battery Optimization
+        // Card 1: Battery Optimization
         val context = LocalContext.current
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-        var isIgnoringBatteryOptimizations by remember {
+        val isIgnoringBatteryOptimizations by remember {
             mutableStateOf(powerManager?.isIgnoringBatteryOptimizations(context.packageName) ?: true)
         }
 
@@ -164,7 +93,7 @@ fun SettingsScreen(
                 )
 
                 Text(
-                    text = "Some phones (Samsung, Xiaomi, etc.) aggressively terminate background downloads to save battery. Exempting the app ensures large downloads finish reliably.",
+                    text = "Some phones (Samsung, Xiaomi, etc.) aggressively terminate background downloads to save battery. Exempting HK Downloader Pro ensures large downloads finish reliably.",
                     color = TextSecondary,
                     fontSize = 12.sp,
                     lineHeight = 16.sp,
@@ -172,7 +101,12 @@ fun SettingsScreen(
                 )
 
                 if (isIgnoringBatteryOptimizations) {
-                    Text("✓ Battery optimization already disabled for this app", color = GreenActive, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "✓ Battery optimization already disabled for HK Downloader Pro",
+                        color = GreenActive,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 } else {
                     Button(
                         onClick = {
@@ -195,7 +129,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Card 3: Storage
+        // Card 2: Storage
         val downloads by viewModel.downloads.collectAsState()
         var refreshTrigger by remember { mutableIntStateOf(0) }
         var storageBytes by remember { mutableStateOf<Long?>(null) }
@@ -217,7 +151,7 @@ fun SettingsScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Storage",
+                    text = "Storage & History",
                     color = TextPrimary,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,

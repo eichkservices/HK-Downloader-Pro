@@ -271,7 +271,6 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    if (btnPwaInstall) btnPwaInstall.classList.remove('hidden');
   });
 
   if (btnPwaInstall) {
@@ -280,9 +279,16 @@ document.addEventListener('DOMContentLoaded', () => {
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
         if (outcome === 'accepted') {
-          btnPwaInstall.classList.add('hidden');
+          showToast('✓ HK Downloader Pro added to your Home Screen!', 'success');
         }
         deferredPrompt = null;
+      } else {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        if (isIOS) {
+          showToast('📲 Tap Safari Share button (⎋), then select "Add to Home Screen"', 'info', 6000);
+        } else {
+          showToast('📲 Tap browser menu (⋮) in the top-right, then select "Add to Home screen"', 'info', 6000);
+        }
       }
     });
   }
@@ -1974,4 +1980,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const s = Math.floor(sec % 60);
     return `${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s : s}`;
   }
+
+  // Client-Side Adult / NSFW Ad Guard (filters out unwanted ad networks / creatives)
+  const ADULT_KEYWORDS = [
+    'erotic', 'adult', 'dating', 'sex', 'porn', 'xxx', '18+', 'nsfw', 'hookup', 
+    'strip', 'camgirl', 'onlyfans', 'casino', 'betting', 'gamble', 'singles'
+  ];
+
+  function sanitizeAdNodes() {
+    const adContainers = document.querySelectorAll('.ad-slot-container, .fixed-ad-slot, .ad-fixed-container, iframe');
+    adContainers.forEach(container => {
+      try {
+        const text = (container.innerText || container.textContent || '').toLowerCase();
+        const html = (container.innerHTML || '').toLowerCase();
+        const isBad = ADULT_KEYWORDS.some(kw => text.includes(kw) || html.includes(kw));
+        if (isBad) {
+          container.style.display = 'none';
+          container.innerHTML = '';
+        }
+      } catch (e) {}
+    });
+  }
+
+  const adObserver = new MutationObserver(() => {
+    sanitizeAdNodes();
+  });
+  adObserver.observe(document.body, { childList: true, subtree: true });
+  setTimeout(sanitizeAdNodes, 2000);
+  setTimeout(sanitizeAdNodes, 5000);
 });

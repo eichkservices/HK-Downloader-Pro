@@ -154,7 +154,7 @@ fun MainScreen(
                                     .padding(horizontal = 7.dp, vertical = 2.dp)
                             ) {
                                 Text(
-                                    text = "v2.9.4",
+                                    text = "v2.9.5",
                                     color = AccentCyan,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold

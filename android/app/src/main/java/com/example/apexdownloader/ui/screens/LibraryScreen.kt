@@ -76,44 +76,25 @@ fun LibraryScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "MEDIA LIBRARY",
-                    color = TextSecondary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(100.dp))
-                        .background(Color(0x1F22D3EE))
-                        .border(1.dp, Color(0x4022D3EE), RoundedCornerShape(100.dp))
-                        .padding(horizontal = 8.dp, vertical = 2.dp)
-                ) {
-                    Text(
-                        text = "${completedItems.size} Files",
-                        color = AccentCyan,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-
-            // Quick Settings Action
-            IconButton(
-                onClick = onOpenSettings,
+            Text(
+                text = "MEDIA LIBRARY",
+                color = TextSecondary,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
+            )
+            Box(
                 modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(GlassBg)
-                    .border(1.dp, GlassBorder, CircleShape)
+                    .clip(RoundedCornerShape(100.dp))
+                    .background(Color(0x1F22D3EE))
+                    .border(1.dp, Color(0x4022D3EE), RoundedCornerShape(100.dp))
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
-                    tint = TextSecondary,
-                    modifier = Modifier.size(16.dp)
+                Text(
+                    text = "${completedItems.size} Files",
+                    color = AccentCyan,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
         }

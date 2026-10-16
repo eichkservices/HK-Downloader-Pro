@@ -86,6 +86,7 @@ object VideoResolver {
     private val tikTokPublicApiResolver = TikTokPublicApiResolver()
     private val instagramDirectResolver = InstagramDirectResolver()
     private val youtubeDirectResolver = YouTubeDirectResolver()
+    private val twitterDirectResolver = TwitterDirectResolver()
     private val universalCloudResolver = UniversalCloudResolver()
     private val desktopServerResolver = DesktopServerResolver()
     private val cobaltResolver = CobaltResolver()
@@ -94,16 +95,14 @@ object VideoResolver {
     private fun chainFor(type: String): List<Resolver> {
         val base = when (type) {
             "google-drive", "dropbox" -> listOf(cloudStorageResolver)
-            "tiktok" -> listOf(tikTokPublicApiResolver, universalCloudResolver, desktopServerResolver, cobaltResolver)
-            "instagram" -> listOf(instagramDirectResolver, universalCloudResolver, desktopServerResolver, cobaltResolver)
-            "youtube" -> listOf(youtubeDirectResolver, universalCloudResolver, desktopServerResolver, cobaltResolver)
+            "tiktok" -> listOf(tikTokPublicApiResolver, universalCloudResolver, cobaltResolver)
+            "instagram" -> listOf(universalCloudResolver, instagramDirectResolver, cobaltResolver)
+            "youtube" -> listOf(youtubeDirectResolver, universalCloudResolver, cobaltResolver)
+            "twitter" -> listOf(twitterDirectResolver, universalCloudResolver, cobaltResolver)
             "direct-link" -> listOf(localDirectLinkResolver)
-            in videoPlatformTypes -> listOf(universalCloudResolver, desktopServerResolver, cobaltResolver)
+            in videoPlatformTypes -> listOf(universalCloudResolver, cobaltResolver)
             else -> listOf(localDirectLinkResolver)
         }
-        // Adaptive reorder: whichever backend won last time for this type
-        // jumps to the front, so a temporary outage of the "default first
-        // choice" doesn't keep costing a full timeout on every request.
         val lastGood = lastSuccessfulResolver[type] ?: return base
         val winner = base.find { it.name == lastGood } ?: return base
         return listOf(winner) + base.filter { it.name != lastGood }
@@ -122,27 +121,36 @@ object VideoResolver {
         val chain = chainFor(type)
 
         val failures = mutableListOf<String>()
+        var singleFormatFallback: ResolveOutcome.Success? = null
+
         for (resolver in chain) {
             when (val outcome = resolver.resolve(url, type, ctx)) {
                 is ResolveOutcome.Success -> {
-                    lastSuccessfulResolver[type] = resolver.name
-                    onResult(outcome.title, outcome.thumbnail, outcome.formats)
-                    return
+                    if (outcome.formats.size >= 2) {
+                        lastSuccessfulResolver[type] = resolver.name
+                        onResult(outcome.title, outcome.thumbnail, outcome.formats)
+                        return
+                    } else if (singleFormatFallback == null) {
+                        singleFormatFallback = outcome
+                    }
                 }
                 is ResolveOutcome.Failed -> failures.add("${resolver.name}: ${outcome.reason}")
                 ResolveOutcome.NotApplicable -> { /* skip silently, doesn't count as a failure */ }
             }
         }
 
-        // Every applicable backend either wasn't configured or genuinely failed.
+        if (singleFormatFallback != null) {
+            onResult(singleFormatFallback.title, singleFormatFallback.thumbnail, singleFormatFallback.formats)
+            return
+        }
+
         if (type in videoPlatformTypes) {
-            val detail = if (failures.isNotEmpty()) " (tried: ${failures.joinToString("; ")})" else ""
+            val detail = if (failures.isNotEmpty()) " (${failures.joinToString("; ")})" else ""
             onError(
-                "Couldn't resolve this ${type.replaceFirstChar { it.uppercase() }} link. Add a Desktop Sync connection " +
-                    "or a self-hosted Cobalt instance URL in Settings, then try again.$detail"
+                "Couldn't resolve this ${type.replaceFirstChar { it.uppercase() }} link. Please check the URL or your connection and try again.$detail"
             )
         } else if (failures.isNotEmpty()) {
-            onError("Couldn't resolve this link (tried: ${failures.joinToString("; ")}).")
+            onError("Couldn't resolve this link (${failures.joinToString("; ")}).")
         }
     }
 
@@ -222,9 +230,8 @@ private class CloudStorageResolver : Resolver {
     }
 }
 
-/** Direct on-device YouTube extraction via YouTube's Android player API.
- *  Uses the device's own residential/carrier IP to cleanly resolve direct streams
- *  without datacenter bot-check blocks. */
+/** Direct on-device YouTube extraction via YouTube's IOS & Android player APIs.
+ *  Uses the device's own residential/carrier IP to cleanly resolve full 4K/1080p/720p/480p/360p/Audio streams. */
 private class YouTubeDirectResolver : Resolver {
     override val name = "youtube-direct"
     private val client = NetworkClient.client
@@ -237,6 +244,17 @@ private class YouTubeDirectResolver : Resolver {
         val makeContext: () -> JSONObject
     )
 
+    private fun parseNormalizedTier(f: JSONObject): Int {
+        val qLabel = f.optString("qualityLabel", "")
+        val labelMatch = Regex("(\\d{3,4})p").find(qLabel)?.groupValues?.get(1)?.toIntOrNull()
+        if (labelMatch != null && labelMatch > 0) return labelMatch
+
+        val w = f.optInt("width", 0)
+        val h = f.optInt("height", 0)
+        if (w > 0 && h > 0) return minOf(w, h)
+        return h
+    }
+
     override suspend fun resolve(url: String, type: String, ctx: ResolverContext): ResolveOutcome {
         if (type != "youtube") return ResolveOutcome.NotApplicable
         val vidId = Regex("(?:v=|youtu\\.be/|shorts/|embed/)([a-zA-Z0-9_-]{11})").find(url)?.groupValues?.get(1)
@@ -244,16 +262,37 @@ private class YouTubeDirectResolver : Resolver {
 
         val clients = listOf(
             InnertubeClientConfig(
+                name = "IOS",
+                version = "20.03.02",
+                clientNameId = "5",
+                ua = "com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)",
+                makeContext = {
+                    JSONObject().apply {
+                        put("clientName", "IOS")
+                        put("clientVersion", "20.03.02")
+                        put("deviceMake", "Apple")
+                        put("deviceModel", "iPhone16,2")
+                        put("osName", "iPhone")
+                        put("osVersion", "18.2.1.22C161")
+                        put("gl", "US")
+                        put("hl", "en")
+                    }
+                }
+            ),
+            InnertubeClientConfig(
                 name = "ANDROID_VR",
-                version = "1.61.48",
+                version = "1.62.27",
                 clientNameId = "28",
-                ua = "Mozilla/5.0 (Linux; Android 10; Quest 2) AppleWebKit/537.36",
+                ua = "com.google.android.apps.youtube.vr.oculus/1.62.27 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip",
                 makeContext = {
                     JSONObject().apply {
                         put("clientName", "ANDROID_VR")
-                        put("clientVersion", "1.61.48")
+                        put("clientVersion", "1.62.27")
                         put("deviceMake", "Oculus")
-                        put("deviceModel", "Quest 2")
+                        put("deviceModel", "Quest 3")
+                        put("osName", "Android")
+                        put("osVersion", "12L")
+                        put("androidSdkVersion", 32)
                         put("gl", "US")
                         put("hl", "en")
                     }
@@ -269,12 +308,16 @@ private class YouTubeDirectResolver : Resolver {
                         put("clientName", "ANDROID")
                         put("clientVersion", "21.26.364")
                         put("androidSdkVersion", 30)
+                        put("gl", "US")
+                        put("hl", "en")
                     }
                 }
             )
         )
 
         var lastErr = "Video unplayable"
+        var fallbackSingleOutcome: ResolveOutcome.Success? = null
+
         for (c in clients) {
             try {
                 val payload = JSONObject().apply {
@@ -328,32 +371,42 @@ private class YouTubeDirectResolver : Resolver {
 
                     var bestAudioUrl: String? = null
                     var bestAudioClen: Long? = null
-                    var highestAudioBitrate = 0
+                    var highestAudioScore = -1
                     for (i in 0 until adaptive.length()) {
                         val af = adaptive.getJSONObject(i)
                         val streamUrl = af.optString("url")
                         val mime = af.optString("mimeType")
                         if (streamUrl.isNotEmpty() && mime.contains("audio")) {
                             val bitrate = af.optInt("bitrate", af.optInt("averageBitrate", 0))
-                            if (bitrate > highestAudioBitrate || bestAudioUrl == null) {
-                                highestAudioBitrate = bitrate
+                            val isMp4Audio = mime.contains("mp4") || mime.contains("m4a")
+                            // Strongly prefer MP4/AAC audio so Android MediaMuxer can mux it natively with H.264 video
+                            val score = bitrate + if (isMp4Audio) 1_000_000 else 0
+                            if (score > highestAudioScore || bestAudioUrl == null) {
+                                highestAudioScore = score
                                 bestAudioUrl = streamUrl
                                 bestAudioClen = af.optLong("contentLength", -1L).takeIf { it > 0 }
                             }
                         }
                     }
 
-                    data class YtStream(val url: String, val height: Int, val ext: String, val hasMuxedAudio: Boolean, val clen: Long?)
+                    data class YtStream(
+                        val url: String,
+                        val tier: Int,
+                        val ext: String,
+                        val hasMuxedAudio: Boolean,
+                        val isAvcMp4: Boolean,
+                        val clen: Long?
+                    )
                     val videoMap = mutableMapOf<Int, YtStream>()
 
                     // 1. Progressive streams (muxed audio)
                     for (i in 0 until rawFormats.length()) {
                         val f = rawFormats.getJSONObject(i)
                         val streamUrl = f.optString("url")
-                        val height = f.optInt("height", 0)
-                        if (streamUrl.isNotEmpty() && height > 0) {
+                        val tier = parseNormalizedTier(f)
+                        if (streamUrl.isNotEmpty() && tier > 0) {
                             val clen = f.optLong("contentLength", -1L).takeIf { it > 0 }
-                            videoMap[height] = YtStream(streamUrl, height, "mp4", true, clen)
+                            videoMap[tier] = YtStream(streamUrl, tier, "mp4", true, true, clen)
                         }
                     }
 
@@ -361,98 +414,117 @@ private class YouTubeDirectResolver : Resolver {
                     for (i in 0 until adaptive.length()) {
                         val af = adaptive.getJSONObject(i)
                         val streamUrl = af.optString("url")
-                        val height = af.optInt("height", 0)
-                        if (streamUrl.isNotEmpty() && height > 0) {
-                            val isMp4 = af.optString("mimeType").contains("mp4")
-                            val existing = videoMap[height]
-                            if (existing == null || (!existing.hasMuxedAudio && isMp4)) {
-                                val clen = af.optLong("contentLength", -1L).takeIf { it > 0 }
-                                videoMap[height] = YtStream(streamUrl, height, if (isMp4) "mp4" else "webm", false, clen)
-                            }
+                        val mime = af.optString("mimeType")
+                        if (streamUrl.isEmpty() || !mime.contains("video")) continue
+                        val tier = parseNormalizedTier(af)
+                        if (tier <= 0) continue
+
+                        val isMp4 = mime.contains("mp4")
+                        val isAvc = mime.contains("avc1")
+                        val existing = videoMap[tier]
+                        // Prefer H.264 MP4 (avc1) for universal hardware compatibility & MediaMuxer support
+                        val shouldReplace = existing == null ||
+                            (!existing.hasMuxedAudio && isMp4 && (!existing.isAvcMp4 && isAvc)) ||
+                            (!existing.hasMuxedAudio && existing.ext != "mp4" && isMp4)
+                        if (shouldReplace) {
+                            val clen = af.optLong("contentLength", -1L).takeIf { it > 0 }
+                            val totalClen = if (clen != null && bestAudioClen != null) clen + bestAudioClen else clen
+                            videoMap[tier] = YtStream(
+                                url = streamUrl,
+                                tier = tier,
+                                ext = if (isMp4) "mp4" else "webm",
+                                hasMuxedAudio = false,
+                                isAvcMp4 = isMp4 && isAvc,
+                                clen = totalClen
+                            )
                         }
                     }
 
-                    val availableHeights = videoMap.keys.sortedDescending()
-                    if (availableHeights.isEmpty()) continue
+                    val availableTiers = videoMap.keys.sortedDescending()
+                    if (availableTiers.isEmpty()) return@use
 
-                    val maxH = availableHeights.first()
+                    val maxH = availableTiers.first()
 
-                    // 1. Original Quality (if > 1080p, e.g. 4K 2160p or 2K 1440p)
+                    // 1. 4K / 2K Original Quality (if > 1080p)
                     if (maxH > 1080) {
                         val vf = videoMap[maxH]!!
                         val audioU = if (vf.hasMuxedAudio) null else bestAudioUrl
                         val tok = if (audioU != null) "${vf.url}|$audioU" else vf.url
                         val qLabel = if (maxH >= 2160) "4K UHD" else (if (maxH >= 1440) "2K QHD" else "${maxH}p")
-                        formats.add(VideoFormat(tok, "$qLabel (${maxH}p Original Quality) · MP4", vf.ext, vf.clen))
+                        formats.add(VideoFormat(tok, "🎬 $qLabel (${maxH}p Original Quality) · MP4", "mp4", vf.clen))
                     }
 
-                    // 2. 1080p FHD
+                    // 2. 1080p Full HD
                     videoMap[1080]?.let { vf ->
                         val audioU = if (vf.hasMuxedAudio) null else bestAudioUrl
                         val tok = if (audioU != null) "${vf.url}|$audioU" else vf.url
-                        val isOrig = (maxH == 1080)
-                        val noteStr = if (isOrig) "1080p FHD (Original Quality) · MP4" else "1080p FHD · MP4"
-                        formats.add(VideoFormat(tok, noteStr, vf.ext, vf.clen))
+                        val noteStr = if (maxH == 1080) "🎬 1080p FHD (Original Quality) · MP4" else "🎬 1080p Full HD · MP4"
+                        formats.add(VideoFormat(tok, noteStr, "mp4", vf.clen))
                     }
 
                     // 3. 720p HD
                     videoMap[720]?.let { vf ->
                         val audioU = if (vf.hasMuxedAudio) null else bestAudioUrl
                         val tok = if (audioU != null) "${vf.url}|$audioU" else vf.url
-                        val isOrig = (maxH == 720)
-                        val noteStr = if (isOrig) "720p HD (Original Quality) · MP4" else "720p HD · MP4"
-                        formats.add(VideoFormat(tok, noteStr, vf.ext, vf.clen))
+                        val noteStr = if (maxH == 720) "🎬 720p HD (Original Quality) · MP4" else "🎬 720p HD · MP4"
+                        formats.add(VideoFormat(tok, noteStr, "mp4", vf.clen))
                     }
 
-                    // 4. 480p SD (if available and needed)
+                    // 4. 480p SD
                     videoMap[480]?.let { vf ->
-                        if (formats.size < 2 || maxH == 480) {
-                            val audioU = if (vf.hasMuxedAudio) null else bestAudioUrl
-                            val tok = if (audioU != null) "${vf.url}|$audioU" else vf.url
-                            val isOrig = (maxH == 480)
-                            val noteStr = if (isOrig) "480p SD (Original Quality) · MP4" else "480p SD · MP4"
-                            formats.add(VideoFormat(tok, noteStr, vf.ext, vf.clen))
-                        }
+                        val audioU = if (vf.hasMuxedAudio) null else bestAudioUrl
+                        val tok = if (audioU != null) "${vf.url}|$audioU" else vf.url
+                        val noteStr = if (maxH == 480) "🎬 480p SD (Original Quality) · MP4" else "🎬 480p SD · MP4"
+                        formats.add(VideoFormat(tok, noteStr, "mp4", vf.clen))
                     }
 
                     // 5. 360p Standard
                     videoMap[360]?.let { vf ->
                         val audioU = if (vf.hasMuxedAudio) null else bestAudioUrl
                         val tok = if (audioU != null) "${vf.url}|$audioU" else vf.url
-                        val isOrig = (maxH == 360)
-                        val noteStr = if (isOrig) "360p (Original Quality) · MP4" else "360p · Standard MP4 with Audio"
-                        formats.add(VideoFormat(tok, noteStr, vf.ext, vf.clen))
+                        val noteStr = if (maxH == 360) "🎬 360p (Original Quality) · MP4" else "🎬 360p Standard · MP4"
+                        formats.add(VideoFormat(tok, noteStr, "mp4", vf.clen))
                     }
 
-                    // Fallback if none of standard tiers matched
-                    if (formats.isEmpty() && availableHeights.isNotEmpty()) {
-                        for (h in availableHeights.take(3)) {
-                            val vf = videoMap[h]!!
+                    // 6. 240p Data Saver (if fewer than 4 video options so far)
+                    if (formats.size < 4) {
+                        videoMap[240]?.let { vf ->
                             val audioU = if (vf.hasMuxedAudio) null else bestAudioUrl
                             val tok = if (audioU != null) "${vf.url}|$audioU" else vf.url
-                            formats.add(VideoFormat(tok, "${h}p · MP4", vf.ext, vf.clen))
+                            formats.add(VideoFormat(tok, "🎬 240p Data Saver · MP4", "mp4", vf.clen))
                         }
                     }
 
-                    // 6. High Quality Audio Track
+                    // Fallback if none of standard tiers matched
+                    if (formats.isEmpty() && availableTiers.isNotEmpty()) {
+                        for (h in availableTiers.take(4)) {
+                            val vf = videoMap[h]!!
+                            val audioU = if (vf.hasMuxedAudio) null else bestAudioUrl
+                            val tok = if (audioU != null) "${vf.url}|$audioU" else vf.url
+                            formats.add(VideoFormat(tok, "🎬 ${h}p · MP4", "mp4", vf.clen))
+                        }
+                    }
+
+                    // 7. High Quality Audio Track
                     if (bestAudioUrl != null) {
                         formats.add(VideoFormat(bestAudioUrl, "🎵 High Quality Audio (M4A / MP3)", "m4a", bestAudioClen))
                     }
 
-                    if (formats.isNotEmpty()) {
+                    if (formats.size >= 3) {
                         return ResolveOutcome.Success(title, thumbnail, formats)
+                    } else if (formats.isNotEmpty() && fallbackSingleOutcome == null) {
+                        fallbackSingleOutcome = ResolveOutcome.Success(title, thumbnail, formats)
                     }
                 }
             } catch (e: Exception) {
                 lastErr = e.message ?: "network error"
             }
         }
-        return ResolveOutcome.Failed(lastErr)
+        return fallbackSingleOutcome ?: ResolveOutcome.Failed(lastErr)
     }
 }
 
-/** TikTok via the public tikwm.com API -- fast and dedicated to TikTok
- *  specifically, so it's tried before the more general-purpose backends. */
+/** TikTok via the public tikwm.com API -- returns 1080p FHD, 720p HD, 480p SD, and MP3 Audio. */
 private class TikTokPublicApiResolver : Resolver {
     override val name = "tikwm"
     private val client = NetworkClient.client
@@ -461,7 +533,7 @@ private class TikTokPublicApiResolver : Resolver {
         if (type != "tiktok") return ResolveOutcome.NotApplicable
         return try {
             val request = Request.Builder()
-                .url("https://www.tikwm.com/api/?url=${java.net.URLEncoder.encode(url, "UTF-8")}")
+                .url("https://www.tikwm.com/api/?url=${java.net.URLEncoder.encode(url, "UTF-8")}&hd=1")
                 .build()
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return ResolveOutcome.Failed("HTTP ${response.code}")
@@ -470,15 +542,22 @@ private class TikTokPublicApiResolver : Resolver {
                 val v = data.optJSONObject("data") ?: return ResolveOutcome.Failed("empty response")
                 val title = v.optString("title", "TikTok Video")
                 val thumbnail = v.optString("cover", "")
+                val hdSize = v.optLong("hd_size", -1L).takeIf { it > 0 }
+                val playSize = v.optLong("size", -1L).takeIf { it > 0 }
+                val wmSize = v.optLong("wm_size", -1L).takeIf { it > 0 }
+
                 val formats = mutableListOf<VideoFormat>()
+                v.optString("hdplay", "").takeIf { it.isNotEmpty() }?.let {
+                    formats.add(VideoFormat(it, "🎬 1080p Full HD (No Watermark)", "mp4", hdSize))
+                }
                 v.optString("play", "").takeIf { it.isNotEmpty() }?.let {
-                    formats.add(VideoFormat(it, "HD No Watermark (MP4)", "mp4"))
+                    formats.add(VideoFormat(it, "🎬 720p HD (No Watermark)", "mp4", playSize))
                 }
                 v.optString("wmplay", "").takeIf { it.isNotEmpty() }?.let {
-                    formats.add(VideoFormat(it, "Watermarked (MP4)", "mp4"))
+                    formats.add(VideoFormat(it, "🎬 480p SD (Watermarked)", "mp4", wmSize))
                 }
                 v.optString("music", "").takeIf { it.isNotEmpty() }?.let {
-                    formats.add(VideoFormat(it, "Audio Only (MP3)", "mp3"))
+                    formats.add(VideoFormat(it, "🎵 High Quality Audio (MP3)", "mp3"))
                 }
                 if (formats.isEmpty()) ResolveOutcome.Failed("no playable formats in response")
                 else ResolveOutcome.Success(title, thumbnail, formats)
@@ -777,8 +856,9 @@ private class InstagramDirectResolver : Resolver {
                                 ?.replace("&amp;", "&")
                                 ?.replace("\\", "") ?: ""
 
-                            val formats = listOf(
-                                VideoFormat(cleanVideoUrl, "🎬 HD Video with Audio (MP4)", "mp4", VideoResolver.probeContentLength(cleanVideoUrl))
+                            val formats = mutableListOf(
+                                VideoFormat(cleanVideoUrl, "🎬 HD Video with Audio (MP4)", "mp4", VideoResolver.probeContentLength(cleanVideoUrl)),
+                                VideoFormat(cleanVideoUrl, "🎵 High Quality Audio (MP3)", "mp3")
                             )
                             return ResolveOutcome.Success("Instagram Reel", cleanThumb, formats)
                         }
@@ -790,12 +870,6 @@ private class InstagramDirectResolver : Resolver {
 
                         if (media != null) {
                             val videoVersions = media.optJSONArray("video_versions")
-                            val videoUrl = if (videoVersions != null && videoVersions.length() > 0) {
-                                videoVersions.getJSONObject(0).optString("url")
-                            } else {
-                                media.optString("video_url")
-                            }
-
                             val caption = media.optJSONObject("caption")?.optString("text")
                                 ?: media.optJSONObject("edge_media_to_caption")?.optJSONArray("edges")?.optJSONObject(0)?.optJSONObject("node")?.optString("text")
                                 ?: "Instagram Reel"
@@ -803,10 +877,28 @@ private class InstagramDirectResolver : Resolver {
                             val thumb = media.optJSONObject("image_versions2")?.optJSONArray("candidates")?.optJSONObject(0)?.optString("url")
                                 ?: media.optString("display_url")
 
-                            if (videoUrl.isNotEmpty()) {
-                                val formats = listOf(
-                                    VideoFormat(videoUrl, "🎬 HD Video (MP4)", "mp4", VideoResolver.probeContentLength(videoUrl))
-                                )
+                            val formats = mutableListOf<VideoFormat>()
+                            if (videoVersions != null && videoVersions.length() > 0) {
+                                for (i in 0 until minOf(3, videoVersions.length())) {
+                                    val vObj = videoVersions.getJSONObject(i)
+                                    val vUrl = vObj.optString("url")
+                                    val w = vObj.optInt("width", 0)
+                                    val h = vObj.optInt("height", 0)
+                                    val tier = minOf(w, h).takeIf { it > 0 } ?: if (i == 0) 1080 else 720
+                                    val note = if (i == 0) "🎬 ${tier}p HD (Original MP4)" else "🎬 ${tier}p (MP4)"
+                                    if (vUrl.isNotEmpty()) {
+                                        formats.add(VideoFormat(vUrl, note, "mp4", VideoResolver.probeContentLength(vUrl)))
+                                    }
+                                }
+                            } else {
+                                val singleUrl = media.optString("video_url")
+                                if (singleUrl.isNotEmpty()) {
+                                    formats.add(VideoFormat(singleUrl, "🎬 HD Video (MP4)", "mp4", VideoResolver.probeContentLength(singleUrl)))
+                                }
+                            }
+
+                            if (formats.isNotEmpty()) {
+                                formats.add(VideoFormat(formats.first().formatId, "🎵 High Quality Audio (MP3)", "mp3"))
                                 return ResolveOutcome.Success(caption.take(80), thumb, formats)
                             }
                         }
@@ -815,6 +907,85 @@ private class InstagramDirectResolver : Resolver {
             } catch (e: Exception) {}
         }
         return ResolveOutcome.Failed("Instagram direct extraction failed")
+    }
+}
+
+/** Resolves Twitter / X videos directly using public TwitSave media API and base64 stream decoding. */
+private class TwitterDirectResolver : Resolver {
+    override val name = "twitter-direct"
+    private val client = NetworkClient.client
+
+    override suspend fun resolve(url: String, type: String, ctx: ResolverContext): ResolveOutcome {
+        if (type != "twitter") return ResolveOutcome.NotApplicable
+
+        return try {
+            val encodedUrl = java.net.URLEncoder.encode(url, "UTF-8")
+            val request = Request.Builder()
+                .url("https://twitsave.com/info?url=$encodedUrl")
+                .header("User-Agent", NetworkClient.USER_AGENT)
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return ResolveOutcome.Failed("HTTP ${response.code} from TwitSave")
+                val html = response.body?.string() ?: return ResolveOutcome.Failed("Empty response from TwitSave")
+
+                // Extract title
+                val titleMatch = Regex("<div[^>]*class=\"[^\"]*leading-tight[^\"]*\"[^>]*>.*?<p[^>]*class=\"[^\"]*m-2[^\"]*\"[^>]*>([^<]+)</p>", RegexOption.DOT_MATCHES_ALL).find(html)
+                    ?: Regex("<div[^>]*class=\"[^\"]*leading-tight[^\"]*\"[^>]*>.*?<p[^>]*>([^<]+)</p>", RegexOption.DOT_MATCHES_ALL).find(html)
+                var title = titleMatch?.groupValues?.get(1)?.trim() ?: "Twitter / X Video"
+                title = title.replace("&amp;", "&").replace("&quot;", "\"").replace("&#039;", "'").replace("&lt;", "<").replace("&gt;", ">")
+
+                // Extract thumbnail
+                val thumbMatch = Regex("(https://pbs\\.twimg\\.com/[^\\s\"'<>]+\\.(?:jpg|jpeg|png|webp))").find(html)
+                val thumbnail = thumbMatch?.groupValues?.get(1) ?: ""
+
+                // Extract download links with base64 encoded direct video.twimg.com stream URLs
+                val linkMatches = Regex("href=\"https://twitsave\\.com/download\\?file=([^\"&]+)\"[^>]*>(.*?)</a>", RegexOption.DOT_MATCHES_ALL).findAll(html)
+                val formats = mutableListOf<VideoFormat>()
+                val seenUrls = mutableSetOf<String>()
+
+                for (match in linkMatches) {
+                    val b64Token = match.groupValues[1]
+                    val linkBody = match.groupValues[2]
+                    try {
+                        val unquoted = java.net.URLDecoder.decode(b64Token, "UTF-8")
+                        val padLen = (4 - unquoted.length % 4) % 4
+                        val padded = unquoted + "=".repeat(padLen)
+                        val directUrl = String(android.util.Base64.decode(padded, android.util.Base64.DEFAULT), Charsets.UTF_8).trim()
+
+                        if (!directUrl.startsWith("http") || directUrl in seenUrls) continue
+                        seenUrls.add(directUrl)
+
+                        val resMatch = Regex("Resolution:\\s*(\\d+)x(\\d+)").find(linkBody)
+                        val w = resMatch?.groupValues?.get(1)?.toIntOrNull() ?: 1280
+                        val h = resMatch?.groupValues?.get(2)?.toIntOrNull() ?: 720
+                        val tier = minOf(w, h)
+
+                        val note = when {
+                            tier >= 1080 -> "🎬 1080p FHD (${w}x${h} MP4)"
+                            tier >= 720 -> "🎬 720p HD (${w}x${h} MP4)"
+                            tier >= 480 -> "🎬 480p SD (${w}x${h} MP4)"
+                            else -> "🎬 ${tier}p (${w}x${h} MP4)"
+                        }
+
+                        val size = VideoResolver.probeContentLength(directUrl)
+                        formats.add(VideoFormat(directUrl, note, "mp4", size))
+                    } catch (e: Exception) {}
+                }
+
+                // Add audio-only option
+                if (formats.isNotEmpty()) {
+                    val bestStream = formats.first().formatId
+                    formats.add(VideoFormat(bestStream, "🎵 High Quality Audio (MP3)", "mp3"))
+                    ResolveOutcome.Success(title, thumbnail, formats)
+                } else {
+                    ResolveOutcome.Failed("No video streams found in tweet")
+                }
+            }
+        } catch (e: Exception) {
+            ResolveOutcome.Failed(e.message ?: "network error")
+        }
     }
 }
 

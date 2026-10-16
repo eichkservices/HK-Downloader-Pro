@@ -277,11 +277,90 @@ async function resolveYoutubeMetadata(link) {
   return { title, thumbnail };
 }
 
+async function resolveTwitterDirect(link) {
+  const enc = encodeURIComponent(link);
+  const resp = await fetch(`https://twitsave.com/info?url=${enc}`, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+    },
+    signal: AbortSignal.timeout(8000)
+  });
+  if (!resp.ok) throw new Error(`TwitSave HTTP ${resp.status}`);
+  const html = await resp.text();
+
+  let title = 'Twitter / X Video';
+  const titleMatch = html.match(/<div[^>]*class="[^"]*leading-tight[^"]*"[^>]*>.*?<p[^>]*class="[^"]*m-2[^"]*"[^>]*>([^<]+)<\/p>/s) ||
+                     html.match(/<div[^>]*class="[^"]*leading-tight[^"]*"[^>]*>.*?<p[^>]*>([^<]+)<\/p>/s) ||
+                     html.match(/property="og:title"\s+content="([^"]+)"/);
+  if (titleMatch) {
+    title = titleMatch[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+  }
+
+  let thumbnail = '';
+  const thumbMatch = html.match(/(https:\/\/pbs\.twimg\.com\/[^\s"'<>]+\.(?:jpg|jpeg|png|webp))/);
+  if (thumbMatch) {
+    thumbnail = thumbMatch[1];
+  }
+
+  const linkMatches = [...html.matchAll(/href="https:\/\/twitsave\.com\/download\?file=([^"&]+)"[^>]*>(.*?)<\/a>/gs)];
+  const formats = [];
+  const seenUrls = new Set();
+
+  for (const m of linkMatches) {
+    try {
+      const b64 = decodeURIComponent(m[1]);
+      const directUrl = atob(b64);
+      if (!directUrl.startsWith('http') || seenUrls.has(directUrl)) continue;
+      seenUrls.add(directUrl);
+
+      const resMatch = m[2].match(/Resolution:\s*(\d+)x(\d+)/);
+      const w = resMatch ? parseInt(resMatch[1], 10) : 1280;
+      const h = resMatch ? parseInt(resMatch[2], 10) : 720;
+      const tier = Math.min(w, h);
+
+      let note = `🎬 ${tier}p (${w}x${h} MP4)`;
+      if (tier >= 1080) note = `🎬 1080p FHD (${w}x${h} MP4)`;
+      else if (tier >= 720) note = `🎬 720p HD (${w}x${h} MP4)`;
+      else if (tier >= 480) note = `🎬 480p SD (${w}x${h} MP4)`;
+
+      formats.push({
+        directUrl,
+        token: directUrl,
+        note,
+        ext: 'mp4',
+        height: tier,
+        hasAudio: true
+      });
+    } catch (e) {}
+  }
+
+  if (formats.length > 0) {
+    const bestUrl = formats[0].directUrl;
+    formats.push({
+      directUrl: bestUrl,
+      token: bestUrl,
+      note: '🎵 High Quality Audio (MP3)',
+      ext: 'mp3',
+      isAudio: true
+    });
+    return { title, thumbnail, type: 'twitter', formats, maxResolution: `${formats[0].height || 720}p` };
+  }
+  throw new Error('No playable Twitter video streams found');
+}
+
 async function resolveYoutubeDirect(link) {
   const vidId = link.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1];
   if (!vidId) throw new Error('Invalid YouTube URL');
 
   const clients = [
+    {
+      name: 'IOS',
+      version: '20.03.02',
+      clientNameId: '5',
+      ua: 'com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)',
+      context: { clientName: 'IOS', clientVersion: '20.03.02', deviceMake: 'Apple', deviceModel: 'iPhone16,2', gl: 'US', hl: 'en' }
+    },
     {
       name: 'ANDROID_VR',
       version: '1.61.48',
@@ -359,18 +438,28 @@ async function resolveYoutubeDirect(link) {
       }
       const bestAudioUrl = bestAudio ? bestAudio.url : null;
 
-      // Collect all video streams mapped by height
+      function parseNormalizedTier(f) {
+        const labelMatch = (f.qualityLabel || '').match(/(\d{3,4})p/);
+        if (labelMatch) return parseInt(labelMatch[1], 10);
+        const w = f.width || 0;
+        const h = f.height || 0;
+        if (w > 0 && h > 0) return Math.min(w, h);
+        return h || 360;
+      }
+
+      // Collect all video streams mapped by normalized tier
       const videoMap = {};
       // 1. Progressive streams (muxed audio)
       for (const f of rawFormats) {
-        if (f.url && f.height) {
+        if (f.url) {
+          const tier = parseNormalizedTier(f);
           const clen = f.contentLength ? parseInt(f.contentLength, 10) : undefined;
-          videoMap[f.height] = {
+          videoMap[tier] = {
             url: f.url,
-            height: f.height,
+            height: tier,
             ext: 'mp4',
             hasMuxedAudio: true,
-            qualityLabel: f.qualityLabel || `${f.height}p`,
+            qualityLabel: f.qualityLabel || `${tier}p`,
             sizeBytes: clen
           };
         }
@@ -378,44 +467,44 @@ async function resolveYoutubeDirect(link) {
 
       // 2. Adaptive streams (video only)
       for (const af of adaptive) {
-        if (af.url && af.height) {
+        if (af.url) {
+          const tier = parseNormalizedTier(af);
           const isMp4 = (af.mimeType || '').includes('mp4');
-          const existing = videoMap[af.height];
+          const existing = videoMap[tier];
           if (!existing || (!existing.hasMuxedAudio && isMp4)) {
             const clen = af.contentLength ? parseInt(af.contentLength, 10) : undefined;
-            videoMap[af.height] = {
+            videoMap[tier] = {
               url: af.url,
-              height: af.height,
+              height: tier,
               ext: isMp4 ? 'mp4' : 'webm',
               hasMuxedAudio: false,
-              qualityLabel: af.qualityLabel || `${af.height}p`,
+              qualityLabel: af.qualityLabel || `${tier}p`,
               sizeBytes: clen
             };
           }
         }
       }
 
-      const availableHeights = Object.keys(videoMap).map(h => parseInt(h, 10)).sort((a, b) => b - a);
-      if (availableHeights.length === 0) continue;
+      const availableTiers = Object.keys(videoMap).map(h => parseInt(h, 10)).sort((a, b) => b - a);
+      if (availableTiers.length === 0) continue;
 
-      const maxH = availableHeights[0];
+      const maxTier = availableTiers[0];
 
       // 1. Original Quality (if > 1080p, e.g. 4K 2160p or 2K 1440p)
-      if (maxH > 1080) {
-        const vf = videoMap[maxH];
-        const hasMuxed = vf.hasMuxedAudio;
-        const audioU = hasMuxed ? null : bestAudioUrl;
+      if (maxTier > 1080) {
+        const vf = videoMap[maxTier];
+        const audioU = vf.hasMuxedAudio ? null : bestAudioUrl;
         const tok = audioU ? `${vf.url}|${audioU}` : vf.url;
-        const qLabel = maxH >= 2160 ? '4K UHD' : (maxH >= 1440 ? '2K QHD' : `${maxH}p`);
+        const qLabel = maxTier >= 2160 ? '4K UHD' : (maxTier >= 1440 ? '2K QHD' : `${maxTier}p`);
         formats.push({
           directUrl: vf.url,
           audioUrl: audioU,
           token: tok,
           videoId: vidId,
           url: link,
-          note: `🎬 ${qLabel} (${maxH}p Original Quality)`,
+          note: `🎬 ${qLabel} (${maxTier}p Original Quality)`,
           ext: vf.ext,
-          height: maxH,
+          height: maxTier,
           hasAudio: true,
           sizeBytes: vf.sizeBytes
         });
@@ -424,11 +513,9 @@ async function resolveYoutubeDirect(link) {
       // 2. 1080p FHD
       if (videoMap[1080]) {
         const vf = videoMap[1080];
-        const hasMuxed = vf.hasMuxedAudio;
-        const audioU = hasMuxed ? null : bestAudioUrl;
+        const audioU = vf.hasMuxedAudio ? null : bestAudioUrl;
         const tok = audioU ? `${vf.url}|${audioU}` : vf.url;
-        const isOrig = (maxH === 1080);
-        const noteStr = isOrig ? '🎬 1080p FHD (Original Quality MP4)' : '🎬 1080p FHD (MP4)';
+        const noteStr = (maxTier === 1080) ? '🎬 1080p FHD (Original Quality MP4)' : '🎬 1080p FHD (MP4)';
         formats.push({
           directUrl: vf.url,
           audioUrl: audioU,
@@ -446,11 +533,9 @@ async function resolveYoutubeDirect(link) {
       // 3. 720p HD
       if (videoMap[720]) {
         const vf = videoMap[720];
-        const hasMuxed = vf.hasMuxedAudio;
-        const audioU = hasMuxed ? null : bestAudioUrl;
+        const audioU = vf.hasMuxedAudio ? null : bestAudioUrl;
         const tok = audioU ? `${vf.url}|${audioU}` : vf.url;
-        const isOrig = (maxH === 720);
-        const noteStr = isOrig ? '🎬 720p HD (Original Quality MP4)' : '🎬 720p HD (MP4)';
+        const noteStr = (maxTier === 720) ? '🎬 720p HD (Original Quality MP4)' : '🎬 720p HD (MP4)';
         formats.push({
           directUrl: vf.url,
           audioUrl: audioU,
@@ -465,14 +550,12 @@ async function resolveYoutubeDirect(link) {
         });
       }
 
-      // 4. 480p SD (if available and needed)
-      if (videoMap[480] && (formats.length < 2 || maxH === 480)) {
+      // 4. 480p SD
+      if (videoMap[480]) {
         const vf = videoMap[480];
-        const hasMuxed = vf.hasMuxedAudio;
-        const audioU = hasMuxed ? null : bestAudioUrl;
+        const audioU = vf.hasMuxedAudio ? null : bestAudioUrl;
         const tok = audioU ? `${vf.url}|${audioU}` : vf.url;
-        const isOrig = (maxH === 480);
-        const noteStr = isOrig ? '🎬 480p SD (Original Quality MP4)' : '🎬 480p SD (MP4)';
+        const noteStr = (maxTier === 480) ? '🎬 480p SD (Original Quality MP4)' : '🎬 480p SD (MP4)';
         formats.push({
           directUrl: vf.url,
           audioUrl: audioU,
@@ -490,11 +573,9 @@ async function resolveYoutubeDirect(link) {
       // 5. 360p Standard
       if (videoMap[360]) {
         const vf = videoMap[360];
-        const hasMuxed = vf.hasMuxedAudio;
-        const audioU = hasMuxed ? null : bestAudioUrl;
+        const audioU = vf.hasMuxedAudio ? null : bestAudioUrl;
         const tok = audioU ? `${vf.url}|${audioU}` : vf.url;
-        const isOrig = (maxH === 360);
-        const noteStr = isOrig ? '🎬 360p (Original Quality MP4)' : '🎬 360p (Standard MP4 with Audio)';
+        const noteStr = (maxTier === 360) ? '🎬 360p (Original Quality MP4)' : '🎬 360p Standard (MP4)';
         formats.push({
           directUrl: vf.url,
           audioUrl: audioU,
@@ -507,11 +588,31 @@ async function resolveYoutubeDirect(link) {
           hasAudio: true,
           sizeBytes: vf.sizeBytes
         });
-      } else if (formats.length === 0 && availableHeights.length > 0) {
-        for (const h of availableHeights.slice(0, 3)) {
+      }
+
+      // 6. 240p Data Saver
+      if (videoMap[240] && formats.length < 5) {
+        const vf = videoMap[240];
+        const audioU = vf.hasMuxedAudio ? null : bestAudioUrl;
+        const tok = audioU ? `${vf.url}|${audioU}` : vf.url;
+        formats.push({
+          directUrl: vf.url,
+          audioUrl: audioU,
+          token: tok,
+          videoId: vidId,
+          url: link,
+          note: '🎬 240p Data Saver (MP4)',
+          ext: vf.ext,
+          height: 240,
+          hasAudio: true,
+          sizeBytes: vf.sizeBytes
+        });
+      }
+
+      if (formats.length === 0 && availableTiers.length > 0) {
+        for (const h of availableTiers.slice(0, 4)) {
           const vf = videoMap[h];
-          const hasMuxed = vf.hasMuxedAudio;
-          const audioU = hasMuxed ? null : bestAudioUrl;
+          const audioU = vf.hasMuxedAudio ? null : bestAudioUrl;
           const tok = audioU ? `${vf.url}|${audioU}` : vf.url;
           formats.push({
             directUrl: vf.url,
@@ -809,6 +910,21 @@ export async function onRequestPost(context) {
       const pinData = await resolvePinterestDirect(inputUrl);
       if (pinData && pinData.formats && pinData.formats.length > 0) {
         return new Response(JSON.stringify(pinData), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type'
+          }
+        });
+      }
+    } catch (e) {}
+  } else if (type === 'twitter') {
+    try {
+      const twData = await resolveTwitterDirect(inputUrl);
+      if (twData && twData.formats && twData.formats.length > 0) {
+        return new Response(JSON.stringify(twData), {
           status: 200,
           headers: {
             'Content-Type': 'application/json',
