@@ -1,10 +1,12 @@
 package com.example.apexdownloader.ui.main
 
 import android.app.Application
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
@@ -23,7 +25,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
 import com.example.apexdownloader.theme.*
+import com.example.apexdownloader.ui.components.HkLogoIcon
 import com.example.apexdownloader.ui.screens.DownloaderScreen
+import com.example.apexdownloader.ui.screens.LibraryScreen
 import com.example.apexdownloader.ui.screens.SettingsScreen
 
 @Composable
@@ -35,7 +39,8 @@ fun MainScreen(
     val app = context.applicationContext as Application
     val viewModel: MainScreenViewModel = viewModel(factory = androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(app))
 
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by remember { mutableIntStateOf(0) }
+    var showingSettings by remember { mutableStateOf(false) }
 
     val analysisState by viewModel.analysisState.collectAsState()
     val downloads by viewModel.downloads.collectAsState()
@@ -45,95 +50,147 @@ fun MainScreen(
     )
 
     Scaffold(
-        bottomBar = {
+        topBar = {
+            // Obsidian Header matching Web App .app-header
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(BgDark)
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(horizontal = 24.dp, vertical = 14.dp),
-                contentAlignment = Alignment.Center
+                    .background(Color(0xE606070A))
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth(0.92f)
-                        .height(56.dp)
-                        .clip(RoundedCornerShape(22.dp))
-                        .background(Color(0xFF131722))
-                        .border(1.dp, Color(0x1FFFFFFF), RoundedCornerShape(22.dp))
-                        .padding(4.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Queue tab
-                    val queueSelected = selectedTab == 0
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(
-                                if (queueSelected) Color(0x28E07A2B)
-                                else Color.Transparent
-                            )
-                            .then(
-                                if (queueSelected) Modifier.border(1.dp, Color(0x45E07A2B), RoundedCornerShape(18.dp))
-                                else Modifier
-                            )
-                            .clickable { selectedTab = 0 },
-                        contentAlignment = Alignment.Center
+                    // Left Brand: Logo + Title + Version Badge
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Download,
-                                contentDescription = "Queue",
-                                tint = if (queueSelected) AccentOrange else TextSecondary,
-                                modifier = Modifier.size(17.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
+                        HkLogoIcon(modifier = Modifier.size(28.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             Text(
-                                "Queue",
-                                color = if (queueSelected) AccentOrange else TextSecondary,
-                                fontSize = 12.sp,
-                                fontWeight = if (queueSelected) FontWeight.Bold else FontWeight.Medium
+                                text = "HK Downloader Pro",
+                                color = TextPrimary,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = (-0.2).sp
                             )
+
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(100.dp))
+                                    .background(Color(0x1F22D3EE))
+                                    .border(1.dp, Color(0x4022D3EE), RoundedCornerShape(100.dp))
+                                    .padding(horizontal = 7.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "v2.9.2",
+                                    color = AccentCyan,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
 
-                    Spacer(Modifier.width(8.dp))
-
-                    // Library / Settings tab
-                    val librarySelected = selectedTab == 1
-                    Box(
+                    // Right: Settings Action
+                    IconButton(
+                        onClick = { showingSettings = !showingSettings },
                         modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(
-                                if (librarySelected) Color(0x28E07A2B)
-                                else Color.Transparent
-                            )
-                            .then(
-                                if (librarySelected) Modifier.border(1.dp, Color(0x45E07A2B), RoundedCornerShape(18.dp))
-                                else Modifier
-                            )
-                            .clickable { selectedTab = 1 },
-                        contentAlignment = Alignment.Center
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(GlassBg)
+                            .border(1.dp, GlassBorder, CircleShape)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Folder,
-                                contentDescription = "Library",
-                                tint = if (librarySelected) AccentOrange else TextSecondary,
-                                modifier = Modifier.size(17.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                "Library",
-                                color = if (librarySelected) AccentOrange else TextSecondary,
-                                fontSize = 12.sp,
-                                fontWeight = if (librarySelected) FontWeight.Bold else FontWeight.Medium
-                            )
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = if (showingSettings) AccentOrange else TextSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+        },
+        bottomBar = {
+            if (!showingSettings) {
+                // Docked Glass Bottom Nav (Matching Web App .bottom-nav)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xF206070A))
+                        .border(BorderStroke(1.dp, GlassBorder))
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        // Tab 0: Downloader
+                        val isDownloader = selectedTab == 0
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { selectedTab = 0 }
+                                .padding(vertical = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Download,
+                                    contentDescription = "Downloader",
+                                    tint = if (isDownloader) AccentOrange else TextTertiary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                                Text(
+                                    text = "Downloader",
+                                    color = if (isDownloader) AccentOrange else TextTertiary,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isDownloader) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                        }
+
+                        // Tab 1: Library
+                        val isLibrary = selectedTab == 1
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { selectedTab = 1 }
+                                .padding(vertical = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Folder,
+                                    contentDescription = "Library",
+                                    tint = if (isLibrary) AccentCyan else TextTertiary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                                Text(
+                                    text = "Library",
+                                    color = if (isLibrary) AccentCyan else TextTertiary,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isLibrary) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
                         }
                     }
                 }
@@ -148,10 +205,6 @@ fun MainScreen(
         ) {
             AmbientGlowBackground(state = ambientState, modifier = Modifier.fillMaxSize())
 
-            // Phones (the common case) get the existing full-width layout
-            // unchanged. On anything wider -- tablets, unfolded foldables,
-            // split-screen/multi-window -- content is capped at a readable
-            // width and centered instead of stretching edge to edge.
             val isWideScreen = maxWidth > 600.dp
             val contentModifier = if (isWideScreen) {
                 Modifier
@@ -163,9 +216,19 @@ fun MainScreen(
             }
 
             Box(modifier = contentModifier) {
-                when (selectedTab) {
-                    0 -> DownloaderScreen(viewModel = viewModel)
-                    1 -> SettingsScreen(viewModel = viewModel)
+                if (showingSettings) {
+                    SettingsScreen(
+                        viewModel = viewModel,
+                        onBack = { showingSettings = false }
+                    )
+                } else {
+                    when (selectedTab) {
+                        0 -> DownloaderScreen(viewModel = viewModel)
+                        1 -> LibraryScreen(
+                            viewModel = viewModel,
+                            onOpenSettings = { showingSettings = true }
+                        )
+                    }
                 }
             }
         }
