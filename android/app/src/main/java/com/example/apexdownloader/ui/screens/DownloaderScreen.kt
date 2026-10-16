@@ -1,8 +1,8 @@
 package com.example.apexdownloader.ui.screens
 
-import android.content.Context
-import android.content.Intent
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,13 +28,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -43,16 +41,18 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.core.content.FileProvider
+import androidx.compose.ui.window.DialogProperties
 import coil.compose.SubcomposeAsyncImage
 import com.example.apexdownloader.data.DownloadItem
-import com.example.apexdownloader.engine.QualityPreset
-import com.example.apexdownloader.engine.VideoFormat
 import com.example.apexdownloader.engine.VideoResolver
 import com.example.apexdownloader.theme.*
+import com.example.apexdownloader.ui.components.DeleteConfirmModal
+import com.example.apexdownloader.ui.components.TaskDownloadModal
+import com.example.apexdownloader.ui.components.formatBytesUi
+import com.example.apexdownloader.ui.components.openMediaExternally
+import com.example.apexdownloader.ui.components.shareMediaExternally
 import com.example.apexdownloader.ui.main.AnalysisState
 import com.example.apexdownloader.ui.main.MainScreenViewModel
-import java.io.File
 
 // Custom Modifier for obsidian neon glow
 fun Modifier.glowBorder(color: Color, borderRadius: Dp = 14.dp): Modifier = this.drawBehind {
@@ -89,6 +89,7 @@ fun DownloaderScreen(
     var urlInput by remember { mutableStateOf("") }
     val downloads by viewModel.downloads.collectAsState()
     val analysisState by viewModel.analysisState.collectAsState()
+    val activeTaskModalId by viewModel.activeTaskModalId.collectAsState()
 
     var showFormatDialog by remember { mutableStateOf<AnalysisState.Success?>(null) }
     var itemToDelete by remember { mutableStateOf<DownloadItem?>(null) }
@@ -107,24 +108,64 @@ fun DownloaderScreen(
         }
     }
 
-    // Hero Format Selection Modal (Matching Web #formatModal)
+    // 1. Task-Based Download Station Modal (Matches Web #taskDownloadModal)
+    val activeTaskItem = remember(downloads, activeTaskModalId) {
+        activeTaskModalId?.let { id -> downloads.find { it.id == id } }
+    }
+    if (activeTaskItem != null) {
+        TaskDownloadModal(
+            item = activeTaskItem,
+            onMinimize = { viewModel.closeTaskModal() },
+            onPauseOrResume = { viewModel.pauseOrResumeDownload(activeTaskItem) },
+            onStop = { viewModel.stopDownload(activeTaskItem) },
+            onDelete = {
+                viewModel.closeTaskModal()
+                itemToDelete = activeTaskItem
+            },
+            onPlayInApp = {
+                viewModel.closeTaskModal()
+                viewModel.openPlayer(activeTaskItem)
+            }
+        )
+    }
+
+    // 2. Delete Confirmation Modal (Matches Web #deleteModal)
+    itemToDelete?.let { target ->
+        DeleteConfirmModal(
+            item = target,
+            onDismiss = { itemToDelete = null },
+            onDeleteTaskOnly = {
+                viewModel.deleteDownloads(setOf(target.id), deleteFiles = false)
+                itemToDelete = null
+            },
+            onDeleteTaskAndFile = {
+                viewModel.deleteDownloads(setOf(target.id), deleteFiles = true)
+                itemToDelete = null
+            }
+        )
+    }
+
+    // 3. Hero Format Selection Modal (Matches Web #formatModal)
     showFormatDialog?.let { success ->
-        Dialog(onDismissRequest = { showFormatDialog = null }) {
+        Dialog(
+            onDismissRequest = { showFormatDialog = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
             Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = BgPanel),
-                border = BorderStroke(1.dp, GlassBorderStrong),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0E1017)),
+                border = BorderStroke(1.dp, Color(0x1FFFFFFF)),
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxWidth(0.94f)
                     .padding(vertical = 16.dp)
             ) {
                 Column {
-                    // Hero Top Banner with video cover
+                    // Hero Top Banner with video cover (16:9)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(160.dp)
-                            .background(Color(0xFF141822))
+                            .aspectRatio(16f / 9f)
+                            .background(Color(0xFF08090C))
                     ) {
                         if (success.thumbnail.isNotEmpty()) {
                             SubcomposeAsyncImage(
@@ -147,52 +188,31 @@ fun DownloaderScreen(
                             }
                         }
 
-                        // Gradient overlay from top and bottom
+                        // Gradient overlay matching web .format-hero-gradient
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(
                                     Brush.verticalGradient(
                                         listOf(
-                                            Color(0x88000000),
-                                            Color(0x22000000),
-                                            Color(0xF00D1017)
+                                            Color(0x590E1017),
+                                            Color(0x1A0E1017),
+                                            Color(0xFA0E1017)
                                         )
                                     )
                                 )
                         )
 
-                        // Platform Type Badge
-                        val platformType = remember(success.url) {
-                            VideoResolver.identifyLinkType(success.url).uppercase()
-                        }
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .padding(12.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xCC06070A))
-                                .border(0.8.dp, Color(0x33FFFFFF), RoundedCornerShape(6.dp))
-                                .padding(horizontal = 8.dp, vertical = 3.dp)
-                        ) {
-                            Text(
-                                text = platformType,
-                                color = AccentCyan,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
-                            )
-                        }
-
-                        // Close Button
+                        // Close Button (top-right)
                         IconButton(
                             onClick = { showFormatDialog = null },
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                .padding(8.dp)
-                                .size(32.dp)
+                                .padding(12.dp)
+                                .size(34.dp)
                                 .clip(CircleShape)
-                                .background(Color(0x99000000))
+                                .background(Color(0xA60F1118))
+                                .border(1.dp, Color(0x26FFFFFF), CircleShape)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
@@ -202,25 +222,48 @@ fun DownloaderScreen(
                             )
                         }
 
-                        // Video Title at bottom of banner
-                        Text(
-                            text = success.title,
-                            color = Color.White,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
+                        // Platform Badge + Title at bottom of banner
+                        val platformType = remember(success.url) {
+                            VideoResolver.identifyLinkType(success.url).uppercase()
+                        }
+                        Column(
                             modifier = Modifier
                                 .align(Alignment.BottomStart)
-                                .padding(horizontal = 14.dp, vertical = 8.dp)
-                        )
+                                .padding(horizontal = 18.dp, vertical = 12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(bottom = 6.dp)
+                                    .clip(RoundedCornerShape(100.dp))
+                                    .background(Color(0x26FF8A3D))
+                                    .border(1.dp, Color(0x59FF8A3D), RoundedCornerShape(100.dp))
+                                    .padding(horizontal = 10.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = "HD • $platformType",
+                                    color = AccentOrange,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+
+                            Text(
+                                text = success.title,
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
 
                     // Format Selection List
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(14.dp)
+                            .padding(horizontal = 16.dp, vertical = 14.dp)
                     ) {
                         Text(
                             text = "Choose Download Option:",
@@ -230,16 +273,22 @@ fun DownloaderScreen(
                             modifier = Modifier.padding(bottom = 10.dp)
                         )
 
-                        LazyColumn(modifier = Modifier.heightIn(max = 260.dp)) {
+                        LazyColumn(
+                            modifier = Modifier.heightIn(max = 300.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             items(success.formats) { format ->
                                 val isAudio = format.ext == "mp3" || format.ext == "m4a"
+                                val sizeStr = if (format.sizeBytes != null && format.sizeBytes > 0) {
+                                    formatBytesUi(format.sizeBytes)
+                                } else "Size unknown"
+
                                 Card(
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF141824)),
-                                    border = BorderStroke(0.8.dp, GlassBorder),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0x09FFFFFF)),
+                                    border = BorderStroke(1.dp, GlassBorder),
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 4.dp)
                                         .clickable {
                                             val cleanTitle = success.title
                                                 .replace(Regex("[\\\\/:*?\"<>|]"), "_")
@@ -250,7 +299,8 @@ fun DownloaderScreen(
                                                 title = success.title,
                                                 thumbnail = success.thumbnail,
                                                 formatId = format.formatId,
-                                                filename = "$cleanTitle.${format.ext.ifEmpty { "mp4" }}"
+                                                filename = "$cleanTitle.${format.ext.ifEmpty { "mp4" }}",
+                                                sizeBytes = format.sizeBytes ?: 0L
                                             )
                                             showFormatDialog = null
                                             urlInput = ""
@@ -262,54 +312,69 @@ fun DownloaderScreen(
                                             .padding(horizontal = 12.dp, vertical = 10.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
+                                        // Format Row Thumbnail / Icon (matching web .format-item-thumb)
                                         Box(
                                             modifier = Modifier
-                                                .size(32.dp)
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(
-                                                    if (isAudio) Color(0x2222D3EE) else Color(0x22FF8A3D)
-                                                ),
+                                                .width(48.dp)
+                                                .height(34.dp)
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(Color(0xFF0A0C10))
+                                                .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(6.dp)),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            Icon(
-                                                imageVector = if (isAudio) Icons.Default.MusicNote else Icons.Default.PlayArrow,
-                                                contentDescription = null,
-                                                tint = if (isAudio) AccentCyan else AccentOrange,
-                                                modifier = Modifier.size(16.dp)
-                                            )
+                                            if (success.thumbnail.isNotEmpty() && !isAudio) {
+                                                SubcomposeAsyncImage(
+                                                    model = success.thumbnail,
+                                                    contentDescription = null,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                            } else {
+                                                Icon(
+                                                    imageVector = if (isAudio) Icons.Default.MusicNote else Icons.Default.PlayArrow,
+                                                    contentDescription = null,
+                                                    tint = if (isAudio) AccentCyan else AccentOrange,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
                                         }
 
                                         Spacer(modifier = Modifier.width(10.dp))
 
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
-                                                text = format.note.ifEmpty { if (isAudio) "High Quality Audio" else "Standard Quality Video" },
+                                                text = format.note.ifEmpty { if (isAudio) "Audio Only (MP3)" else "Video (${format.ext.uppercase()})" },
                                                 color = TextPrimary,
                                                 fontSize = 13.sp,
-                                                fontWeight = FontWeight.SemiBold
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                             Text(
-                                                text = format.ext.uppercase(),
-                                                color = TextTertiary,
+                                                text = "${format.ext.uppercase()} • $sizeStr",
+                                                color = TextSecondary,
                                                 fontSize = 11.sp
                                             )
                                         }
 
-                                        if (format.sizeBytes != null && format.sizeBytes > 0) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(6.dp))
-                                                    .background(GlassBg)
-                                                    .border(0.8.dp, GlassBorder, RoundedCornerShape(6.dp))
-                                                    .padding(horizontal = 7.dp, vertical = 3.dp)
-                                            ) {
-                                                Text(
-                                                    text = formatBytes(format.sizeBytes),
-                                                    color = TextSecondary,
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Bold
+                                        Spacer(modifier = Modifier.width(8.dp))
+
+                                        // Orange Download Pill Button (Matching web .format-dl-btn)
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(
+                                                    Brush.horizontalGradient(listOf(AccentOrange, AccentOrangeEnd))
                                                 )
-                                            }
+                                                .padding(horizontal = 12.dp, vertical = 7.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "Download",
+                                                color = Color(0xFF1A0B02),
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.ExtraBold
+                                            )
                                         }
                                     }
                                 }
@@ -319,40 +384,6 @@ fun DownloaderScreen(
                 }
             }
         }
-    }
-
-    // Delete confirmation dialog
-    itemToDelete?.let { target ->
-        AlertDialog(
-            onDismissRequest = { itemToDelete = null },
-            title = { Text("Delete Download", color = TextPrimary, fontWeight = FontWeight.Bold) },
-            text = { Text("Are you sure you want to delete \"${target.title}\"?", color = TextSecondary) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteDownloads(setOf(target.id), deleteFiles = false)
-                        itemToDelete = null
-                    }
-                ) {
-                    Text("Delete Task", color = AccentOrange)
-                }
-                TextButton(
-                    onClick = {
-                        viewModel.deleteDownloads(setOf(target.id), deleteFiles = true)
-                        itemToDelete = null
-                    }
-                ) {
-                    Text("Delete Task & File", color = RedFailed)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { itemToDelete = null }) {
-                    Text("Cancel", color = TextSecondary)
-                }
-            },
-            containerColor = BgPanel,
-            shape = RoundedCornerShape(14.dp)
-        )
     }
 
     Column(
@@ -422,7 +453,23 @@ fun DownloaderScreen(
                             )
                         }
 
-                        // Smart Reactive Single Action Button (Paste Link or Analyze)
+                        // Clear X button when URL is typed
+                        if (urlInput.isNotEmpty()) {
+                            IconButton(
+                                onClick = { urlInput = "" },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Clear URL",
+                                    tint = TextTertiary,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(2.dp))
+                        }
+
+                        // Smart Reactive Single Action Button (Paste Link -> Download -> Analyzing...)
                         val isAnalyzing = analysisState is AnalysisState.Analyzing
                         val isEmpty = urlInput.trim().isEmpty()
 
@@ -430,7 +477,6 @@ fun DownloaderScreen(
                             onClick = {
                                 focusManager.clearFocus()
                                 if (isEmpty) {
-                                    // Smart Paste
                                     val clip = clipboardManager.getText()?.text?.toString()?.trim() ?: ""
                                     if (clip.isNotEmpty()) {
                                         urlInput = clip
@@ -441,7 +487,6 @@ fun DownloaderScreen(
                                         android.widget.Toast.makeText(context, "Clipboard is empty", android.widget.Toast.LENGTH_SHORT).show()
                                     }
                                 } else {
-                                    // Analyze
                                     viewModel.analyzeUrl(urlInput.trim())
                                 }
                             },
@@ -458,11 +503,20 @@ fun DownloaderScreen(
                                 )
                         ) {
                             if (isAnalyzing) {
-                                CircularProgressIndicator(
-                                    color = Color(0xFF1A0B02),
-                                    strokeWidth = 2.dp,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    CircularProgressIndicator(
+                                        color = Color(0xFF1A0B02),
+                                        strokeWidth = 2.dp,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        text = "Analyzing…",
+                                        color = Color(0xFF1A0B02),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                }
                             } else if (isEmpty) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
@@ -476,7 +530,7 @@ fun DownloaderScreen(
                                         text = "Paste Link",
                                         color = Color(0xFF1A0B02),
                                         fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.ExtraBold
                                     )
                                 }
                             } else {
@@ -489,10 +543,10 @@ fun DownloaderScreen(
                                     )
                                     Spacer(Modifier.width(6.dp))
                                     Text(
-                                        text = "Analyze",
+                                        text = "Download",
                                         color = Color(0xFF1A0B02),
                                         fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.ExtraBold
                                     )
                                 }
                             }
@@ -500,10 +554,9 @@ fun DownloaderScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(22.dp))
 
-                // 3. Section Header: "ACTIVE DOWNLOADS" + "Clear Completed"
-                val hasCompleted = downloads.any { it.status == "completed" }
+                // 3. Section Header: "ACTIVE DOWNLOADS" + "Clear Completed" (Always visible like web app)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -519,23 +572,22 @@ fun DownloaderScreen(
                         letterSpacing = 1.sp
                     )
 
-                    if (hasCompleted) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(100.dp))
-                                .border(1.dp, GlassBorder, RoundedCornerShape(100.dp))
-                                .clickable {
-                                    viewModel.clearCompletedDownloads()
-                                }
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = "Clear Completed",
-                                color = TextSecondary,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(100.dp))
+                            .background(GlassBg)
+                            .border(1.dp, GlassBorder, RoundedCornerShape(100.dp))
+                            .clickable {
+                                viewModel.clearCompletedDownloads()
+                            }
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "Clear Completed",
+                            color = TextSecondary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
             }
@@ -580,12 +632,25 @@ fun DownloaderScreen(
                 items(downloads, key = { it.id }) { item ->
                     val isCompleted = item.status == "completed"
                     val isFailed = item.status == "failed"
+                    val isPaused = item.status == "paused"
 
                     val cardBorderColor = when {
                         isCompleted -> GreenActive.copy(alpha = 0.35f)
                         isFailed -> RedFailed.copy(alpha = 0.4f)
                         else -> AccentOrange.copy(alpha = 0.35f)
                     }
+
+                    val targetProgress = when {
+                        isCompleted -> 1f
+                        item.progress > 0f -> (item.progress / 100f).coerceIn(0.02f, 1f)
+                        item.status == "downloading" -> 0.06f
+                        else -> 0.02f
+                    }
+                    val animatedProgress by animateFloatAsState(
+                        targetValue = targetProgress,
+                        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+                        label = "cardProgress"
+                    )
 
                     Card(
                         shape = RoundedCornerShape(16.dp),
@@ -594,6 +659,13 @@ fun DownloaderScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 5.dp)
+                            .clickable {
+                                if (isCompleted) {
+                                    viewModel.openPlayer(item)
+                                } else {
+                                    viewModel.openTaskModal(item.id)
+                                }
+                            }
                     ) {
                         Row(
                             modifier = Modifier
@@ -604,7 +676,7 @@ fun DownloaderScreen(
                             // Left Thumbnail with format badge
                             Box(
                                 modifier = Modifier
-                                    .size(68.dp)
+                                    .size(72.dp)
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(Color(0xFF1B202E))
                                     .border(1.dp, cardBorderColor, RoundedCornerShape(10.dp))
@@ -622,7 +694,7 @@ fun DownloaderScreen(
                                             imageVector = if (item.type == "audio") Icons.Default.MusicNote else Icons.Default.PlayCircle,
                                             contentDescription = null,
                                             tint = TextSecondary,
-                                            modifier = Modifier.size(24.dp)
+                                            modifier = Modifier.size(26.dp)
                                         )
                                     }
                                 }
@@ -640,12 +712,12 @@ fun DownloaderScreen(
                                         .padding(4.dp)
                                         .clip(RoundedCornerShape(4.dp))
                                         .background(Color(0xCC000000))
-                                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                                        .padding(horizontal = 5.dp, vertical = 1.dp)
                                 ) {
                                     Text(
                                         text = badgeText,
                                         color = Color.White,
-                                        fontSize = 8.sp,
+                                        fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -653,9 +725,9 @@ fun DownloaderScreen(
 
                             Spacer(modifier = Modifier.width(12.dp))
 
-                            // Middle Info Column
+                            // Middle Info Column (Unified Name, Quality, Progress Bar & Controls in One Box)
                             Column(modifier = Modifier.weight(1f)) {
-                                // Row 1: Title & Percent
+                                // Row 1: Title & Live Percentage
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -673,9 +745,7 @@ fun DownloaderScreen(
 
                                     val percentStr = when {
                                         isCompleted -> "100%"
-                                        isFailed -> "${item.progress.toInt()}%"
-                                        item.totalSize > 0 -> "${item.progress.toInt()}%"
-                                        else -> "--"
+                                        else -> "${item.progress.toInt().coerceIn(0, 100)}%"
                                     }
                                     val percentColor = when {
                                         isCompleted -> GreenActive
@@ -685,47 +755,40 @@ fun DownloaderScreen(
                                     Text(
                                         text = percentStr,
                                         color = percentColor,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.ExtraBold,
                                         modifier = Modifier.padding(start = 6.dp)
                                     )
                                 }
 
                                 Spacer(modifier = Modifier.height(6.dp))
 
-                                // Row 2: Smooth Progress Bar
-                                val progressFraction = when {
-                                    isCompleted -> 1f
-                                    isFailed -> (item.progress / 100f).coerceIn(0.05f, 1f)
-                                    item.totalSize > 0 -> (item.progress / 100f).coerceIn(0.01f, 1f)
-                                    item.status == "downloading" -> 0.15f
-                                    else -> 0.05f
-                                }
-                                val barColor = when {
-                                    isCompleted -> GreenActive
-                                    isFailed -> RedFailed
-                                    else -> AccentOrange
+                                // Row 2: Smooth Animated Progress Bar
+                                val barBrush = when {
+                                    isCompleted -> Brush.horizontalGradient(listOf(GreenActive, AccentCyan))
+                                    isFailed -> Brush.horizontalGradient(listOf(RedFailed, RedFailed))
+                                    else -> Brush.horizontalGradient(listOf(AccentOrange, AccentCyan))
                                 }
 
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(5.dp)
+                                        .height(6.dp)
                                         .clip(RoundedCornerShape(100.dp))
                                         .background(Color(0x22FFFFFF))
                                 ) {
                                     Box(
                                         modifier = Modifier
                                             .fillMaxHeight()
-                                            .fillMaxWidth(progressFraction)
+                                            .fillMaxWidth(animatedProgress)
                                             .clip(RoundedCornerShape(100.dp))
-                                            .background(barColor)
+                                            .background(barBrush)
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
 
-                                // Row 3: Meta line + Action buttons
+                                // Row 3: Meta line + Direct Action Buttons (Play / Pause / Stop / Delete)
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -733,19 +796,19 @@ fun DownloaderScreen(
                                 ) {
                                     val metaText = when (item.status) {
                                         "downloading" -> {
-                                            val cur = formatBytes(item.downloadedSize)
-                                            val tot = if (item.totalSize > 0) formatBytes(item.totalSize) else "--"
-                                            val spd = item.speed.ifEmpty { "0 B/s" }
-                                            "$cur / $tot · $spd"
+                                            val cur = formatBytesUi(item.downloadedSize)
+                                            val tot = if (item.totalSize > 0) formatBytesUi(item.totalSize) else "Streaming"
+                                            val spd = item.speed.ifEmpty { "" }
+                                            if (spd.isNotEmpty() && spd != "0 B/s") "$cur / $tot · $spd" else "$cur / $tot"
                                         }
-                                        "waiting" -> "In queue..."
-                                        "failed" -> item.eta.ifEmpty { "Download failed" }
+                                        "waiting" -> "Starting download..."
+                                        "failed" -> item.eta.ifEmpty { "Stopped / Failed" }
                                         "completed" -> {
-                                            val tot = formatBytes(item.downloadedSize)
-                                            "$tot · Completed"
+                                            val tot = formatBytesUi(if (item.downloadedSize > 0) item.downloadedSize else item.totalSize)
+                                            "$tot · Ready"
                                         }
                                         "paused" -> {
-                                            val cur = formatBytes(item.downloadedSize)
+                                            val cur = formatBytesUi(item.downloadedSize)
                                             "$cur · Paused"
                                         }
                                         else -> "Processing..."
@@ -760,112 +823,162 @@ fun DownloaderScreen(
                                         text = metaText,
                                         color = metaColor,
                                         fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.weight(1f, fill = false)
                                     )
 
+                                    Spacer(modifier = Modifier.width(6.dp))
+
+                                    // Direct Visible Action Buttons matching Web App .dl-actions
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(5.dp)
                                     ) {
-                                        // Quick Action Button
-                                        Box(
-                                            modifier = Modifier
-                                                .size(26.dp)
-                                                .clip(CircleShape)
-                                                .background(GlassBg)
-                                                .border(1.dp, GlassBorder, CircleShape)
-                                                .clickable {
-                                                    when (item.status) {
-                                                        "completed" -> openVideoFile(context, item.localPath)
-                                                        "downloading", "paused", "failed" -> viewModel.pauseOrResumeDownload(item)
-                                                        else -> viewModel.deleteDownloads(setOf(item.id), false)
-                                                    }
-                                                },
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            val actionIcon = when (item.status) {
-                                                "downloading" -> Icons.Default.Pause
-                                                "paused" -> Icons.Default.PlayArrow
-                                                "failed" -> Icons.Default.Refresh
-                                                "completed" -> Icons.Default.PlayArrow
-                                                else -> Icons.Default.Close
-                                            }
-                                            val iconTint = when (item.status) {
-                                                "completed" -> GreenActive
-                                                "failed" -> AccentOrange
-                                                else -> TextPrimary
-                                            }
-                                            Icon(
-                                                imageVector = actionIcon,
-                                                contentDescription = "Action",
-                                                tint = iconTint,
-                                                modifier = Modifier.size(13.dp)
-                                            )
-                                        }
-
-                                        // 3 Dots Menu
-                                        var expandedMenu by remember { mutableStateOf(false) }
-                                        Box {
-                                            IconButton(
-                                                onClick = { expandedMenu = true },
-                                                modifier = Modifier.size(26.dp)
+                                        if (isCompleted) {
+                                            // Play in Built-in HK Player Pill Button
+                                            Row(
+                                                modifier = Modifier
+                                                    .height(26.dp)
+                                                    .clip(RoundedCornerShape(100.dp))
+                                                    .background(Color(0x2410B981))
+                                                    .border(1.dp, Color(0x6610B981), RoundedCornerShape(100.dp))
+                                                    .clickable { viewModel.openPlayer(item) }
+                                                    .padding(horizontal = 9.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(3.dp)
                                             ) {
                                                 Icon(
-                                                    imageVector = Icons.Default.MoreVert,
-                                                    contentDescription = "Options",
-                                                    tint = TextSecondary,
-                                                    modifier = Modifier.size(15.dp)
+                                                    imageVector = Icons.Default.PlayArrow,
+                                                    contentDescription = "Play",
+                                                    tint = GreenActive,
+                                                    modifier = Modifier.size(13.dp)
+                                                )
+                                                Text(
+                                                    text = "Play",
+                                                    color = GreenActive,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.ExtraBold
                                                 )
                                             }
 
-                                            DropdownMenu(
-                                                expanded = expandedMenu,
-                                                onDismissRequest = { expandedMenu = false },
-                                                modifier = Modifier.background(Color(0xFF161B26))
+                                            // Open Externally Button
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(26.dp)
+                                                    .clip(CircleShape)
+                                                    .background(GlassBg)
+                                                    .border(1.dp, GlassBorder, CircleShape)
+                                                    .clickable { openMediaExternally(context, item.localPath) },
+                                                contentAlignment = Alignment.Center
                                             ) {
-                                                if (isCompleted) {
-                                                    DropdownMenuItem(
-                                                        text = { Text("Open / Play", color = Color.White) },
-                                                        leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null, tint = GreenActive) },
-                                                        onClick = {
-                                                            expandedMenu = false
-                                                            openVideoFile(context, item.localPath)
-                                                        }
+                                                Icon(
+                                                    imageVector = Icons.Default.OpenInNew,
+                                                    contentDescription = "External Player",
+                                                    tint = AccentCyan,
+                                                    modifier = Modifier.size(13.dp)
+                                                )
+                                            }
+
+                                            // Share Button
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(26.dp)
+                                                    .clip(CircleShape)
+                                                    .background(GlassBg)
+                                                    .border(1.dp, GlassBorder, CircleShape)
+                                                    .clickable { shareMediaExternally(context, item.localPath) },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Share,
+                                                    contentDescription = "Share",
+                                                    tint = TextSecondary,
+                                                    modifier = Modifier.size(13.dp)
+                                                )
+                                            }
+
+                                            // Delete Button
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(26.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(0x1AEF4444))
+                                                    .border(1.dp, Color(0x40EF4444), CircleShape)
+                                                    .clickable { itemToDelete = item },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = "Delete",
+                                                    tint = RedFailed,
+                                                    modifier = Modifier.size(13.dp)
+                                                )
+                                            }
+                                        } else {
+                                            // Pause / Resume / Retry Button
+                                            val isRunning = item.status == "downloading" || item.status == "waiting"
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(26.dp)
+                                                    .clip(CircleShape)
+                                                    .background(if (isRunning) GlassBg else Color(0x26FF8A3D))
+                                                    .border(
+                                                        1.dp,
+                                                        if (isRunning) GlassBorder else AccentOrange.copy(alpha = 0.5f),
+                                                        CircleShape
                                                     )
-                                                    DropdownMenuItem(
-                                                        text = { Text("Share Media", color = Color.White) },
-                                                        leadingIcon = { Icon(Icons.Default.Share, contentDescription = null, tint = AccentCyan) },
-                                                        onClick = {
-                                                            expandedMenu = false
-                                                            shareVideoFile(context, item.localPath)
-                                                        }
+                                                    .clickable { viewModel.pauseOrResumeDownload(item) },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = when {
+                                                        isRunning -> Icons.Default.Pause
+                                                        isPaused -> Icons.Default.PlayArrow
+                                                        else -> Icons.Default.Refresh
+                                                    },
+                                                    contentDescription = if (isRunning) "Pause" else "Resume",
+                                                    tint = if (isRunning) TextPrimary else AccentOrange,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
+
+                                            // Stop Button (when running or paused)
+                                            if (isRunning || isPaused) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(26.dp)
+                                                        .clip(CircleShape)
+                                                        .background(GlassBg)
+                                                        .border(1.dp, GlassBorder, CircleShape)
+                                                        .clickable { viewModel.stopDownload(item) },
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Stop,
+                                                        contentDescription = "Stop",
+                                                        tint = TextSecondary,
+                                                        modifier = Modifier.size(14.dp)
                                                     )
                                                 }
-                                                DropdownMenuItem(
-                                                    text = { Text("Copy Link", color = Color.White) },
-                                                    leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null, tint = TextSecondary) },
-                                                    onClick = {
-                                                        expandedMenu = false
-                                                        clipboardManager.setText(AnnotatedString(item.url))
-                                                    }
-                                                )
-                                                DropdownMenuItem(
-                                                    text = { Text("Delete Task", color = AccentOrange) },
-                                                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = AccentOrange) },
-                                                    onClick = {
-                                                        expandedMenu = false
-                                                        viewModel.deleteDownloads(setOf(item.id), false)
-                                                    }
-                                                )
-                                                DropdownMenuItem(
-                                                    text = { Text("Delete Task & File", color = RedFailed) },
-                                                    leadingIcon = { Icon(Icons.Default.DeleteForever, contentDescription = null, tint = RedFailed) },
-                                                    onClick = {
-                                                        expandedMenu = false
-                                                        itemToDelete = item
-                                                    }
+                                            }
+
+                                            // Delete Button
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(26.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(0x1AEF4444))
+                                                    .border(1.dp, Color(0x40EF4444), CircleShape)
+                                                    .clickable { itemToDelete = item },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = "Delete",
+                                                    tint = RedFailed,
+                                                    modifier = Modifier.size(13.dp)
                                                 )
                                             }
                                         }
@@ -878,52 +991,4 @@ fun DownloaderScreen(
             }
         }
     }
-}
-
-private fun formatBytes(bytes: Long): String {
-    if (bytes <= 0) return "0 B"
-    val units = arrayOf("B", "KB", "MB", "GB")
-    val digitGroups = (Math.log10(bytes.toDouble()) / Math.log10(1024.0)).toInt()
-    return String.format("%.1f %s", bytes / Math.pow(1024.0, digitGroups.toDouble()), units[digitGroups])
-}
-
-private fun openVideoFile(context: Context, filePath: String) {
-    try {
-        val file = File(filePath)
-        if (!file.exists()) return
-        val uri = FileProvider.getUriForFile(
-            context,
-            "com.example.apexdownloader.fileprovider",
-            file
-        )
-        val isAudio = filePath.endsWith(".mp3", true) || filePath.endsWith(".m4a", true)
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, if (isAudio) "audio/*" else "video/*")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        val chooser = Intent.createChooser(intent, "Play Media")
-        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(chooser)
-    } catch (e: Exception) { /* ignore */ }
-}
-
-private fun shareVideoFile(context: Context, filePath: String) {
-    try {
-        val file = File(filePath)
-        if (!file.exists()) return
-        val uri = FileProvider.getUriForFile(
-            context,
-            "com.example.apexdownloader.fileprovider",
-            file
-        )
-        val isAudio = filePath.endsWith(".mp3", true) || filePath.endsWith(".m4a", true)
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = if (isAudio) "audio/*" else "video/*"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        val chooser = Intent.createChooser(intent, "Share Media Via")
-        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(chooser)
-    } catch (e: Exception) { /* ignore */ }
 }

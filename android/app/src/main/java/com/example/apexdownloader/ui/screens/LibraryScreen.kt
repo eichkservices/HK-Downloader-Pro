@@ -1,7 +1,5 @@
 package com.example.apexdownloader.ui.screens
 
-import android.content.Context
-import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,12 +25,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.FileProvider
 import coil.compose.SubcomposeAsyncImage
 import com.example.apexdownloader.data.DownloadItem
 import com.example.apexdownloader.theme.*
+import com.example.apexdownloader.ui.components.DeleteConfirmModal
+import com.example.apexdownloader.ui.components.formatBytesUi
+import com.example.apexdownloader.ui.components.openMediaExternally
+import com.example.apexdownloader.ui.components.shareMediaExternally
 import com.example.apexdownloader.ui.main.MainScreenViewModel
-import java.io.File
 
 @Composable
 fun LibraryScreen(
@@ -48,33 +48,17 @@ fun LibraryScreen(
     var itemToDelete by remember { mutableStateOf<DownloadItem?>(null) }
 
     itemToDelete?.let { target ->
-        AlertDialog(
-            onDismissRequest = { itemToDelete = null },
-            title = { Text("Delete Media File", color = TextPrimary, fontWeight = FontWeight.Bold) },
-            text = {
-                Text(
-                    "Delete \"${target.title}\" and remove its downloaded file from device storage?",
-                    color = TextSecondary,
-                    fontSize = 13.sp
-                )
+        DeleteConfirmModal(
+            item = target,
+            onDismiss = { itemToDelete = null },
+            onDeleteTaskOnly = {
+                viewModel.deleteDownloads(setOf(target.id), deleteFiles = false)
+                itemToDelete = null
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteDownloads(setOf(target.id), deleteFiles = true)
-                        itemToDelete = null
-                    }
-                ) {
-                    Text("Delete File", color = RedFailed, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { itemToDelete = null }) {
-                    Text("Cancel", color = TextSecondary)
-                }
-            },
-            containerColor = BgPanel,
-            shape = RoundedCornerShape(14.dp)
+            onDeleteTaskAndFile = {
+                viewModel.deleteDownloads(setOf(target.id), deleteFiles = true)
+                itemToDelete = null
+            }
         )
     }
 
@@ -186,7 +170,7 @@ fun LibraryScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                openVideoFile(context, item.localPath)
+                                viewModel.openPlayer(item)
                             }
                     ) {
                         Column {
@@ -227,16 +211,16 @@ fun LibraryScreen(
 
                                 Box(
                                     modifier = Modifier
-                                        .size(34.dp)
+                                        .size(36.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xB3000000))
-                                        .border(1.dp, Color(0x33FFFFFF), CircleShape),
+                                        .background(Color(0xBF06070A))
+                                        .border(1.dp, Color(0x4DFFFFFF), CircleShape),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.PlayArrow,
-                                        contentDescription = "Play",
-                                        tint = Color.White,
+                                        contentDescription = "Play in HK Player",
+                                        tint = AccentOrange,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -285,9 +269,9 @@ fun LibraryScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     val sizeText = if (item.downloadedSize > 0) {
-                                        formatBytes(item.downloadedSize)
+                                        formatBytesUi(item.downloadedSize)
                                     } else if (item.totalSize > 0) {
-                                        formatBytes(item.totalSize)
+                                        formatBytesUi(item.totalSize)
                                     } else "--"
 
                                     Text(
@@ -298,9 +282,22 @@ fun LibraryScreen(
                                     )
 
                                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        // Open Externally Button
+                                        IconButton(
+                                            onClick = { openMediaExternally(context, item.localPath) },
+                                            modifier = Modifier.size(26.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.OpenInNew,
+                                                contentDescription = "Open Externally",
+                                                tint = AccentCyan,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+
                                         // Share Button
                                         IconButton(
-                                            onClick = { shareVideoFile(context, item.localPath) },
+                                            onClick = { shareMediaExternally(context, item.localPath) },
                                             modifier = Modifier.size(26.dp)
                                         ) {
                                             Icon(
@@ -319,7 +316,7 @@ fun LibraryScreen(
                                             Icon(
                                                 imageVector = Icons.Default.Delete,
                                                 contentDescription = "Delete",
-                                                tint = RedFailed.copy(alpha = 0.8f),
+                                                tint = RedFailed.copy(alpha = 0.85f),
                                                 modifier = Modifier.size(14.dp)
                                             )
                                         }
@@ -332,52 +329,4 @@ fun LibraryScreen(
             }
         }
     }
-}
-
-private fun formatBytes(bytes: Long): String {
-    if (bytes <= 0) return "0 B"
-    val units = arrayOf("B", "KB", "MB", "GB")
-    val digitGroups = (Math.log10(bytes.toDouble()) / Math.log10(1024.0)).toInt()
-    return String.format("%.1f %s", bytes / Math.pow(1024.0, digitGroups.toDouble()), units[digitGroups])
-}
-
-private fun openVideoFile(context: Context, filePath: String) {
-    try {
-        val file = File(filePath)
-        if (!file.exists()) return
-        val uri = FileProvider.getUriForFile(
-            context,
-            "com.example.apexdownloader.fileprovider",
-            file
-        )
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            val isAudio = filePath.endsWith(".mp3", true) || filePath.endsWith(".m4a", true)
-            setDataAndType(uri, if (isAudio) "audio/*" else "video/*")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        val chooser = Intent.createChooser(intent, "Play Media")
-        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(chooser)
-    } catch (e: Exception) { /* ignore */ }
-}
-
-private fun shareVideoFile(context: Context, filePath: String) {
-    try {
-        val file = File(filePath)
-        if (!file.exists()) return
-        val uri = FileProvider.getUriForFile(
-            context,
-            "com.example.apexdownloader.fileprovider",
-            file
-        )
-        val isAudio = filePath.endsWith(".mp3", true) || filePath.endsWith(".m4a", true)
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = if (isAudio) "audio/*" else "video/*"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        val chooser = Intent.createChooser(intent, "Share Media Via")
-        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(chooser)
-    } catch (e: Exception) { /* ignore */ }
 }

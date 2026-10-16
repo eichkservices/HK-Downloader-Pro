@@ -30,6 +30,30 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
 
     val downloads: StateFlow<List<DownloadItem>> = repository.downloads
 
+    // Active Task-Based Download Station Modal ID (matches web #taskDownloadModal)
+    private val _activeTaskModalId = MutableStateFlow<String?>(null)
+    val activeTaskModalId: StateFlow<String?> = _activeTaskModalId.asStateFlow()
+
+    // Built-in HK Player Pro Modal Item (matches web #playerModal)
+    private val _activePlayerItem = MutableStateFlow<DownloadItem?>(null)
+    val activePlayerItem: StateFlow<DownloadItem?> = _activePlayerItem.asStateFlow()
+
+    fun openTaskModal(id: String) {
+        _activeTaskModalId.value = id
+    }
+
+    fun closeTaskModal() {
+        _activeTaskModalId.value = null
+    }
+
+    fun openPlayer(item: DownloadItem) {
+        _activePlayerItem.value = item
+    }
+
+    fun closePlayer() {
+        _activePlayerItem.value = null
+    }
+
     fun saveDesktopServerUrl(url: String) {
         _desktopServerUrl.value = url
         prefs.edit().putString("desktop_server", url).apply()
@@ -77,45 +101,78 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun triggerDownload(url: String, title: String, thumbnail: String, formatId: String?, filename: String) {
+    fun triggerDownload(
+        url: String,
+        title: String,
+        thumbnail: String,
+        formatId: String?,
+        filename: String,
+        sizeBytes: Long = 0L
+    ) {
         val id = "dl_" + System.currentTimeMillis()
-        val type = VideoResolver.identifyLinkType(url)
-        
+        val isAudio = filename.endsWith(".mp3", ignoreCase = true) ||
+            filename.endsWith(".m4a", ignoreCase = true) ||
+            (formatId ?: "").contains("audio", ignoreCase = true)
+        val type = if (isAudio) "audio" else VideoResolver.identifyLinkType(url)
+
         val item = DownloadItem(
             id = id,
             title = title,
             filename = filename.ifEmpty { title },
             url = url,
-            status = "waiting",
+            status = "downloading",
+            totalSize = sizeBytes,
+            speed = "Connecting...",
+            eta = "--",
             type = type,
             formatId = formatId ?: "",
             thumbnail = thumbnail
         )
-        
-        repository.addOrUpdateDownload(item)
+
+        repository.addOrUpdateDownload(item, forceExplicit = true)
+        _activeTaskModalId.value = id
         engine.startDownload(item, _desktopServerUrl.value.ifEmpty { null }, formatId)
     }
 
     fun pauseOrResumeDownload(item: DownloadItem) {
-        if (item.status == "downloading") {
-            engine.cancelDownload(item.id)
+        if (item.status == "downloading" || item.status == "waiting") {
+            engine.pauseDownload(item.id)
         } else {
-            engine.startDownload(item, _desktopServerUrl.value.ifEmpty { null }, item.formatId.ifEmpty { null })
+            val latest = repository.downloads.value.find { it.id == item.id } ?: item
+            engine.startDownload(latest, _desktopServerUrl.value.ifEmpty { null }, latest.formatId.ifEmpty { null })
+        }
+    }
+
+    fun pauseDownload(item: DownloadItem) {
+        engine.pauseDownload(item.id)
+    }
+
+    fun resumeDownload(item: DownloadItem) {
+        val latest = repository.downloads.value.find { it.id == item.id } ?: item
+        engine.startDownload(latest, _desktopServerUrl.value.ifEmpty { null }, latest.formatId.ifEmpty { null })
+    }
+
+    fun stopDownload(item: DownloadItem) {
+        engine.stopDownload(item.id)
+        if (_activeTaskModalId.value == item.id) {
+            _activeTaskModalId.value = null
         }
     }
 
     fun deleteDownloads(ids: Set<String>, deleteFiles: Boolean) {
-        ids.forEach { id ->
-            engine.cancelDownload(id)
+        if (_activeTaskModalId.value in ids) {
+            _activeTaskModalId.value = null
         }
-        repository.deleteDownloads(ids, deleteFiles)
+        if (_activePlayerItem.value?.id in ids) {
+            _activePlayerItem.value = null
+        }
+        engine.deleteDownloads(ids, deleteFiles)
     }
 
-    /** Removes completed downloads from the list and deletes their files -- frees device storage. */
-    fun clearCompletedDownloads() {
+    fun clearCompletedDownloads(deleteFiles: Boolean = false) {
         val completedIds = repository.downloads.value.filter { it.status == "completed" }.map { it.id }.toSet()
         if (completedIds.isNotEmpty()) {
-            repository.deleteDownloads(completedIds, deleteFiles = true)
+            engine.deleteDownloads(completedIds, deleteFiles = deleteFiles)
         }
     }
 }

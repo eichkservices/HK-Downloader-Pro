@@ -17,8 +17,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -26,6 +28,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
 import com.example.apexdownloader.theme.*
 import com.example.apexdownloader.ui.components.HkLogoIcon
+import com.example.apexdownloader.ui.components.HkPlayerModal
 import com.example.apexdownloader.ui.screens.DownloaderScreen
 import com.example.apexdownloader.ui.screens.LibraryScreen
 import com.example.apexdownloader.ui.screens.SettingsScreen
@@ -44,10 +47,20 @@ fun MainScreen(
 
     val analysisState by viewModel.analysisState.collectAsState()
     val downloads by viewModel.downloads.collectAsState()
+    val activePlayerItem by viewModel.activePlayerItem.collectAsState()
+
     val ambientState = rememberAmbientState(
         isAnalyzing = analysisState is AnalysisState.Analyzing,
         downloads = downloads
     )
+
+    // Built-in HK PLAYER PRO Modal (Matching Web #playerModal)
+    activePlayerItem?.let { playerItem ->
+        HkPlayerModal(
+            item = playerItem,
+            onDismiss = { viewModel.closePlayer() }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -64,7 +77,7 @@ fun MainScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Left Brand: Logo + Title + Version Badge
+                    // Left Brand: Logo + Gradient Title + Version Badge
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -77,10 +90,14 @@ fun MainScreen(
                         ) {
                             Text(
                                 text = "HK Downloader Pro",
-                                color = TextPrimary,
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = (-0.2).sp
+                                style = TextStyle(
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(Color.White, AccentOrange)
+                                    ),
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = (-0.2).sp
+                                )
                             )
 
                             Box(
@@ -91,7 +108,7 @@ fun MainScreen(
                                     .padding(horizontal = 7.dp, vertical = 2.dp)
                             ) {
                                 Text(
-                                    text = "v2.9.2",
+                                    text = "v2.9.3",
                                     color = AccentCyan,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold

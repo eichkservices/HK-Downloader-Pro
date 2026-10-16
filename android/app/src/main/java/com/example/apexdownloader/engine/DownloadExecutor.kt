@@ -9,30 +9,48 @@ import android.media.MediaScannerConnection
 import android.os.Environment
 import com.example.apexdownloader.data.DownloadItem
 import com.example.apexdownloader.data.DownloadRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import okhttp3.Call
 import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
+import java.util.concurrent.ConcurrentHashMap
 
-/**
- * Does the actual downloading. Pulled out of DownloadEngine so the same
- * logic can run inside a WorkManager CoroutineWorker (which is what keeps a
- * download alive when the app backgrounds) instead of a bare, lifecycle-less
- * coroutine scope.
- *
- * [onProgress] is invoked at the same throttle as repository updates, so a
- * caller (the Worker) can drive a foreground notification off of it without
- * duplicating the throttling logic.
- */
 class DownloadExecutor(
     private val context: Context,
     private val repository: DownloadRepository,
     private val onProgress: suspend (DownloadItem) -> Unit = {}
 ) {
+    companion object {
+        private val activeCalls = ConcurrentHashMap<String, Call>()
+
+        fun registerCall(id: String, call: Call) {
+            activeCalls[id] = call
+        }
+
+        fun unregisterCall(id: String, call: Call) {
+            activeCalls.remove(id, call)
+        }
+
+        fun cancelActiveCall(id: String) {
+            activeCalls.remove(id)?.cancel()
+        }
+    }
+
     private val client = NetworkClient.client
 
+    private suspend fun checkActive(itemId: String) {
+        currentCoroutineContext().ensureActive()
+        if (repository.isDeleted(itemId) || repository.isPaused(itemId)) {
+            throw CancellationException("Download $itemId paused or deleted")
+        }
+    }
+
     suspend fun execute(item: DownloadItem, desktopServerUrl: String?, formatId: String?) {
-        repository.addOrUpdateDownload(item.copy(status = "downloading", speed = "Connecting...", progress = 0f))
+        checkActive(item.id)
 
         val downloadsDir = try {
             val publicDownloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
@@ -44,52 +62,57 @@ class DownloadExecutor(
         }
 
         var filenameClean = sanitizeFilename(item.filename.ifEmpty { "download_" + System.currentTimeMillis() })
-        val isAudio = item.type == "audio" || (formatId ?: "").contains("audio") || (item.formatId ?: "").contains("audio") || filenameClean.endsWith(".mp3")
+        val isAudio = item.type == "audio" ||
+            (formatId ?: "").contains("audio") ||
+            item.formatId.contains("audio") ||
+            filenameClean.endsWith(".mp3", ignoreCase = true) ||
+            filenameClean.endsWith(".m4a", ignoreCase = true)
         val defaultExt = if (isAudio) ".mp3" else ".mp4"
         if (!filenameClean.contains(".")) {
             filenameClean += defaultExt
         }
         val finalFile = File(downloadsDir, filenameClean)
 
+        val currentItem = item.copy(
+            status = "downloading",
+            speed = if (item.downloadedSize > 0) "Resuming..." else "Connecting...",
+            localPath = finalFile.absolutePath
+        )
+        repository.addOrUpdateDownload(currentItem)
+        onProgress(currentItem)
+
         if (item.type in VideoResolver.videoPlatformTypes && !desktopServerUrl.isNullOrEmpty() && formatId?.startsWith("cobalt|") != true && formatId?.startsWith("http") != true) {
-            downloadViaDesktopServer(item, desktopServerUrl, formatId, finalFile)
+            downloadViaDesktopServer(currentItem, desktopServerUrl, formatId, finalFile)
         } else if (item.type == "google-drive" && item.url.contains("/folders/")) {
-            downloadGDriveFolder(item, downloadsDir)
+            downloadGDriveFolder(currentItem, downloadsDir)
         } else {
             val downloadUrl = when {
                 formatId?.startsWith("cobalt|") == true -> formatId.substringAfter("cobalt|")
                 formatId?.startsWith("http://") == true || formatId?.startsWith("https://") == true -> formatId
-                !item.formatId.isNullOrEmpty() && (item.formatId.startsWith("http://") || item.formatId.startsWith("https://")) -> item.formatId
+                item.formatId.isNotEmpty() && (item.formatId.startsWith("http://") || item.formatId.startsWith("https://")) -> item.formatId
                 else -> getDirectDownloadUrl(item.url, item.type)
             }
             if (downloadUrl.contains("|http")) {
                 val videoUrl = downloadUrl.substringBefore("|")
                 val audioUrl = downloadUrl.substringAfter("|")
-                downloadAndMuxDirectFiles(item, videoUrl, audioUrl, finalFile)
+                downloadAndMuxDirectFiles(currentItem, videoUrl, audioUrl, finalFile)
             } else {
-                downloadDirectFile(item, downloadUrl, finalFile)
+                downloadDirectFile(currentItem, downloadUrl, finalFile)
             }
         }
     }
 
-    /**
-     * Downloads [url] into [destFile]. Writes into a sibling `<name>.part` file
-     * while in progress and only renames it to the real filename once the
-     * download finishes successfully -- so a paused/killed/failed download
-     * never leaves something at the final filename that looks complete but
-     * isn't (e.g. if the user opens a file manager mid-download). Resume
-     * checks the `.part` file's length via `Range: bytes=N-`, falling back to
-     * a full clean restart if the server doesn't honor the range (plain 200
-     * instead of 206), and recovers once from a 416 (Range Not Satisfiable --
-     * the partial file is stale/invalid) by discarding it and retrying fresh.
-     */
     private suspend fun downloadDirectFile(
         item: DownloadItem,
         url: String,
         destFile: File,
         isRetryAfter416: Boolean = false,
-        markCompleted: Boolean = true
+        markCompleted: Boolean = true,
+        progressStart: Float = 0f,
+        progressEnd: Float = 100f
     ) {
+        checkActive(item.id)
+
         val partFile = File(destFile.parentFile, destFile.name + ".part")
         val existingBytes = if (partFile.exists()) partFile.length() else 0L
         val requestBuilder = Request.Builder().url(url)
@@ -112,109 +135,153 @@ class DownloadExecutor(
             requestBuilder.header("Range", "bytes=$existingBytes-")
         }
 
-        client.newCall(requestBuilder.build()).execute().use { response ->
-            if (response.code == 416 && !isRetryAfter416) {
-                // The server says our existing partial data is out of range for
-                // the current resource (stale file, or the resource changed).
-                // Only safe move is to drop it and start over, once.
-                partFile.delete()
-                downloadDirectFile(item, url, destFile, isRetryAfter416 = true, markCompleted = markCompleted)
-                return
-            }
-            if (!response.isSuccessful) throw Exception("Failed with HTTP code ${response.code}")
+        val call = client.newCall(requestBuilder.build())
+        registerCall(item.id, call)
 
-            val body = response.body ?: throw Exception("Empty body response")
-            val isResuming = response.code == 206 && existingBytes > 0
+        try {
+            call.execute().use { response ->
+                checkActive(item.id)
 
-            val totalBytes = if (isResuming) {
-                val remaining = body.contentLength()
-                if (remaining > 0) existingBytes + remaining else -1L
-            } else {
-                body.contentLength()
-            }
+                if (response.code == 416 && !isRetryAfter416) {
+                    partFile.delete()
+                    unregisterCall(item.id, call)
+                    downloadDirectFile(
+                        item = item,
+                        url = url,
+                        destFile = destFile,
+                        isRetryAfter416 = true,
+                        markCompleted = markCompleted,
+                        progressStart = progressStart,
+                        progressEnd = progressEnd
+                    )
+                    return
+                }
+                if (!response.isSuccessful) throw Exception("Failed with HTTP code ${response.code}")
 
-            var totalRead = if (isResuming) existingBytes else 0L
-            if (markCompleted) {
-                repository.addOrUpdateDownload(
-                    item.copy(totalSize = totalBytes, downloadedSize = totalRead, localPath = destFile.absolutePath)
+                val body = response.body ?: throw Exception("Empty body response")
+                val isResuming = response.code == 206 && existingBytes > 0
+
+                val serverTotalBytes = if (isResuming) {
+                    val remaining = body.contentLength()
+                    if (remaining > 0) existingBytes + remaining else -1L
+                } else {
+                    body.contentLength()
+                }
+                val effectiveTotalBytes = when {
+                    serverTotalBytes > 0 -> serverTotalBytes
+                    item.totalSize > 0 && markCompleted -> item.totalSize
+                    else -> -1L
+                }
+
+                var totalRead = if (isResuming) existingBytes else 0L
+                val initialProgress = if (effectiveTotalBytes > 0) {
+                    val rawRatio = (totalRead.toFloat() / effectiveTotalBytes).coerceIn(0f, 1f)
+                    progressStart + rawRatio * (progressEnd - progressStart)
+                } else {
+                    maxOf(item.progress, progressStart)
+                }
+
+                val startState = item.copy(
+                    status = "downloading",
+                    progress = initialProgress,
+                    totalSize = if (effectiveTotalBytes > 0) effectiveTotalBytes else item.totalSize,
+                    downloadedSize = totalRead,
+                    localPath = item.localPath.ifEmpty { destFile.absolutePath }
                 )
-            }
+                repository.addOrUpdateDownload(startState)
 
-            val speedTracker = SpeedTracker()
-            speedTracker.record(System.currentTimeMillis(), totalRead)
+                val speedTracker = SpeedTracker()
+                speedTracker.record(System.currentTimeMillis(), totalRead)
 
-            val buffer = ByteArray(8192)
-            var bytesRead: Int
-            var lastUpdate = System.currentTimeMillis()
+                val buffer = ByteArray(64 * 1024)
+                var bytesRead: Int
+                var lastUpdate = System.currentTimeMillis()
+                var lastNotificationUpdate = lastUpdate
+                var highestProgress = initialProgress
 
-            body.byteStream().use { input ->
-                // Append when resuming a partial file; otherwise start clean
-                // (also covers the case where the server ignored our Range
-                // request and sent the whole file back with a 200).
-                FileOutputStream(partFile, isResuming).use { output ->
-                    while (input.read(buffer).also { bytesRead = it } != -1) {
-                        output.write(buffer, 0, bytesRead)
-                        totalRead += bytesRead
+                body.byteStream().use { input ->
+                    FileOutputStream(partFile, isResuming).use { output ->
+                        while (input.read(buffer).also { bytesRead = it } != -1) {
+                            checkActive(item.id)
 
-                        val now = System.currentTimeMillis()
-                        if (now - lastUpdate > 800) {
-                            speedTracker.record(now, totalRead)
-                            val speedBps = speedTracker.currentBytesPerSecond()
-                            val progress = if (totalBytes > 0) (totalRead.toFloat() / totalBytes * 100) else 0f
-                            val speedStr = formatSpeed(speedBps)
-                            val eta = if (speedBps > 0 && totalBytes > 0) {
-                                formatEta(((totalBytes - totalRead) / speedBps).toLong())
-                            } else "--"
+                            output.write(buffer, 0, bytesRead)
+                            totalRead += bytesRead
 
-                            if (markCompleted) {
+                            val now = System.currentTimeMillis()
+                            if (now - lastUpdate >= 180) {
+                                speedTracker.record(now, totalRead)
+                                val speedBps = speedTracker.currentBytesPerSecond()
+                                val rawPct = if (effectiveTotalBytes > 0) {
+                                    (totalRead.toFloat() / effectiveTotalBytes).coerceIn(0f, 1f)
+                                } else {
+                                    // Smooth asymptotic estimate when server omits Content-Length
+                                    val approxMb = totalRead.toFloat() / (15f * 1024f * 1024f)
+                                    (approxMb / (1f + approxMb)).coerceIn(0.02f, 0.95f)
+                                }
+                                val mappedProgress = (progressStart + rawPct * (progressEnd - progressStart))
+                                    .coerceIn(progressStart, progressEnd)
+                                highestProgress = maxOf(highestProgress, mappedProgress)
+
+                                val speedStr = formatSpeed(speedBps)
+                                val eta = if (speedBps > 0 && effectiveTotalBytes > totalRead) {
+                                    formatEta(((effectiveTotalBytes - totalRead) / speedBps).toLong())
+                                } else "--"
+
                                 val updated = item.copy(
                                     status = "downloading",
-                                    progress = progress,
+                                    progress = highestProgress,
+                                    totalSize = if (effectiveTotalBytes > 0) effectiveTotalBytes else item.totalSize,
                                     downloadedSize = totalRead,
                                     speed = speedStr,
                                     eta = eta,
-                                    localPath = destFile.absolutePath
+                                    localPath = item.localPath.ifEmpty { destFile.absolutePath }
                                 )
                                 repository.addOrUpdateDownload(updated)
-                                onProgress(updated)
+
+                                // Throttle system notification IPC to once per 900ms so it never slows down socket reads
+                                if (now - lastNotificationUpdate >= 900) {
+                                    onProgress(updated)
+                                    lastNotificationUpdate = now
+                                }
+                                lastUpdate = now
                             }
-                            lastUpdate = now
                         }
                     }
                 }
-            }
 
-            // Only now, with the transfer fully complete, does the file become
-            // the real thing -- delete() first in case a stale full-size
-            // destFile exists from a previous run (renameTo fails if the
-            // target already exists on some filesystems/API levels).
-            if (destFile.exists()) destFile.delete()
-            if (!partFile.renameTo(destFile)) {
-                // Rename can fail across filesystems on some devices; copy+delete as a fallback.
-                partFile.copyTo(destFile, overwrite = true)
-                partFile.delete()
-            }
+                checkActive(item.id)
 
-            if (markCompleted) {
-                try {
-                    MediaScannerConnection.scanFile(
-                        context,
-                        arrayOf(destFile.absolutePath),
-                        arrayOf(if (destFile.name.endsWith(".mp3", ignoreCase = true)) "audio/mpeg" else "video/mp4")
-                    ) { _, _ -> }
-                } catch (e: Exception) {}
+                if (destFile.exists()) destFile.delete()
+                if (!partFile.renameTo(destFile)) {
+                    partFile.copyTo(destFile, overwrite = true)
+                    partFile.delete()
+                }
 
-                val finished = item.copy(
-                    status = "completed",
-                    progress = 100f,
-                    downloadedSize = totalRead,
-                    speed = "Done",
-                    eta = "0s",
-                    localPath = destFile.absolutePath
-                )
-                repository.addOrUpdateDownload(finished)
-                onProgress(finished)
+                if (markCompleted) {
+                    val finalSize = if (destFile.exists() && destFile.length() > 0) destFile.length() else totalRead
+                    try {
+                        MediaScannerConnection.scanFile(
+                            context,
+                            arrayOf(destFile.absolutePath),
+                            arrayOf(if (destFile.name.endsWith(".mp3", ignoreCase = true) || destFile.name.endsWith(".m4a", ignoreCase = true)) "audio/mpeg" else "video/mp4")
+                        ) { _, _ -> }
+                    } catch (e: Exception) {}
+
+                    val finished = item.copy(
+                        status = "completed",
+                        progress = 100f,
+                        totalSize = finalSize,
+                        downloadedSize = finalSize,
+                        speed = "Saved to Downloads",
+                        eta = "0s",
+                        localPath = destFile.absolutePath
+                    )
+                    repository.addOrUpdateDownload(finished)
+                    onProgress(finished)
+                }
             }
+        } finally {
+            unregisterCall(item.id, call)
         }
     }
 
@@ -227,50 +294,78 @@ class DownloadExecutor(
         val videoPart = File(destFile.parentFile, destFile.name + ".vid.part")
         val audioPart = File(destFile.parentFile, destFile.name + ".aud.part")
 
-        try {
-            // 1. Download video track
-            repository.addOrUpdateDownload(item.copy(status = "downloading", speed = "Downloading video stream...", progress = 10f))
-            downloadDirectFile(item.copy(filename = videoPart.name), videoUrl, videoPart, markCompleted = false)
-
-            // 2. Download audio track
-            repository.addOrUpdateDownload(item.copy(status = "downloading", speed = "Downloading audio stream...", progress = 85f))
-            downloadDirectFile(item.copy(filename = audioPart.name), audioUrl, audioPart, markCompleted = false)
-
-            // 3. Native Muxing via MediaMuxer
-            repository.addOrUpdateDownload(item.copy(status = "downloading", speed = "Merging video & audio...", progress = 95f))
-            if (destFile.exists()) destFile.delete()
-
-            try {
-                muxVideoAndAudio(videoPart, audioPart, destFile)
-            } catch (muxErr: Exception) {
-                // If native muxing fails, fallback to using the video part directly
-                if (videoPart.exists() && !destFile.exists()) {
-                    videoPart.copyTo(destFile, overwrite = true)
-                }
-            }
-
-            try {
-                MediaScannerConnection.scanFile(
-                    context,
-                    arrayOf(destFile.absolutePath),
-                    arrayOf("video/mp4")
-                ) { _, _ -> }
-            } catch (e: Exception) {}
-
-            val finished = item.copy(
-                status = "completed",
-                progress = 100f,
-                downloadedSize = if (destFile.exists()) destFile.length() else 0L,
-                speed = "Done",
-                eta = "0s",
-                localPath = destFile.absolutePath
+        // 1. Download video track (mapped smoothly to 0% -> 84%)
+        checkActive(item.id)
+        if (!videoPart.exists() || videoPart.length() == 0L) {
+            downloadDirectFile(
+                item = item.copy(localPath = destFile.absolutePath),
+                url = videoUrl,
+                destFile = videoPart,
+                markCompleted = false,
+                progressStart = 0f,
+                progressEnd = 84f
             )
-            repository.addOrUpdateDownload(finished)
-            onProgress(finished)
-        } finally {
-            if (videoPart.exists()) videoPart.delete()
-            if (audioPart.exists()) audioPart.delete()
         }
+
+        // 2. Download audio track (mapped smoothly to 84% -> 96%)
+        checkActive(item.id)
+        if (!audioPart.exists() || audioPart.length() == 0L) {
+            downloadDirectFile(
+                item = item.copy(progress = 84f, localPath = destFile.absolutePath),
+                url = audioUrl,
+                destFile = audioPart,
+                markCompleted = false,
+                progressStart = 84f,
+                progressEnd = 96f
+            )
+        }
+
+        // 3. Native Muxing via MediaMuxer
+        checkActive(item.id)
+        val mergingState = item.copy(
+            status = "downloading",
+            speed = "Merging video & audio...",
+            eta = "1s",
+            progress = 97f,
+            localPath = destFile.absolutePath
+        )
+        repository.addOrUpdateDownload(mergingState)
+        onProgress(mergingState)
+
+        if (destFile.exists()) destFile.delete()
+
+        try {
+            muxVideoAndAudio(videoPart, audioPart, destFile)
+        } catch (muxErr: Exception) {
+            if (videoPart.exists() && !destFile.exists()) {
+                videoPart.copyTo(destFile, overwrite = true)
+            }
+        }
+
+        // Only delete completed track parts after successful muxing so paused downloads can resume!
+        if (videoPart.exists()) videoPart.delete()
+        if (audioPart.exists()) audioPart.delete()
+
+        try {
+            MediaScannerConnection.scanFile(
+                context,
+                arrayOf(destFile.absolutePath),
+                arrayOf("video/mp4")
+            ) { _, _ -> }
+        } catch (e: Exception) {}
+
+        val finalLength = if (destFile.exists()) destFile.length() else 0L
+        val finished = item.copy(
+            status = "completed",
+            progress = 100f,
+            totalSize = finalLength,
+            downloadedSize = finalLength,
+            speed = "Saved to Downloads",
+            eta = "0s",
+            localPath = destFile.absolutePath
+        )
+        repository.addOrUpdateDownload(finished)
+        onProgress(finished)
     }
 
     private fun muxVideoAndAudio(videoFile: File, audioFile: File, outputFile: File) {
@@ -347,7 +442,6 @@ class DownloadExecutor(
 
         val filesToDownload = mutableListOf<FolderFile>()
 
-        // Scraping public sharing page HTML for folder contents
         val folderPageUrl = "https://drive.google.com/drive/folders/$folderId"
         val request = Request.Builder()
             .url(folderPageUrl)
@@ -358,8 +452,6 @@ class DownloadExecutor(
             client.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
                     val html = response.body?.string() ?: ""
-                    // Regex matching standard resource list JSON array structure inside Drive HTML scripts:
-                    // e.g. ["file_id_33_chars","filename.ext",...]
                     val regex = """\["([a-zA-Z0-9_-]{33})","([^"]+)"""".toRegex()
                     val matches = regex.findAll(html)
                     for (match in matches) {
@@ -390,6 +482,7 @@ class DownloadExecutor(
         )
 
         for (i in 0 until total) {
+            checkActive(item.id)
             val f = filesToDownload[i]
             val indexNum = i + 1
             val cleanName = sanitizeFilename(f.name)
@@ -409,7 +502,9 @@ class DownloadExecutor(
                     f.url,
                     destFile
                 )
-            } catch (e: Exception) { /* skip individual errors or report */ }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) { /* skip individual errors */ }
         }
 
         val finished = item.copy(status = "completed", progress = 100f, speed = "Finished", eta = "0s", filename = "Downloaded $total files")
@@ -455,8 +550,8 @@ class DownloadExecutor(
 
     private fun formatSpeed(bytesPerSec: Double): String {
         return when {
-            bytesPerSec >= 1024 * 1024 -> String.format("%.2f MB/s", bytesPerSec / (1024 * 1024))
-            bytesPerSec >= 1024 -> String.format("%.2f KB/s", bytesPerSec / 1024)
+            bytesPerSec >= 1024 * 1024 -> String.format("%.1f MB/s", bytesPerSec / (1024 * 1024))
+            bytesPerSec >= 1024 -> String.format("%.1f KB/s", bytesPerSec / 1024)
             else -> String.format("%.0f B/s", bytesPerSec)
         }
     }
@@ -465,7 +560,7 @@ class DownloadExecutor(
         if (seconds <= 0) return "--"
         val m = seconds / 60
         val s = seconds % 60
-        return if (m > 0) String.format("%d:%02d", m, s) else "${s}s"
+        return if (m > 0) "${m}m ${s}s ETA" else "${s}s ETA"
     }
 
     private data class FolderFile(val id: String, val name: String, val url: String)

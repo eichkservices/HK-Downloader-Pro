@@ -8,6 +8,7 @@ import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import com.example.apexdownloader.data.DownloadItem
 import com.example.apexdownloader.data.DownloadRepositoryProvider
+import kotlinx.coroutines.CancellationException
 
 class DownloadWorker(
     appContext: android.content.Context,
@@ -29,11 +30,13 @@ class DownloadWorker(
         val repository = DownloadRepositoryProvider.get(applicationContext)
         val itemId = inputData.getString(KEY_ITEM_ID) ?: return Result.failure()
 
+        if (repository.isDeleted(itemId) || repository.isPaused(itemId)) {
+            return Result.success()
+        }
+
         DownloadNotifications.ensureChannel(applicationContext)
         val notificationId = DownloadNotifications.notificationIdFor(itemId)
 
-        // Start in the foreground immediately with an indeterminate notification;
-        // the executor's onProgress callback below will replace it with real progress.
         val title = inputData.getString(KEY_TITLE) ?: "Download"
         try {
             setForeground(
@@ -50,9 +53,6 @@ class DownloadWorker(
         val desktopServerUrl = inputData.getString(KEY_DESKTOP_SERVER)?.ifEmpty { null }
         val formatId = inputData.getString(KEY_FORMAT_ID)?.ifEmpty { null }
 
-        // Pull the current, most up-to-date copy of the item (it may already carry
-        // progress from a prior partial attempt) rather than trusting only the
-        // small set of fields WorkManager's input Data can hold.
         val existing = repository.downloads.value.find { it.id == itemId }
         val item = existing ?: DownloadItem(
             id = itemId,
@@ -65,6 +65,7 @@ class DownloadWorker(
         )
 
         val executor = DownloadExecutor(applicationContext, repository) { updated ->
+            if (repository.isDeleted(itemId) || repository.isPaused(itemId)) return@DownloadExecutor
             val statusText = "${updated.speed} · ${updated.eta}"
             try {
                 setForeground(
@@ -85,10 +86,6 @@ class DownloadWorker(
             }
         }
 
-        // The foreground notification above disappears the moment doWork()
-        // returns (that's how stopping a foreground service works) -- so a
-        // "finished" state needs its own, separate, non-foreground notify()
-        // call to actually stick around for the user to see and tap.
         fun postFinishedNotification(success: Boolean, statusText: String, finalTitle: String) {
             try {
                 val notification = DownloadNotifications.buildFinishedNotification(
@@ -96,17 +93,23 @@ class DownloadWorker(
                 )
                 NotificationManagerCompat.from(applicationContext).notify(notificationId, notification)
             } catch (e: SecurityException) {
-                // POST_NOTIFICATIONS not granted -- the download itself still
-                // succeeded/failed correctly, the user just won't see a system
-                // notification about it (they'll see it in-app instead).
             }
         }
 
         return try {
             executor.execute(item, desktopServerUrl, formatId)
-            postFinishedNotification(success = true, statusText = "Finished", finalTitle = item.title)
+            if (!repository.isDeleted(itemId) && !repository.isPaused(itemId)) {
+                postFinishedNotification(success = true, statusText = "Finished", finalTitle = item.title)
+            }
+            Result.success()
+        } catch (e: CancellationException) {
+            NotificationManagerCompat.from(applicationContext).cancel(notificationId)
             Result.success()
         } catch (e: Exception) {
+            if (repository.isDeleted(itemId) || repository.isPaused(itemId) || isStopped) {
+                NotificationManagerCompat.from(applicationContext).cancel(notificationId)
+                return Result.success()
+            }
             val message = e.message ?: "Unknown error"
             repository.addOrUpdateDownload(
                 item.copy(status = "failed", speed = "Error", eta = message)
