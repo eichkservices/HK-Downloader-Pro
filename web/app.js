@@ -41,14 +41,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnTaskSave          = document.getElementById('btnTaskSave');
   const btnTaskCloseDone     = document.getElementById('btnTaskCloseDone');
 
-  // Official Monetag Direct Link (SmartLink) - Live CPM Advertiser Offer Stream
-  const MONETAG_DIRECT_LINK = 'https://uplcm.com/4/12041858';
-
-  const sponsoredCardBanner = document.getElementById('sponsoredCardBanner');
-  if (sponsoredCardBanner) {
-    sponsoredCardBanner.href = MONETAG_DIRECT_LINK;
-  }
-
   if (btnTaskAdAudio && taskAdVideo) {
     btnTaskAdAudio.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1794,8 +1786,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         <div class="dl-card-ad-strip">
           <span class="ad-pill">SPONSORED</span>
-          <span style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Special Sponsor Deal • Fast Media & Tools</span>
-          <a href="${MONETAG_DIRECT_LINK}" target="_blank" rel="noopener sponsored" class="ad-cta-link">Visit Sponsor</a>
+          <span style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Verified Sponsor • High Speed Downloads</span>
+          <a href="/home#sponsor" class="ad-cta-link">Learn More</a>
         </div>
       </div>
     `;

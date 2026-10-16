@@ -1215,6 +1215,14 @@ html, body {
   overflow: hidden;
 }
 
+.fixed-ad-slot {
+  min-height: 90px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 8px;
+}
+
 /* ---------- Sponsored Card Banner (Native Ad Unit) ---------- */
 .sponsored-banner-section {
   margin: 14px 0 8px;
@@ -1684,10 +1692,33 @@ html, body {
   animation: pulseDot 1.4s infinite;
 }
 
-.monetag-task-slot {
+.task-modal-ad-slot {
   width: 100%;
-  margin-top: 6px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--glass-border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.ad-banner-header {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.ad-notice {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.ad-fixed-container {
+  width: 100%;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
   justify-content: center;
   overflow: hidden;
 }
