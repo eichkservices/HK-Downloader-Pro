@@ -44,46 +44,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Official Monetag Direct Link (SmartLink) - Live CPM Advertiser Offer Stream
   const MONETAG_DIRECT_LINK = 'https://uplcm.com/4/12041858';
 
-  const TASK_AD_CREATIVES = [
-    {
-      title: 'Verified Partner Offer & High-Speed Media',
-      domain: 'Sponsored • monetag.com',
-      ctaText: 'Visit Sponsor',
-      videoUrl: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
-      targetUrl: MONETAG_DIRECT_LINK
-    },
-    {
-      title: 'High-Speed Cloud Storage & VPN Network',
-      domain: 'Sponsored • verified-partner',
-      ctaText: 'Explore Offer',
-      videoUrl: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/friday.mp4',
-      targetUrl: MONETAG_DIRECT_LINK
-    },
-    {
-      title: 'Trending Digital Deals & Recommended Tools',
-      domain: 'Sponsored • direct-offers',
-      ctaText: 'Check Offer',
-      videoUrl: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
-      targetUrl: MONETAG_DIRECT_LINK
-    }
-  ];
-  let taskAdIndex = 0;
-
-  const taskAdVideoWrap = document.getElementById('taskAdVideoWrap');
-  if (taskAdVideoWrap) {
-    taskAdVideoWrap.style.cursor = 'pointer';
-    taskAdVideoWrap.addEventListener('click', (e) => {
-      // Don't trigger if user clicked the audio mute/unmute button or the CTA anchor
-      if (e.target.closest('#btnTaskAdAudio') || e.target.closest('#taskAdVideoCta')) {
-        return;
-      }
-      const targetUrl = taskAdVideoCta?.href || MONETAG_DIRECT_LINK;
-      if (targetUrl && targetUrl !== '#' && !targetUrl.startsWith('javascript:')) {
-        window.open(targetUrl, '_blank', 'noopener,noreferrer');
-      }
-    });
-  }
-
   const sponsoredCardBanner = document.getElementById('sponsoredCardBanner');
   if (sponsoredCardBanner) {
     sponsoredCardBanner.href = MONETAG_DIRECT_LINK;
@@ -1514,29 +1474,6 @@ document.addEventListener('DOMContentLoaded', () => {
       countReleased = true;
       activeDownloadCount = Math.max(0, activeDownloadCount - 1);
     };
-
-    // ── Setup Task-Based Video Ad Player ──
-    const ad = TASK_AD_CREATIVES[taskAdIndex % TASK_AD_CREATIVES.length];
-    taskAdIndex++;
-    if (taskAdVideoTitle) taskAdVideoTitle.textContent = ad.title;
-    if (taskAdVideoDomain) taskAdVideoDomain.textContent = ad.domain;
-    if (taskAdCtaText) taskAdCtaText.textContent = ad.ctaText;
-    if (taskAdVideoCta) {
-      taskAdVideoCta.href = ad.targetUrl || MONETAG_DIRECT_LINK;
-      taskAdVideoCta.target = '_blank';
-      taskAdVideoCta.rel = 'noopener sponsored';
-      if (ad.isDownload) taskAdVideoCta.setAttribute('download', '');
-      else taskAdVideoCta.removeAttribute('download');
-    }
-    if (taskAdVideo) {
-      taskAdVideo.src = ad.videoUrl;
-      taskAdVideo.muted = true;
-      if (adAudioMutedIcon && adAudioUnmutedIcon) {
-        adAudioMutedIcon.classList.remove('hidden');
-        adAudioUnmutedIcon.classList.add('hidden');
-      }
-      taskAdVideo.play().catch(() => {});
-    }
 
     if (taskTitle) taskTitle.textContent = title || filename;
     if (taskThumb && taskThumbFallback) {
