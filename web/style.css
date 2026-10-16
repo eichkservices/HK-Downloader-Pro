@@ -1221,6 +1221,11 @@ html, body {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   padding: 8px;
+  box-sizing: border-box;
+}
+
+.fixed-ad-slot > div[id^="container-"] {
+  width: 100%;
 }
 
 /* ---------- Sponsored Card Banner (Native Ad Unit) ---------- */
@@ -1342,6 +1347,8 @@ html, body {
 .task-download-card {
   padding: 18px 20px 22px;
   max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
   background: var(--bg-2);
   border: 1px solid var(--glass-border-strong);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
