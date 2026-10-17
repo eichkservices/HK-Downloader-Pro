@@ -2,6 +2,7 @@
   "version": 2,
   "rewrites": [
     { "source": "/api/analyze", "destination": "/api/analyze.py" },
+    { "source": "/api/download", "destination": "/api/download.py" },
     { "source": "/(.*)", "destination": "/web/$1" }
   ]
 }

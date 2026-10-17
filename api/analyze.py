@@ -353,21 +353,45 @@ def extract_youtube_direct(url):
                 'version': '20.03.02',
                 'clientNameId': '5',
                 'ua': 'com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)',
-                'context': {'clientName': 'IOS', 'clientVersion': '20.03.02', 'deviceMake': 'Apple', 'deviceModel': 'iPhone16,2', 'gl': 'US', 'hl': 'en'}
+                'context': {
+                    'clientName': 'IOS',
+                    'clientVersion': '20.03.02',
+                    'deviceMake': 'Apple',
+                    'deviceModel': 'iPhone16,2',
+                    'osName': 'iPhone',
+                    'osVersion': '18.2.1.22C161',
+                    'gl': 'US',
+                    'hl': 'en'
+                }
             },
             {
                 'name': 'ANDROID_VR',
-                'version': '1.61.48',
+                'version': '1.62.27',
                 'clientNameId': '28',
-                'ua': 'Mozilla/5.0 (Linux; Android 10; Quest 2) AppleWebKit/537.36',
-                'context': {'clientName': 'ANDROID_VR', 'clientVersion': '1.61.48', 'deviceMake': 'Oculus', 'deviceModel': 'Quest 2', 'gl': 'US', 'hl': 'en'}
+                'ua': 'com.google.android.apps.youtube.vr.oculus/1.62.27 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip',
+                'context': {
+                    'clientName': 'ANDROID_VR',
+                    'clientVersion': '1.62.27',
+                    'deviceMake': 'Oculus',
+                    'deviceModel': 'Quest 3',
+                    'osName': 'Android',
+                    'osVersion': '12L',
+                    'androidSdkVersion': 32,
+                    'gl': 'US',
+                    'hl': 'en'
+                }
             },
             {
-                'name': 'ANDROID',
-                'version': '21.26.364',
-                'clientNameId': '3',
-                'ua': 'com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip',
-                'context': {'clientName': 'ANDROID', 'clientVersion': '21.26.364', 'androidSdkVersion': 30}
+                'name': 'VISIONOS',
+                'version': '0.1',
+                'clientNameId': '96',
+                'ua': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+                'context': {
+                    'clientName': 'VISIONOS',
+                    'clientVersion': '0.1',
+                    'gl': 'US',
+                    'hl': 'en'
+                }
             }
         ]
 
