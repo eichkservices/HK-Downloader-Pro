@@ -1348,4 +1348,4 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json')
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
-        self.wfile.write(json.dumps({'error': 'Unable to resolve streams for this YouTube video. Please try another link or download via HK Downloader Android app.'}).encode('utf-8'))
+        self.wfile.write(json.dumps({'error': f'Unable to resolve streams: {LAST_DIRECT_ERR}'}).encode('utf-8'))
