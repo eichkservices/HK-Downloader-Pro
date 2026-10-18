@@ -136,72 +136,191 @@ html, body {
 }
 .icon-btn:hover { border-color: var(--glass-border-strong); transform: translateY(-1px); }
 .icon-btn:active { transform: translateY(0); }
-.btn-header-pwa {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 11px;
-  background: linear-gradient(135deg, rgba(34, 211, 238, 0.16), rgba(34, 211, 238, 0.28));
-  border: 1px solid rgba(34, 211, 238, 0.45);
-  color: var(--accent-cyan) !important;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  border-radius: 100px;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 0 10px rgba(34, 211, 238, 0.18);
-}
-
-.btn-header-pwa:hover {
-  background: linear-gradient(135deg, var(--accent-cyan), #06b6d4);
-  color: #041a22 !important;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 14px rgba(34, 211, 238, 0.45);
-}
-
-.btn-header-pwa .pwa-btn-logo {
-  width: 15px;
-  height: 15px;
-  border-radius: 3px;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-
 .header-right-actions {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.btn-header-apk {
+/* Sleek Unified Install App Header Button */
+.btn-header-install {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 11px;
-  background: linear-gradient(135deg, rgba(255, 138, 61, 0.16), rgba(255, 106, 31, 0.28));
-  border: 1px solid rgba(255, 138, 61, 0.45);
-  color: var(--accent-orange) !important;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  gap: 7px;
+  padding: 6px 13px;
+  background: linear-gradient(135deg, rgba(255, 138, 61, 0.16), rgba(34, 211, 238, 0.2));
+  border: 1px solid rgba(255, 138, 61, 0.4);
+  color: #fff !important;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   border-radius: 100px;
   text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.2s ease;
-  box-shadow: 0 0 10px rgba(255, 138, 61, 0.18);
+  box-shadow: 0 0 12px rgba(255, 138, 61, 0.15);
 }
 
-.btn-header-apk:hover {
+.btn-header-install:hover {
   background: linear-gradient(135deg, var(--accent-orange), #ff6a1f);
   color: #1a0b02 !important;
+  border-color: transparent;
   transform: translateY(-1px);
-  box-shadow: 0 2px 14px rgba(255, 138, 61, 0.45);
+  box-shadow: 0 4px 18px rgba(255, 138, 61, 0.45);
 }
 
-.btn-header-apk svg {
-  color: inherit;
+.btn-header-install .install-btn-logo {
+  width: 17px;
+  height: 17px;
+  border-radius: 4px;
+  object-fit: cover;
   flex-shrink: 0;
+  display: block;
+}
+
+/* Install Modal Sheet Card */
+.install-modal-card {
+  padding: 22px 20px 24px;
+}
+
+.install-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.install-app-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.install-sheet-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  flex-shrink: 0;
+}
+
+.install-sheet-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 3px;
+}
+
+.install-sheet-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.install-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.install-option-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+.install-option-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--accent-orange);
+  transform: translateY(-2px);
+}
+
+.install-option-card.pwa-card:hover {
+  border-color: var(--accent-cyan);
+}
+
+.option-icon-box {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.option-icon-box.apk-icon {
+  background: rgba(255, 138, 61, 0.14);
+  color: var(--accent-orange);
+  border: 1px solid rgba(255, 138, 61, 0.3);
+}
+
+.option-icon-box.pwa-icon {
+  background: rgba(34, 211, 238, 0.14);
+  color: var(--accent-cyan);
+  border: 1px solid rgba(34, 211, 238, 0.3);
+}
+
+.option-text {
+  flex-grow: 1;
+}
+
+.option-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.option-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent-orange);
+  background: rgba(255, 138, 61, 0.15);
+  border: 1px solid rgba(255, 138, 61, 0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.option-badge.pwa-badge {
+  color: var(--accent-cyan);
+  background: rgba(34, 211, 238, 0.15);
+  border-color: rgba(34, 211, 238, 0.3);
+}
+
+.option-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.option-arrow {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.install-option-card:hover .option-arrow {
+  color: #fff;
+  transform: translateX(3px);
 }
 
 /* ---------- Content area ---------- */

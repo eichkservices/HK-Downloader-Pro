@@ -264,17 +264,49 @@ document.addEventListener('DOMContentLoaded', () => {
   let pendingDeleteCard    = null;
   let pendingDeleteLibItem = null;
 
-  // PWA 1-Tap Home Screen App Installer
+  // Unified Install App Modal & PWA Installer
   let deferredPrompt;
-  const btnPwaInstall = document.getElementById('btnPwaInstall');
+  const btnHeaderInstall  = document.getElementById('btnHeaderInstall');
+  const installModal      = document.getElementById('installModal');
+  const closeInstallModal = document.getElementById('closeInstallModal');
+  const btnModalApk       = document.getElementById('btnModalApk');
+  const btnModalPwa       = document.getElementById('btnModalPwa');
 
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
   });
 
-  if (btnPwaInstall) {
-    btnPwaInstall.addEventListener('click', async () => {
+  if (btnHeaderInstall && installModal) {
+    btnHeaderInstall.addEventListener('click', () => {
+      installModal.classList.remove('hidden');
+    });
+  }
+
+  if (closeInstallModal && installModal) {
+    closeInstallModal.addEventListener('click', () => {
+      installModal.classList.add('hidden');
+    });
+  }
+
+  if (installModal) {
+    installModal.addEventListener('click', (e) => {
+      if (e.target === installModal) {
+        installModal.classList.add('hidden');
+      }
+    });
+  }
+
+  if (btnModalApk && installModal) {
+    btnModalApk.addEventListener('click', () => {
+      showToast('⬇ Starting Android APK download...', 'success');
+      setTimeout(() => installModal.classList.add('hidden'), 400);
+    });
+  }
+
+  if (btnModalPwa) {
+    btnModalPwa.addEventListener('click', async () => {
+      if (installModal) installModal.classList.add('hidden');
       if (deferredPrompt) {
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
