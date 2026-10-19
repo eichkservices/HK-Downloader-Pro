@@ -3,8 +3,39 @@ import json
 import urllib.request
 import urllib.parse
 from urllib.parse import urlparse, parse_qs
-import re
+import ipaddress
 import socket
+import re
+
+def is_safe_public_url(url: str) -> bool:
+    if not url:
+        return False
+    try:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme.lower() not in ('http', 'https'):
+            return False
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+        hostname_lower = hostname.lower()
+        blocked_hosts = {
+            'localhost', '127.0.0.1', '::1', '0.0.0.0',
+            '169.254.169.254', 'metadata.google.internal', 'instance-data'
+        }
+        if hostname_lower in blocked_hosts or hostname_lower.endswith('.local') or hostname_lower.endswith('.internal'):
+            return False
+
+        # Resolve IP addresses and verify they are globally routable (not private/loopback/link-local)
+        addr_info = socket.getaddrinfo(hostname, None, proto=socket.IPPROTO_TCP)
+        for entry in addr_info:
+            ip_str = entry[4][0]
+            ip = ipaddress.ip_address(ip_str)
+            if (ip.is_private or ip.is_loopback or ip.is_link_local or
+                ip.is_multicast or ip.is_reserved or ip.is_unspecified):
+                return False
+        return True
+    except Exception:
+        return False
 
 def resolve_youtube_fresh_stream(video_id):
     clients = [
@@ -115,12 +146,12 @@ class handler(BaseHTTPRequestHandler):
             if fresh_url:
                 target_url = fresh_url
 
-        if not target_url or not target_url.startswith('http'):
+        if not target_url or not is_safe_public_url(target_url):
             self.send_response(400)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            self.wfile.write(json.dumps({'error': 'Missing or invalid target url'}).encode('utf-8'))
+            self.wfile.write(json.dumps({'error': 'Target URL is missing, invalid, or points to an unauthorized network address'}).encode('utf-8'))
             return
 
         # Upstream streaming

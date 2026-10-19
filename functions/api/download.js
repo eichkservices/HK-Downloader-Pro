@@ -18,6 +18,42 @@ export async function onRequestHead(context) {
   return onRequestGet(context);
 }
 
+function isSafePublicUrl(urlStr) {
+  try {
+    const parsed = new URL(urlStr);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+    const host = parsed.hostname.toLowerCase();
+    if (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '::1' ||
+      host === '0.0.0.0' ||
+      host === '169.254.169.254' ||
+      host === 'metadata.google.internal' ||
+      host.endsWith('.local') ||
+      host.endsWith('.internal')
+    ) {
+      return false;
+    }
+    // Block private IPv4 ranges: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8, 169.254.0.0/16
+    const ipv4Match = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (ipv4Match) {
+      const octets = ipv4Match.slice(1).map(Number);
+      if (octets.some(o => o > 255)) return false;
+      const [o1, o2] = octets;
+      if (o1 === 10) return false;
+      if (o1 === 127) return false;
+      if (o1 === 169 && o2 === 254) return false;
+      if (o1 === 172 && (o2 >= 16 && o2 <= 31)) return false;
+      if (o1 === 192 && o2 === 168) return false;
+      if (o1 === 0) return false;
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 async function resolveYoutubeFreshStream(videoId) {
   const clients = [
     {
@@ -133,8 +169,8 @@ export async function onRequestGet(context) {
     } catch (e) {}
   }
 
-  if (!targetUrl || !targetUrl.startsWith('http')) {
-    return new Response(JSON.stringify({ error: 'Missing or invalid target url' }), {
+  if (!targetUrl || !isSafePublicUrl(targetUrl)) {
+    return new Response(JSON.stringify({ error: 'Target URL is missing, invalid, or points to an unauthorized network address' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
     });
