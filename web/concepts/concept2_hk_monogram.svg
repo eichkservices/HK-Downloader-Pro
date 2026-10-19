@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bgGlow2" cx="50%" cy="50%" r="65%">
+      <stop offset="0%" stop-color="#181528"/>
+      <stop offset="55%" stop-color="#0d0b16"/>
+      <stop offset="100%" stop-color="#040407"/>
+    </radialGradient>
+    <linearGradient id="hCyanPillar" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#67e8f9"/>
+      <stop offset="50%" stop-color="#22d3ee"/>
+      <stop offset="100%" stop-color="#0891b2"/>
+    </linearGradient>
+    <linearGradient id="kUpperBranch" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde047"/>
+      <stop offset="50%" stop-color="#ff8a3d"/>
+      <stop offset="100%" stop-color="#f43f5e"/>
+    </linearGradient>
+    <linearGradient id="kLowerBranch" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fb923c"/>
+      <stop offset="60%" stop-color="#ea580c"/>
+      <stop offset="100%" stop-color="#c2410c"/>
+    </linearGradient>
+    <linearGradient id="arrowCore" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#cbd5e1"/>
+    </linearGradient>
+    <filter id="dropShadow2" x="-15%" y="-15%" width="130%" height="135%">
+      <feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#000000" flood-opacity="0.7"/>
+    </filter>
+  </defs>
+
+  <!-- Base Squircle -->
+  <rect width="512" height="512" rx="116" fill="url(#bgGlow2)"/>
+  <rect x="3" y="3" width="506" height="506" rx="113" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="3"/>
+  <rect x="8" y="8" width="496" height="496" rx="108" fill="none" stroke="rgba(255,138,61,0.2)" stroke-width="1.5"/>
+
+  <g filter="url(#dropShadow2)">
+    <!-- Left Pillar of 'H' -->
+    <path d="M125 130 C125 119 134 110 145 110 L195 110 C206 110 215 119 215 130 L215 382 C215 393 206 402 195 402 L145 402 C134 402 125 393 125 382 Z" fill="url(#hCyanPillar)"/>
+    
+    <!-- Central Dynamic Velocity Arrow (The Bridge connecting H and K) -->
+    <path d="M195 220 L315 220 L315 264 L255 330 L195 264 Z" fill="url(#arrowCore)"/>
+
+    <!-- 'K' Upper Branch -->
+    <path d="M255 240 L340 128 C348 116 360 110 374 110 L418 110 C432 110 440 126 430 138 L330 265 Z" fill="url(#kUpperBranch)"/>
+
+    <!-- 'K' Lower Branch -->
+    <path d="M305 250 L400 376 C408 388 400 402 385 402 L340 402 C328 402 318 396 310 386 L245 292 Z" fill="url(#kLowerBranch)"/>
+
+    <!-- Precision Accents -->
+    <line x1="126" y1="130" x2="126" y2="382" stroke="rgba(255,255,255,0.6)" stroke-width="2.5"/>
+    <line x1="340" y1="128" x2="418" y2="110" stroke="rgba(255,255,255,0.7)" stroke-width="2.5"/>
+  </g>
+</svg>

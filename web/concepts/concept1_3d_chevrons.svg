@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bgGlow1" cx="50%" cy="50%" r="65%">
+      <stop offset="0%" stop-color="#162035"/>
+      <stop offset="55%" stop-color="#0b0e18"/>
+      <stop offset="100%" stop-color="#040609"/>
+    </radialGradient>
+    <linearGradient id="cyanL1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7dd3fc"/>
+      <stop offset="45%" stop-color="#22d3ee"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+    <linearGradient id="cyanR1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="55%" stop-color="#0891b2"/>
+      <stop offset="100%" stop-color="#0e7490"/>
+    </linearGradient>
+    <linearGradient id="orangeL1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="40%" stop-color="#ff8a3d"/>
+      <stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+    <linearGradient id="orangeR1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="50%" stop-color="#ea580c"/>
+      <stop offset="100%" stop-color="#9a3412"/>
+    </linearGradient>
+    <filter id="dropShadow1" x="-15%" y="-15%" width="130%" height="135%">
+      <feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#000000" flood-opacity="0.75"/>
+    </filter>
+  </defs>
+
+  <!-- Base Squircle -->
+  <rect width="512" height="512" rx="116" fill="url(#bgGlow1)"/>
+  <rect x="3" y="3" width="506" height="506" rx="113" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="3"/>
+  <rect x="8" y="8" width="496" height="496" rx="108" fill="none" stroke="rgba(34,211,238,0.2)" stroke-width="1.5"/>
+
+  <!-- Top Cyan 3D Layered Chevron -->
+  <g filter="url(#dropShadow1)">
+    <!-- Left Wing -->
+    <path d="M120 170 L180 170 L256 268 L256 312 L120 170 Z" fill="url(#cyanL1)"/>
+    <!-- Right Wing -->
+    <path d="M392 170 L332 170 L256 268 L256 312 L392 170 Z" fill="url(#cyanR1)"/>
+    <!-- Center Bevel Spine -->
+    <line x1="256" y1="268" x2="256" y2="312" stroke="rgba(255,255,255,0.8)" stroke-width="2.5"/>
+    <!-- Highlight Rim Edge -->
+    <path d="M120 170 L180 170 L256 268 L332 170 L392 170" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Bottom Orange 3D Layered Chevron -->
+  <g filter="url(#dropShadow1)">
+    <!-- Left Wing -->
+    <path d="M120 280 L180 280 L256 378 L256 422 L120 280 Z" fill="url(#orangeL1)"/>
+    <!-- Right Wing -->
+    <path d="M392 280 L332 280 L256 378 L256 422 L392 280 Z" fill="url(#orangeR1)"/>
+    <!-- Center Bevel Spine -->
+    <line x1="256" y1="378" x2="256" y2="422" stroke="rgba(255,255,255,0.8)" stroke-width="2.5"/>
+    <!-- Highlight Rim Edge -->
+    <path d="M120 280 L180 280 L256 378 L332 280 L392 280" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
