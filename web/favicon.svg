@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108">
+  <rect width="108" height="108" rx="24" fill="#0d1017"/>
+  <!-- Top Cyan Chevron -->
+  <path fill="#22d3ee" d="M37,38 L42.5,38 L54,52.8 L65.5,38 L71,38 L54,58.3 Z"/>
+  <!-- Bottom Orange Chevron -->
+  <path fill="#ff8a3d" d="M37,58 L42.5,58 L54,72.8 L65.5,58 L71,58 L54,78.3 Z"/>
+</svg>
