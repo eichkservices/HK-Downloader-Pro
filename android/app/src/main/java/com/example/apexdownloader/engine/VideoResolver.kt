@@ -103,9 +103,21 @@ object VideoResolver {
             in videoPlatformTypes -> listOf(universalCloudResolver, cobaltResolver)
             else -> listOf(localDirectLinkResolver)
         }
+        // Always keep on-device direct resolvers first for YouTube, TikTok, and Twitter/X
+        // so a one-off cloud fallback never demotes residential on-device extraction.
+        if (type == "youtube" || type == "tiktok" || type == "twitter") return base
         val lastGood = lastSuccessfulResolver[type] ?: return base
         val winner = base.find { it.name == lastGood } ?: return base
         return listOf(winner) + base.filter { it.name != lastGood }
+    }
+
+    fun resolveFreshYoutubeUrl(
+        videoUrlOrId: String,
+        targetItag: Int? = null,
+        targetHeight: Int? = null,
+        isAudioOnly: Boolean = false
+    ): String? {
+        return youtubeDirectResolver.resolveSingleStreamUrl(videoUrlOrId, targetItag, targetHeight, isAudioOnly)
     }
 
     suspend fun resolveVideoInfo(
@@ -241,26 +253,84 @@ private class YouTubeDirectResolver : Resolver {
         val version: String,
         val clientNameId: String,
         val ua: String,
+        val isEmbedded: Boolean = false,
         val makeContext: () -> JSONObject
     )
 
-    private fun parseNormalizedTier(f: JSONObject): Int {
-        val qLabel = f.optString("qualityLabel", "")
-        val labelMatch = Regex("(\\d{3,4})p").find(qLabel)?.groupValues?.get(1)?.toIntOrNull()
-        if (labelMatch != null && labelMatch > 0) return labelMatch
+    private data class WatchSession(
+        val visitorData: String,
+        val cookieHeader: String,
+        val sts: Int
+    )
 
-        val w = f.optInt("width", 0)
-        val h = f.optInt("height", 0)
-        if (w > 0 && h > 0) return minOf(w, h)
-        return h
+    private fun fetchWatchVisitorSession(vidId: String): WatchSession {
+        val cookiePairs = mutableListOf("PREF=hl=en&tz=UTC", "SOCS=CAI")
+        var visitorData = ""
+        var sts = 20746
+        try {
+            val req = Request.Builder()
+                .url("https://www.youtube.com/watch?v=$vidId&bpctr=9999999999&has_verified=1")
+                .header("User-Agent", NetworkClient.USER_AGENT)
+                .header("Accept-Language", "en-US,en;q=0.9")
+                .header("Cookie", "PREF=hl=en&tz=UTC; SOCS=CAI")
+                .build()
+            client.newCall(req).execute().use { resp ->
+                for (sc in resp.headers("Set-Cookie")) {
+                    val pair = sc.substringBefore(';').trim()
+                    if (pair.isNotEmpty()) cookiePairs.add(pair)
+                }
+                val html = resp.body?.string() ?: ""
+                Regex("\"VISITOR_DATA\"\\s*:\\s*\"([^\"]+)\"").find(html)?.groupValues?.get(1)?.let {
+                    visitorData = it
+                }
+                Regex("\"STS\"\\s*:\\s*(\\d+)").find(html)?.groupValues?.get(1)?.toIntOrNull()?.let {
+                    sts = it
+                }
+            }
+        } catch (e: Exception) {}
+        return WatchSession(visitorData, cookiePairs.distinct().joinToString("; "), sts)
     }
 
-    override suspend fun resolve(url: String, type: String, ctx: ResolverContext): ResolveOutcome {
-        if (type != "youtube") return ResolveOutcome.NotApplicable
-        val vidId = Regex("(?:v=|youtu\\.be/|shorts/|embed/)([a-zA-Z0-9_-]{11})").find(url)?.groupValues?.get(1)
-            ?: return ResolveOutcome.Failed("Invalid YouTube URL")
-
-        val clients = listOf(
+    private fun getInnertubeClients(): List<InnertubeClientConfig> {
+        val visionUa = "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15"
+        return listOf(
+            InnertubeClientConfig(
+                name = "VISIONOS",
+                version = "1.02",
+                clientNameId = "101",
+                ua = visionUa,
+                makeContext = {
+                    JSONObject().apply {
+                        put("clientName", "VISIONOS")
+                        put("clientVersion", "1.02")
+                        put("deviceMake", "Apple")
+                        put("deviceModel", "RealityDevice17,1")
+                        put("userAgent", visionUa)
+                        put("osName", "visionOS")
+                        put("osVersion", "26.5.23O471")
+                        put("hl", "en")
+                        put("timeZone", "UTC")
+                        put("utcOffsetMinutes", 0)
+                    }
+                }
+            ),
+            InnertubeClientConfig(
+                name = "ANDROID",
+                version = "20.10.38",
+                clientNameId = "3",
+                ua = "com.google.android.youtube/20.10.38 (Linux; U; Android 14; en_US) gzip",
+                makeContext = {
+                    JSONObject().apply {
+                        put("clientName", "ANDROID")
+                        put("clientVersion", "20.10.38")
+                        put("androidSdkVersion", 34)
+                        put("osName", "Android")
+                        put("osVersion", "14")
+                        put("gl", "US")
+                        put("hl", "en")
+                    }
+                }
+            ),
             InnertubeClientConfig(
                 name = "IOS",
                 version = "20.03.02",
@@ -278,42 +348,126 @@ private class YouTubeDirectResolver : Resolver {
                         put("hl", "en")
                     }
                 }
-            ),
-            InnertubeClientConfig(
-                name = "ANDROID_VR",
-                version = "1.62.27",
-                clientNameId = "28",
-                ua = "com.google.android.apps.youtube.vr.oculus/1.62.27 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip",
-                makeContext = {
-                    JSONObject().apply {
-                        put("clientName", "ANDROID_VR")
-                        put("clientVersion", "1.62.27")
-                        put("deviceMake", "Oculus")
-                        put("deviceModel", "Quest 3")
-                        put("osName", "Android")
-                        put("osVersion", "12L")
-                        put("androidSdkVersion", 32)
-                        put("gl", "US")
-                        put("hl", "en")
-                    }
-                }
-            ),
-            InnertubeClientConfig(
-                name = "ANDROID",
-                version = "21.26.364",
-                clientNameId = "3",
-                ua = "com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip",
-                makeContext = {
-                    JSONObject().apply {
-                        put("clientName", "ANDROID")
-                        put("clientVersion", "21.26.364")
-                        put("androidSdkVersion", 30)
-                        put("gl", "US")
-                        put("hl", "en")
-                    }
-                }
             )
         )
+    }
+
+    private fun parseNormalizedTier(f: JSONObject): Int {
+        val qLabel = f.optString("qualityLabel", "")
+        val labelMatch = Regex("(\\d{3,4})p").find(qLabel)?.groupValues?.get(1)?.toIntOrNull()
+        if (labelMatch != null && labelMatch > 0) return labelMatch
+
+        val w = f.optInt("width", 0)
+        val h = f.optInt("height", 0)
+        if (w > 0 && h > 0) return minOf(w, h)
+        return h
+    }
+
+    fun resolveSingleStreamUrl(
+        videoUrlOrId: String,
+        targetItag: Int? = null,
+        targetHeight: Int? = null,
+        isAudioOnly: Boolean = false
+    ): String? {
+        val vidId = Regex("(?:v=|youtu\\.be/|shorts/|embed/)([a-zA-Z0-9_-]{11})").find(videoUrlOrId)?.groupValues?.get(1)
+            ?: videoUrlOrId.takeIf { it.matches(Regex("[a-zA-Z0-9_-]{11}")) }
+            ?: return null
+
+        val session = fetchWatchVisitorSession(vidId)
+        for (c in getInnertubeClients()) {
+            try {
+                val payload = JSONObject().apply {
+                    put("videoId", vidId)
+                    put("context", JSONObject().apply { put("client", c.makeContext()) })
+                    put("playbackContext", JSONObject().apply {
+                        put("contentPlaybackContext", JSONObject().apply {
+                            put("html5Preference", "HTML5_PREF_WANTS")
+                            put("signatureTimestamp", session.sts)
+                        })
+                    })
+                    put("contentCheckOk", true)
+                    put("racyCheckOk", true)
+                }.toString()
+
+                val reqBuilder = Request.Builder()
+                    .url("https://www.youtube.com/youtubei/v1/player?prettyPrint=false")
+                    .post(payload.toRequestBody("application/json".toMediaTypeOrNull()))
+                    .header("Content-Type", "application/json")
+                    .header("X-YouTube-Client-Name", c.clientNameId)
+                    .header("X-YouTube-Client-Version", c.version)
+                    .header("Origin", "https://www.youtube.com")
+                    .header("User-Agent", c.ua)
+                    .header("Cookie", session.cookieHeader)
+                if (session.visitorData.isNotEmpty()) {
+                    reqBuilder.header("X-Goog-Visitor-Id", session.visitorData)
+                }
+
+                client.newCall(reqBuilder.build()).execute().use { response ->
+                    if (!response.isSuccessful) return@use
+                    val data = JSONObject(response.body?.string() ?: "")
+                    if (data.optJSONObject("playabilityStatus")?.optString("status") != "OK") return@use
+                    val streamingData = data.optJSONObject("streamingData") ?: return@use
+                    val adaptive = streamingData.optJSONArray("adaptiveFormats") ?: JSONArray()
+                    val rawFormats = streamingData.optJSONArray("formats") ?: JSONArray()
+
+                    if (targetItag != null) {
+                        for (i in 0 until adaptive.length()) {
+                            val af = adaptive.getJSONObject(i)
+                            if (af.optInt("itag") == targetItag && af.optString("url").isNotEmpty()) {
+                                return af.optString("url")
+                            }
+                        }
+                        for (i in 0 until rawFormats.length()) {
+                            val rf = rawFormats.getJSONObject(i)
+                            if (rf.optInt("itag") == targetItag && rf.optString("url").isNotEmpty()) {
+                                return rf.optString("url")
+                            }
+                        }
+                    }
+
+                    if (isAudioOnly) {
+                        var bestUrl: String? = null
+                        var bestScore = -1
+                        for (i in 0 until adaptive.length()) {
+                            val af = adaptive.getJSONObject(i)
+                            val u = af.optString("url")
+                            val mime = af.optString("mimeType")
+                            if (u.isNotEmpty() && mime.contains("audio")) {
+                                val score = af.optInt("bitrate", 0) +
+                                    (if (mime.contains("mp4")) 1_000_000 else 0) +
+                                    (if (!af.optBoolean("isDrc", false)) 100_000 else 0)
+                                if (score > bestScore) {
+                                    bestScore = score
+                                    bestUrl = u
+                                }
+                            }
+                        }
+                        if (bestUrl != null) return bestUrl
+                    }
+
+                    if (targetHeight != null) {
+                        for (i in 0 until adaptive.length()) {
+                            val af = adaptive.getJSONObject(i)
+                            val u = af.optString("url")
+                            val mime = af.optString("mimeType")
+                            if (u.isNotEmpty() && mime.contains("video") && mime.contains("avc1") && parseNormalizedTier(af) == targetHeight) {
+                                return u
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {}
+        }
+        return null
+    }
+
+    override suspend fun resolve(url: String, type: String, ctx: ResolverContext): ResolveOutcome {
+        if (type != "youtube") return ResolveOutcome.NotApplicable
+        val vidId = Regex("(?:v=|youtu\\.be/|shorts/|embed/)([a-zA-Z0-9_-]{11})").find(url)?.groupValues?.get(1)
+            ?: return ResolveOutcome.Failed("Invalid YouTube URL")
+
+        val session = fetchWatchVisitorSession(vidId)
+        val clients = getInnertubeClients()
 
         var lastErr = "Video unplayable"
         var fallbackSingleOutcome: ResolveOutcome.Success? = null
@@ -328,7 +482,7 @@ private class YouTubeDirectResolver : Resolver {
                     put("playbackContext", JSONObject().apply {
                         put("contentPlaybackContext", JSONObject().apply {
                             put("html5Preference", "HTML5_PREF_WANTS")
-                            put("signatureTimestamp", 20717)
+                            put("signatureTimestamp", session.sts)
                         })
                     })
                     put("contentCheckOk", true)
@@ -336,17 +490,20 @@ private class YouTubeDirectResolver : Resolver {
                 }.toString()
 
                 val requestBody = payload.toRequestBody("application/json".toMediaTypeOrNull())
-                val request = Request.Builder()
-                    .url("https://www.youtube.com/youtubei/v1/player")
+                val reqBuilder = Request.Builder()
+                    .url("https://www.youtube.com/youtubei/v1/player?prettyPrint=false")
                     .post(requestBody)
                     .header("Content-Type", "application/json")
                     .header("X-YouTube-Client-Name", c.clientNameId)
                     .header("X-YouTube-Client-Version", c.version)
                     .header("Origin", "https://www.youtube.com")
                     .header("User-Agent", c.ua)
-                    .build()
+                    .header("Cookie", session.cookieHeader)
+                if (session.visitorData.isNotEmpty()) {
+                    reqBuilder.header("X-Goog-Visitor-Id", session.visitorData)
+                }
 
-                client.newCall(request).execute().use { response ->
+                client.newCall(reqBuilder.build()).execute().use { response ->
                     if (!response.isSuccessful) {
                         lastErr = "HTTP ${response.code}"
                         return@use
@@ -379,8 +536,9 @@ private class YouTubeDirectResolver : Resolver {
                         if (streamUrl.isNotEmpty() && mime.contains("audio")) {
                             val bitrate = af.optInt("bitrate", af.optInt("averageBitrate", 0))
                             val isMp4Audio = mime.contains("mp4") || mime.contains("m4a")
-                            // Strongly prefer MP4/AAC audio so Android MediaMuxer can mux it natively with H.264 video
-                            val score = bitrate + if (isMp4Audio) 1_000_000 else 0
+                            val isNotDrc = !af.optBoolean("isDrc", false)
+                            // Strongly prefer non-DRC MP4/AAC audio so Android MediaMuxer can mux it natively with H.264 video
+                            val score = bitrate + (if (isMp4Audio) 1_000_000 else 0) + (if (isNotDrc) 100_000 else 0)
                             if (score > highestAudioScore || bestAudioUrl == null) {
                                 highestAudioScore = score
                                 bestAudioUrl = streamUrl
@@ -910,14 +1068,165 @@ private class InstagramDirectResolver : Resolver {
     }
 }
 
-/** Resolves Twitter / X videos directly using public TwitSave media API and base64 stream decoding. */
+/** Resolves Twitter / X videos directly using Twitter Syndication JSON API, FxTwitter, VxTwitter, and TwitSave fallback. */
 private class TwitterDirectResolver : Resolver {
     override val name = "twitter-direct"
     private val client = NetworkClient.client
 
+    private fun buildNoteForVariant(vUrl: String, defaultRank: Int): Pair<Int, String> {
+        val dimMatch = Regex("/(\\d+)x(\\d+)/").find(vUrl)
+        val w = dimMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0
+        val h = dimMatch?.groupValues?.get(2)?.toIntOrNull() ?: 0
+        val tier = if (w > 0 && h > 0) minOf(w, h) else when (defaultRank) {
+            0 -> 1080
+            1 -> 720
+            2 -> 480
+            else -> 360
+        }
+        val dimText = if (w > 0 && h > 0) "${w}x${h} " else ""
+        val note = when {
+            tier >= 1080 -> "🎬 1080p FHD (${dimText}MP4)"
+            tier >= 720 -> "🎬 720p HD (${dimText}MP4)"
+            tier >= 480 -> "🎬 480p SD (${dimText}MP4)"
+            else -> "🎬 ${tier}p (${dimText}MP4)"
+        }
+        return tier to note
+    }
+
     override suspend fun resolve(url: String, type: String, ctx: ResolverContext): ResolveOutcome {
         if (type != "twitter") return ResolveOutcome.NotApplicable
 
+        val tweetId = Regex("/status(?:es)?/(\\d+)").find(url)?.groupValues?.get(1)
+
+        // 1. Official Twitter Syndication JSON API (cdn.syndication.twimg.com)
+        if (!tweetId.isNullOrEmpty()) {
+            try {
+                val synReq = Request.Builder()
+                    .url("https://cdn.syndication.twimg.com/tweet-result?id=$tweetId&token=0")
+                    .header("User-Agent", NetworkClient.USER_AGENT)
+                    .header("Accept", "application/json")
+                    .build()
+                client.newCall(synReq).execute().use { resp ->
+                    if (resp.isSuccessful) {
+                        val data = JSONObject(resp.body?.string() ?: "")
+                        val rawText = data.optString("text", "").substringBefore("https://t.co/").trim()
+                        val title = rawText.ifEmpty { "Twitter / X Video" }.take(90)
+                        var thumb = ""
+                        val mediaDetails = data.optJSONArray("mediaDetails") ?: JSONArray()
+                        val mp4Variants = mutableListOf<Pair<Int, String>>()
+
+                        for (i in 0 until mediaDetails.length()) {
+                            val m = mediaDetails.getJSONObject(i)
+                            if (thumb.isEmpty()) thumb = m.optString("media_url_https", "")
+                            val variants = m.optJSONObject("video_info")?.optJSONArray("variants") ?: continue
+                            for (j in 0 until variants.length()) {
+                                val v = variants.getJSONObject(j)
+                                val cType = v.optString("content_type", "")
+                                val vUrl = v.optString("url", "")
+                                if (vUrl.isNotEmpty() && (cType.contains("mp4") || vUrl.contains(".mp4"))) {
+                                    val bitrate = v.optInt("bitrate", 0)
+                                    mp4Variants.add(bitrate to vUrl)
+                                }
+                            }
+                        }
+
+                        if (mp4Variants.isNotEmpty()) {
+                            val sorted = mp4Variants.sortedByDescending { it.first }.distinctBy { it.second }
+                            val formats = mutableListOf<VideoFormat>()
+                            sorted.forEachIndexed { idx, (_, vUrl) ->
+                                val (_, note) = buildNoteForVariant(vUrl, idx)
+                                formats.add(VideoFormat(vUrl, note, "mp4", VideoResolver.probeContentLength(vUrl)))
+                            }
+                            formats.add(VideoFormat(sorted.first().second, "🎵 High Quality Audio (MP3)", "mp3"))
+                            return ResolveOutcome.Success(title, thumb, formats)
+                        }
+                    }
+                }
+            } catch (e: Exception) {}
+
+            // 2. FxTwitter JSON API (api.fxtwitter.com)
+            try {
+                val fxReq = Request.Builder()
+                    .url("https://api.fxtwitter.com/i/status/$tweetId")
+                    .header("User-Agent", "HKDownloaderPro/2.0")
+                    .header("Accept", "application/json")
+                    .build()
+                client.newCall(fxReq).execute().use { resp ->
+                    if (resp.isSuccessful) {
+                        val data = JSONObject(resp.body?.string() ?: "")
+                        val tweet = data.optJSONObject("tweet")
+                        if (tweet != null) {
+                            val title = tweet.optString("text", "").ifEmpty { "Twitter / X Video" }.take(90)
+                            val videos = tweet.optJSONObject("media")?.optJSONArray("videos") ?: JSONArray()
+                            var thumb = ""
+                            val mp4Variants = mutableListOf<Pair<Int, String>>()
+
+                            for (i in 0 until videos.length()) {
+                                val vid = videos.getJSONObject(i)
+                                if (thumb.isEmpty()) thumb = vid.optString("thumbnail_url", "")
+                                val variants = vid.optJSONArray("variants") ?: JSONArray()
+                                for (j in 0 until variants.length()) {
+                                    val v = variants.getJSONObject(j)
+                                    val vUrl = v.optString("url", "")
+                                    val cType = v.optString("content_type", "")
+                                    if (vUrl.isNotEmpty() && (cType.contains("mp4") || vUrl.contains(".mp4"))) {
+                                        mp4Variants.add(v.optInt("bitrate", 0) to vUrl)
+                                    }
+                                }
+                                if (mp4Variants.isEmpty()) {
+                                    val directU = vid.optString("url", "")
+                                    if (directU.isNotEmpty()) mp4Variants.add(2_000_000 to directU)
+                                }
+                            }
+
+                            if (mp4Variants.isNotEmpty()) {
+                                val sorted = mp4Variants.sortedByDescending { it.first }.distinctBy { it.second }
+                                val formats = mutableListOf<VideoFormat>()
+                                sorted.forEachIndexed { idx, (_, vUrl) ->
+                                    val (_, note) = buildNoteForVariant(vUrl, idx)
+                                    formats.add(VideoFormat(vUrl, note, "mp4", VideoResolver.probeContentLength(vUrl)))
+                                }
+                                formats.add(VideoFormat(sorted.first().second, "🎵 High Quality Audio (MP3)", "mp3"))
+                                return ResolveOutcome.Success(title, thumb, formats)
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {}
+
+            // 3. VxTwitter JSON API (api.vxtwitter.com)
+            try {
+                val vxReq = Request.Builder()
+                    .url("https://api.vxtwitter.com/i/status/$tweetId")
+                    .header("User-Agent", "HKDownloaderPro/2.0")
+                    .header("Accept", "application/json")
+                    .build()
+                client.newCall(vxReq).execute().use { resp ->
+                    if (resp.isSuccessful) {
+                        val data = JSONObject(resp.body?.string() ?: "")
+                        val title = data.optString("text", "").ifEmpty { "Twitter / X Video" }.take(90)
+                        val mediaExt = data.optJSONArray("media_extended") ?: JSONArray()
+                        var thumb = ""
+                        val formats = mutableListOf<VideoFormat>()
+                        for (i in 0 until mediaExt.length()) {
+                            val m = mediaExt.getJSONObject(i)
+                            if (thumb.isEmpty()) thumb = m.optString("thumbnail_url", "")
+                            val vUrl = m.optString("url", "")
+                            if (vUrl.isNotEmpty() && (m.optString("type") == "video" || m.optString("type") == "gif" || vUrl.contains(".mp4"))) {
+                                val (_, note) = buildNoteForVariant(vUrl, i)
+                                formats.add(VideoFormat(vUrl, note, "mp4", VideoResolver.probeContentLength(vUrl)))
+                            }
+                        }
+                        if (formats.isNotEmpty()) {
+                            formats.add(VideoFormat(formats.first().formatId, "🎵 High Quality Audio (MP3)", "mp3"))
+                            return ResolveOutcome.Success(title, thumb, formats)
+                        }
+                    }
+                }
+            } catch (e: Exception) {}
+        }
+
+        // 4. TwitSave HTML fallback
         return try {
             val encodedUrl = java.net.URLEncoder.encode(url, "UTF-8")
             val request = Request.Builder()
@@ -930,17 +1239,14 @@ private class TwitterDirectResolver : Resolver {
                 if (!response.isSuccessful) return ResolveOutcome.Failed("HTTP ${response.code} from TwitSave")
                 val html = response.body?.string() ?: return ResolveOutcome.Failed("Empty response from TwitSave")
 
-                // Extract title
                 val titleMatch = Regex("<div[^>]*class=\"[^\"]*leading-tight[^\"]*\"[^>]*>.*?<p[^>]*class=\"[^\"]*m-2[^\"]*\"[^>]*>([^<]+)</p>", RegexOption.DOT_MATCHES_ALL).find(html)
                     ?: Regex("<div[^>]*class=\"[^\"]*leading-tight[^\"]*\"[^>]*>.*?<p[^>]*>([^<]+)</p>", RegexOption.DOT_MATCHES_ALL).find(html)
                 var title = titleMatch?.groupValues?.get(1)?.trim() ?: "Twitter / X Video"
                 title = title.replace("&amp;", "&").replace("&quot;", "\"").replace("&#039;", "'").replace("&lt;", "<").replace("&gt;", ">")
 
-                // Extract thumbnail
                 val thumbMatch = Regex("(https://pbs\\.twimg\\.com/[^\\s\"'<>]+\\.(?:jpg|jpeg|png|webp))").find(html)
                 val thumbnail = thumbMatch?.groupValues?.get(1) ?: ""
 
-                // Extract download links with base64 encoded direct video.twimg.com stream URLs
                 val linkMatches = Regex("href=\"https://twitsave\\.com/download\\?file=([^\"&]+)\"[^>]*>(.*?)</a>", RegexOption.DOT_MATCHES_ALL).findAll(html)
                 val formats = mutableListOf<VideoFormat>()
                 val seenUrls = mutableSetOf<String>()
@@ -974,7 +1280,6 @@ private class TwitterDirectResolver : Resolver {
                     } catch (e: Exception) {}
                 }
 
-                // Add audio-only option
                 if (formats.isNotEmpty()) {
                     val bestStream = formats.first().formatId
                     formats.add(VideoFormat(bestStream, "🎵 High Quality Audio (MP3)", "mp3"))

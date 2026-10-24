@@ -186,6 +186,127 @@ def extract_pinterest(url):
     except Exception:
         pass
 def extract_twitter(url):
+    def build_variant_fmt(v_url, default_rank):
+        dim_m = re.search(r'/(\d+)x(\d+)/', v_url)
+        w = int(dim_m.group(1)) if dim_m else 0
+        h = int(dim_m.group(2)) if dim_m else 0
+        tier = min(w, h) if (w > 0 and h > 0) else (1080 if default_rank == 0 else (720 if default_rank == 1 else 480))
+        dim_str = f"{w}x{h} " if (w > 0 and h > 0) else ""
+        if tier >= 1080:
+            note = f"🎬 1080p FHD ({dim_str}MP4)"
+        elif tier >= 720:
+            note = f"🎬 720p HD ({dim_str}MP4)"
+        elif tier >= 480:
+            note = f"🎬 480p SD ({dim_str}MP4)"
+        else:
+            note = f"🎬 {tier}p ({dim_str}MP4)"
+        return {
+            'directUrl': v_url,
+            'token': v_url,
+            'note': note,
+            'ext': 'mp4',
+            'height': tier,
+            'hasAudio': True
+        }
+
+    tweet_m = re.search(r'/status(?:es)?/(\d+)', url)
+    tweet_id = tweet_m.group(1) if tweet_m else None
+
+    if tweet_id:
+        # 1. Official Twitter Syndication JSON API
+        try:
+            syn_req = urllib.request.Request(
+                f"https://cdn.syndication.twimg.com/tweet-result?id={tweet_id}&token=0",
+                headers={'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json'}
+            )
+            with urllib.request.urlopen(syn_req, timeout=6) as r:
+                syn_data = json.loads(r.read().decode('utf-8', errors='ignore'))
+            raw_text = (syn_data.get('text') or '').split('https://t.co/')[0].strip()
+            title = (raw_text or 'Twitter / X Video')[:90]
+            thumb = ''
+            mp4_list = []
+            for m in (syn_data.get('mediaDetails') or []):
+                if not thumb and m.get('media_url_https'):
+                    thumb = m['media_url_https']
+                for v in (m.get('video_info', {}).get('variants') or []):
+                    v_url = v.get('url') or ''
+                    c_type = v.get('content_type') or ''
+                    if v_url and ('mp4' in c_type or '.mp4' in v_url):
+                        mp4_list.append((int(v.get('bitrate') or 0), v_url))
+            if mp4_list:
+                mp4_list.sort(key=lambda x: x[0], reverse=True)
+                seen = set()
+                formats = []
+                for _, v_url in mp4_list:
+                    if v_url in seen:
+                        continue
+                    seen.add(v_url)
+                    formats.append(build_variant_fmt(v_url, len(formats)))
+                formats.append({
+                    'directUrl': formats[0]['directUrl'],
+                    'token': formats[0]['directUrl'],
+                    'note': '🎵 High Quality Audio (MP3)',
+                    'ext': 'mp3',
+                    'isAudio': True
+                })
+                return {
+                    'title': title,
+                    'thumbnail': thumb,
+                    'type': 'twitter',
+                    'formats': formats,
+                    'maxResolution': f"{formats[0].get('height', 720)}p"
+                }
+        except Exception:
+            pass
+
+        # 2. FxTwitter JSON API
+        try:
+            fx_req = urllib.request.Request(
+                f"https://api.fxtwitter.com/i/status/{tweet_id}",
+                headers={'User-Agent': 'HKDownloaderPro/2.0', 'Accept': 'application/json'}
+            )
+            with urllib.request.urlopen(fx_req, timeout=6) as r:
+                fx_data = json.loads(r.read().decode('utf-8', errors='ignore'))
+            tweet = fx_data.get('tweet') or {}
+            title = (tweet.get('text') or 'Twitter / X Video')[:90]
+            thumb = ''
+            mp4_list = []
+            for vid in (tweet.get('media', {}).get('videos') or []):
+                if not thumb and vid.get('thumbnail_url'):
+                    thumb = vid['thumbnail_url']
+                for v in (vid.get('variants') or []):
+                    v_url = v.get('url') or ''
+                    c_type = v.get('content_type') or ''
+                    if v_url and ('mp4' in c_type or '.mp4' in v_url):
+                        mp4_list.append((int(v.get('bitrate') or 0), v_url))
+                if not mp4_list and vid.get('url'):
+                    mp4_list.append((2000000, vid['url']))
+            if mp4_list:
+                mp4_list.sort(key=lambda x: x[0], reverse=True)
+                seen = set()
+                formats = []
+                for _, v_url in mp4_list:
+                    if v_url in seen:
+                        continue
+                    seen.add(v_url)
+                    formats.append(build_variant_fmt(v_url, len(formats)))
+                formats.append({
+                    'directUrl': formats[0]['directUrl'],
+                    'token': formats[0]['directUrl'],
+                    'note': '🎵 High Quality Audio (MP3)',
+                    'ext': 'mp3',
+                    'isAudio': True
+                })
+                return {
+                    'title': title,
+                    'thumbnail': thumb,
+                    'type': 'twitter',
+                    'formats': formats,
+                    'maxResolution': f"{formats[0].get('height', 720)}p"
+                }
+        except Exception:
+            pass
+
     try:
         api_url = f"https://twitsave.com/info?url={urllib.parse.quote(url)}"
         req = urllib.request.Request(api_url, headers={
@@ -336,6 +457,37 @@ def extract_facebook_direct(url):
 
 LAST_DIRECT_ERR = None
 
+def fetch_youtube_watch_session(video_id):
+    cookie_pairs = ['PREF=hl=en&tz=UTC', 'SOCS=CAI']
+    visitor_data = ''
+    sts = 20746
+    try:
+        watch_req = urllib.request.Request(
+            f"https://www.youtube.com/watch?v={video_id}&bpctr=9999999999&has_verified=1",
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Cookie': 'PREF=hl=en&tz=UTC; SOCS=CAI'
+            }
+        )
+        with urllib.request.urlopen(watch_req, timeout=5) as r:
+            for k, v in r.headers.items():
+                if k.lower() == 'set-cookie':
+                    pair = v.split(';')[0].strip()
+                    if pair and pair not in cookie_pairs:
+                        cookie_pairs.append(pair)
+            watch_html = r.read().decode('utf-8', errors='ignore')
+        vm = re.search(r'"VISITOR_DATA"\s*:\s*"([^"]+)"', watch_html)
+        if vm:
+            visitor_data = vm.group(1)
+        sm = re.search(r'"STS"\s*:\s*(\d+)', watch_html)
+        if sm:
+            sts = int(sm.group(1))
+    except Exception:
+        pass
+    return visitor_data, '; '.join(cookie_pairs), sts
+
+
 def extract_youtube_direct(url):
     global LAST_DIRECT_ERR
     try:
@@ -347,7 +499,43 @@ def extract_youtube_direct(url):
             LAST_DIRECT_ERR = f"No 11-char video_id in {url}"
             return None
 
+        visitor_data, cookie_header, sts = fetch_youtube_watch_session(video_id)
+        vision_ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15'
+
         clients = [
+            {
+                'name': 'VISIONOS',
+                'version': '1.02',
+                'clientNameId': '101',
+                'ua': vision_ua,
+                'context': {
+                    'clientName': 'VISIONOS',
+                    'clientVersion': '1.02',
+                    'deviceMake': 'Apple',
+                    'deviceModel': 'RealityDevice17,1',
+                    'userAgent': vision_ua,
+                    'osName': 'visionOS',
+                    'osVersion': '26.5.23O471',
+                    'hl': 'en',
+                    'timeZone': 'UTC',
+                    'utcOffsetMinutes': 0
+                }
+            },
+            {
+                'name': 'ANDROID',
+                'version': '20.10.38',
+                'clientNameId': '3',
+                'ua': 'com.google.android.youtube/20.10.38 (Linux; U; Android 14; en_US) gzip',
+                'context': {
+                    'clientName': 'ANDROID',
+                    'clientVersion': '20.10.38',
+                    'androidSdkVersion': 34,
+                    'osName': 'Android',
+                    'osVersion': '14',
+                    'gl': 'US',
+                    'hl': 'en'
+                }
+            },
             {
                 'name': 'IOS',
                 'version': '20.03.02',
@@ -360,35 +548,6 @@ def extract_youtube_direct(url):
                     'deviceModel': 'iPhone16,2',
                     'osName': 'iPhone',
                     'osVersion': '18.2.1.22C161',
-                    'gl': 'US',
-                    'hl': 'en'
-                }
-            },
-            {
-                'name': 'ANDROID_VR',
-                'version': '1.62.27',
-                'clientNameId': '28',
-                'ua': 'com.google.android.apps.youtube.vr.oculus/1.62.27 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip',
-                'context': {
-                    'clientName': 'ANDROID_VR',
-                    'clientVersion': '1.62.27',
-                    'deviceMake': 'Oculus',
-                    'deviceModel': 'Quest 3',
-                    'osName': 'Android',
-                    'osVersion': '12L',
-                    'androidSdkVersion': 32,
-                    'gl': 'US',
-                    'hl': 'en'
-                }
-            },
-            {
-                'name': 'VISIONOS',
-                'version': '0.1',
-                'clientNameId': '96',
-                'ua': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
-                'context': {
-                    'clientName': 'VISIONOS',
-                    'clientVersion': '0.1',
                     'gl': 'US',
                     'hl': 'en'
                 }
@@ -406,22 +565,25 @@ def extract_youtube_direct(url):
                     'X-YouTube-Client-Name': c['clientNameId'],
                     'X-YouTube-Client-Version': c['version'],
                     'Origin': 'https://www.youtube.com',
-                    'User-Agent': c['ua']
+                    'User-Agent': c['ua'],
+                    'Cookie': cookie_header
                 }
+                if visitor_data:
+                    headers['X-Goog-Visitor-Id'] = visitor_data
                 payload = {
                     'videoId': video_id,
                     'context': {'client': c['context']},
                     'playbackContext': {
                         'contentPlaybackContext': {
                             'html5Preference': 'HTML5_PREF_WANTS',
-                            'signatureTimestamp': 20717
+                            'signatureTimestamp': sts
                         }
                     },
                     'contentCheckOk': True,
                     'racyCheckOk': True
                 }
                 req = urllib.request.Request(
-                    'https://www.youtube.com/youtubei/v1/player',
+                    'https://www.youtube.com/youtubei/v1/player?prettyPrint=false',
                     data=json.dumps(payload).encode('utf-8'),
                     headers=headers
                 )
@@ -449,7 +611,12 @@ def extract_youtube_direct(url):
                 audio_streams = [af for af in adaptive if af.get('url') and 'audio' in (af.get('mimeType') or '')]
                 best_audio = None
                 if audio_streams:
-                    best_audio = max(audio_streams, key=lambda a: int(a.get('bitrate') or a.get('averageBitrate') or 0))
+                    best_audio = max(
+                        audio_streams,
+                        key=lambda a: int(a.get('bitrate') or a.get('averageBitrate') or 0) +
+                        (1000000 if 'mp4' in (a.get('mimeType') or '') else 0) +
+                        (100000 if not a.get('isDrc') else 0)
+                    )
                 best_audio_url = best_audio['url'] if best_audio else None
 
                 def parse_normalized_tier(f_dict):
@@ -461,7 +628,7 @@ def extract_youtube_direct(url):
                     h = int(f_dict.get('height') or 0)
                     if w > 0 and h > 0:
                         return min(w, h)
-                    return h if h > 0 else 360
+                    return h if h > 0 else 0
 
                 # Collect all video streams mapped by normalized tier
                 video_map = {}
@@ -470,12 +637,15 @@ def extract_youtube_direct(url):
                     u = f.get('url')
                     if u:
                         tier = parse_normalized_tier(f)
+                        if tier <= 0:
+                            continue
                         clen = f.get('contentLength')
                         video_map[tier] = {
                             'url': u,
                             'height': tier,
                             'ext': 'mp4',
                             'hasMuxedAudio': True,
+                            'isAvcMp4': True,
                             'qualityLabel': f.get('qualityLabel') or f'{tier}p',
                             'sizeBytes': int(clen) if clen and str(clen).isdigit() else None
                         }
@@ -483,17 +653,27 @@ def extract_youtube_direct(url):
                 # 2. Adaptive streams (video only)
                 for af in adaptive:
                     u = af.get('url')
-                    if u:
+                    mime = af.get('mimeType') or ''
+                    if u and 'video' in mime:
                         tier = parse_normalized_tier(af)
-                        is_mp4 = 'mp4' in (af.get('mimeType') or '')
+                        if tier <= 0:
+                            continue
+                        is_mp4 = 'mp4' in mime
+                        is_avc = 'avc1' in mime
                         existing = video_map.get(tier)
-                        if not existing or (not existing.get('hasMuxedAudio') and is_mp4):
+                        should_replace = (
+                            not existing or
+                            (not existing.get('hasMuxedAudio') and is_mp4 and (not existing.get('isAvcMp4') and is_avc)) or
+                            (not existing.get('hasMuxedAudio') and existing.get('ext') != 'mp4' and is_mp4)
+                        )
+                        if should_replace:
                             clen = af.get('contentLength')
                             video_map[tier] = {
                                 'url': u,
                                 'height': tier,
                                 'ext': 'mp4' if is_mp4 else 'webm',
                                 'hasMuxedAudio': False,
+                                'isAvcMp4': is_mp4 and is_avc,
                                 'qualityLabel': af.get('qualityLabel') or f'{tier}p',
                                 'sizeBytes': int(clen) if clen and str(clen).isdigit() else None
                             }

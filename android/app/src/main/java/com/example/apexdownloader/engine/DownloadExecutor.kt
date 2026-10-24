@@ -107,6 +107,7 @@ class DownloadExecutor(
         url: String,
         destFile: File,
         isRetryAfter416: Boolean = false,
+        isRetryAfter403: Boolean = false,
         markCompleted: Boolean = true,
         progressStart: Float = 0f,
         progressEnd: Float = 100f
@@ -115,20 +116,35 @@ class DownloadExecutor(
 
         val partFile = File(destFile.parentFile, destFile.name + ".part")
         val existingBytes = if (partFile.exists()) partFile.length() else 0L
+        val lowerUrl = url.lowercase()
+
+        val effectiveUa = when {
+            lowerUrl.contains("googlevideo.com") && lowerUrl.contains("c=visionos") ->
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15"
+            lowerUrl.contains("googlevideo.com") && lowerUrl.contains("c=android") ->
+                "com.google.android.youtube/20.10.38 (Linux; U; Android 14; en_US) gzip"
+            lowerUrl.contains("googlevideo.com") && lowerUrl.contains("c=ios") ->
+                "com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)"
+            else -> NetworkClient.USER_AGENT
+        }
+
         val requestBuilder = Request.Builder().url(url)
-            .header("User-Agent", NetworkClient.USER_AGENT)
+            .header("User-Agent", effectiveUa)
             .header("Accept", "*/*")
             .header("Accept-Language", "en-US,en;q=0.9")
 
-        val lowerUrl = url.lowercase()
         if (lowerUrl.contains("tiktok") || lowerUrl.contains("byteoversea") || lowerUrl.contains("ibytedtos")) {
             requestBuilder.header("Referer", "https://www.tiktok.com/")
         } else if (lowerUrl.contains("instagram") || lowerUrl.contains("cdninstagram")) {
             requestBuilder.header("Referer", "https://www.instagram.com/")
-        } else if (lowerUrl.contains("googlevideo.com") || lowerUrl.contains("youtube.com")) {
+        } else if ((lowerUrl.contains("googlevideo.com") || lowerUrl.contains("youtube.com")) &&
+            !lowerUrl.contains("c=ios") && !lowerUrl.contains("c=android")
+        ) {
             requestBuilder.header("Referer", "https://www.youtube.com/")
         } else if (lowerUrl.contains("fbcdn.net") || lowerUrl.contains("facebook.com")) {
             requestBuilder.header("Referer", "https://www.facebook.com/")
+        } else if (lowerUrl.contains("twimg.com") || lowerUrl.contains("twitter.com") || lowerUrl.contains("x.com")) {
+            requestBuilder.header("Referer", "https://x.com/")
         }
 
         if (existingBytes > 0) {
@@ -150,11 +166,38 @@ class DownloadExecutor(
                         url = url,
                         destFile = destFile,
                         isRetryAfter416 = true,
+                        isRetryAfter403 = isRetryAfter403,
                         markCompleted = markCompleted,
                         progressStart = progressStart,
                         progressEnd = progressEnd
                     )
                     return
+                }
+                if (response.code == 403 && !isRetryAfter403 && (lowerUrl.contains("googlevideo.com") || item.type == "youtube")) {
+                    val itag = Regex("[?&]itag=(\\d+)").find(url)?.groupValues?.get(1)?.toIntOrNull()
+                    val isAudioTrack = destFile.name.contains(".aud.") ||
+                        destFile.name.endsWith(".mp3", ignoreCase = true) ||
+                        destFile.name.endsWith(".m4a", ignoreCase = true)
+                    val freshUrl = VideoResolver.resolveFreshYoutubeUrl(
+                        videoUrlOrId = item.url,
+                        targetItag = itag,
+                        isAudioOnly = isAudioTrack
+                    )
+                    if (!freshUrl.isNullOrEmpty() && freshUrl != url) {
+                        if (existingBytes == 0L) partFile.delete()
+                        unregisterCall(item.id, call)
+                        downloadDirectFile(
+                            item = item,
+                            url = freshUrl,
+                            destFile = destFile,
+                            isRetryAfter416 = isRetryAfter416,
+                            isRetryAfter403 = true,
+                            markCompleted = markCompleted,
+                            progressStart = progressStart,
+                            progressEnd = progressEnd
+                        )
+                        return
+                    }
                 }
                 if (!response.isSuccessful) throw Exception("Failed with HTTP code ${response.code}")
 

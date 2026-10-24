@@ -658,11 +658,102 @@ document.addEventListener('DOMContentLoaded', () => {
     return { title, thumbnail };
   }
 
+  async function resolveTwitterDirect(link) {
+    const tweetId = link.match(/\/status(?:es)?\/(\d+)/)?.[1];
+    if (!tweetId) throw new Error('Invalid Twitter/X URL');
+
+    for (const ep of [
+      `https://api.fxtwitter.com/i/status/${tweetId}`,
+      `https://api.vxtwitter.com/i/status/${tweetId}`
+    ]) {
+      try {
+        const r = await fetch(ep, { headers: { 'Accept': 'application/json' } });
+        if (!r.ok) continue;
+        const d = await r.json();
+        const tweet = d.tweet || d;
+        const title = (tweet.text || 'Twitter / X Video').slice(0, 90);
+        let thumbnail = '';
+        const mp4List = [];
+
+        if (tweet.media?.videos) {
+          for (const vid of tweet.media.videos) {
+            if (!thumbnail && vid.thumbnail_url) thumbnail = vid.thumbnail_url;
+            for (const v of (vid.variants || [])) {
+              if (v.url && ((v.content_type || '').includes('mp4') || v.url.includes('.mp4'))) {
+                mp4List.push({ bitrate: v.bitrate || 0, url: v.url });
+              }
+            }
+            if (mp4List.length === 0 && vid.url) mp4List.push({ bitrate: 2000000, url: vid.url });
+          }
+        } else if (Array.isArray(d.media_extended)) {
+          for (const m of d.media_extended) {
+            if (!thumbnail && m.thumbnail_url) thumbnail = m.thumbnail_url;
+            if (m.url && m.url.includes('.mp4')) mp4List.push({ bitrate: 2000000, url: m.url });
+          }
+        }
+
+        if (mp4List.length > 0) {
+          mp4List.sort((a, b) => b.bitrate - a.bitrate);
+          const formats = [];
+          const seen = new Set();
+          for (const item of mp4List) {
+            if (seen.has(item.url)) continue;
+            seen.add(item.url);
+            const dimMatch = item.url.match(/\/(\d+)x(\d+)\//);
+            const w = dimMatch ? parseInt(dimMatch[1], 10) : 0;
+            const h = dimMatch ? parseInt(dimMatch[2], 10) : 0;
+            const tier = (w > 0 && h > 0) ? Math.min(w, h) : (formats.length === 0 ? 1080 : 720);
+            const dimStr = (w > 0 && h > 0) ? `${w}x${h} ` : '';
+            const note = tier >= 1080 ? `🎬 1080p FHD (${dimStr}MP4)` : tier >= 720 ? `🎬 720p HD (${dimStr}MP4)` : `🎬 ${tier}p (${dimStr}MP4)`;
+            formats.push({ directUrl: item.url, token: item.url, note, ext: 'mp4', height: tier, hasAudio: true });
+          }
+          formats.push({ directUrl: formats[0].directUrl, token: formats[0].directUrl, note: '🎵 High Quality Audio (MP3)', ext: 'mp3', isAudio: true });
+          return { title, thumbnail, type: 'twitter', formats };
+        }
+      } catch (e) {}
+    }
+    throw new Error('Twitter direct client resolution failed');
+  }
+
   async function resolveYoutubeDirect(link) {
     const vidId = link.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1];
     if (!vidId) throw new Error('Invalid YouTube URL');
 
+    const visionUa = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15';
     const clients = [
+      {
+        name: 'VISIONOS',
+        version: '1.02',
+        clientNameId: '101',
+        ua: visionUa,
+        context: {
+          clientName: 'VISIONOS',
+          clientVersion: '1.02',
+          deviceMake: 'Apple',
+          deviceModel: 'RealityDevice17,1',
+          userAgent: visionUa,
+          osName: 'visionOS',
+          osVersion: '26.5.23O471',
+          hl: 'en',
+          timeZone: 'UTC',
+          utcOffsetMinutes: 0
+        }
+      },
+      {
+        name: 'ANDROID',
+        version: '20.10.38',
+        clientNameId: '3',
+        ua: 'com.google.android.youtube/20.10.38 (Linux; U; Android 14; en_US) gzip',
+        context: {
+          clientName: 'ANDROID',
+          clientVersion: '20.10.38',
+          androidSdkVersion: 34,
+          osName: 'Android',
+          osVersion: '14',
+          gl: 'US',
+          hl: 'en'
+        }
+      },
       {
         name: 'IOS',
         version: '20.03.02',
@@ -675,35 +766,6 @@ document.addEventListener('DOMContentLoaded', () => {
           deviceModel: 'iPhone16,2',
           osName: 'iPhone',
           osVersion: '18.2.1.22C161',
-          gl: 'US',
-          hl: 'en'
-        }
-      },
-      {
-        name: 'ANDROID_VR',
-        version: '1.62.27',
-        clientNameId: '28',
-        ua: 'com.google.android.apps.youtube.vr.oculus/1.62.27 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip',
-        context: {
-          clientName: 'ANDROID_VR',
-          clientVersion: '1.62.27',
-          deviceMake: 'Oculus',
-          deviceModel: 'Quest 3',
-          osName: 'Android',
-          osVersion: '12L',
-          androidSdkVersion: 32,
-          gl: 'US',
-          hl: 'en'
-        }
-      },
-      {
-        name: 'VISIONOS',
-        version: '0.1',
-        clientNameId: '96',
-        ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
-        context: {
-          clientName: 'VISIONOS',
-          clientVersion: '0.1',
           gl: 'US',
           hl: 'en'
         }
@@ -728,14 +790,14 @@ document.addEventListener('DOMContentLoaded', () => {
           playbackContext: {
             contentPlaybackContext: {
               html5Preference: 'HTML5_PREF_WANTS',
-              signatureTimestamp: 20717
+              signatureTimestamp: 20746
             }
           },
           contentCheckOk: true,
           racyCheckOk: true
         };
 
-        const resp = await fetch('https://www.youtube.com/youtubei/v1/player', {
+        const resp = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
           method: 'POST',
           headers,
           body: JSON.stringify(payload)
@@ -761,9 +823,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let bestAudio = null;
         if (audioStreams.length > 0) {
           bestAudio = audioStreams.reduce((prev, curr) => {
-            const prevBitrate = prev.bitrate || prev.averageBitrate || 0;
-            const currBitrate = curr.bitrate || curr.averageBitrate || 0;
-            return currBitrate > prevBitrate ? curr : prev;
+            const prevScore = (prev.bitrate || prev.averageBitrate || 0) + ((prev.mimeType || '').includes('mp4') ? 1000000 : 0) + (!prev.isDrc ? 100000 : 0);
+            const currScore = (curr.bitrate || curr.averageBitrate || 0) + ((curr.mimeType || '').includes('mp4') ? 1000000 : 0) + (!curr.isDrc ? 100000 : 0);
+            return currScore > prevScore ? curr : prev;
           }, audioStreams[0]);
         }
         const bestAudioUrl = bestAudio ? bestAudio.url : null;
@@ -779,6 +841,7 @@ document.addEventListener('DOMContentLoaded', () => {
               height: f.height,
               ext: 'mp4',
               hasMuxedAudio: true,
+              isAvcMp4: true,
               qualityLabel: f.qualityLabel || `${f.height}p`,
               sizeBytes: clen
             };
@@ -787,16 +850,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 2. Adaptive streams (video only)
         for (const af of adaptive) {
-          if (af.url && af.height) {
-            const isMp4 = (af.mimeType || '').includes('mp4');
+          const mime = af.mimeType || '';
+          if (af.url && af.height && mime.includes('video')) {
+            const isMp4 = mime.includes('mp4');
+            const isAvc = mime.includes('avc1');
             const existing = videoMap[af.height];
-            if (!existing || (!existing.hasMuxedAudio && isMp4)) {
+            const shouldReplace = !existing ||
+              (!existing.hasMuxedAudio && isMp4 && (!existing.isAvcMp4 && isAvc)) ||
+              (!existing.hasMuxedAudio && existing.ext !== 'mp4' && isMp4);
+            if (shouldReplace) {
               const clen = af.contentLength ? parseInt(af.contentLength, 10) : undefined;
               videoMap[af.height] = {
                 url: af.url,
                 height: af.height,
                 ext: isMp4 ? 'mp4' : 'webm',
                 hasMuxedAudio: false,
+                isAvcMp4: isMp4 && isAvc,
                 qualityLabel: af.qualityLabel || `${af.height}p`,
                 sizeBytes: clen
               };
@@ -1054,6 +1123,10 @@ document.addEventListener('DOMContentLoaded', () => {
     'facebook': [
       { name: 'facebook-direct', run: (link) => resolveFacebookDirect(link) },
       { name: 'cobalt', run: (link, preset) => resolveCobalt(link, 'Facebook', preset) },
+    ],
+    'twitter': [
+      { name: 'twitter-direct', run: (link) => resolveTwitterDirect(link) },
+      { name: 'cobalt', run: (link, preset) => resolveCobalt(link, 'Twitter', preset) },
     ],
     'youtube': [
       { name: 'youtube-direct', run: (link) => resolveYoutubeDirect(link) },
@@ -1690,6 +1763,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (isYtStream) {
         const vidId = formatObj?.videoId || (mainUrl || '').match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1] || '';
         downloadEndpoint = `/api/download?type=youtube&id=${encodeURIComponent(vidId)}&url=${encodeURIComponent(mainUrl)}&filename=${encodeURIComponent(filename)}`;
+        if (extraAudioUrl && extraAudioUrl.startsWith('http')) {
+          extraAudioUrl = `/api/download?type=youtube&id=${encodeURIComponent(vidId)}&url=${encodeURIComponent(extraAudioUrl)}&filename=audio.m4a`;
+        }
       } else if (mainUrl.startsWith('http')) {
         // If cross-origin, route through Cloudflare Pages proxy to attach CORS headers
         if (!mainUrl.includes(window.location.hostname)) {

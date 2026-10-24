@@ -278,6 +278,151 @@ async function resolveYoutubeMetadata(link) {
 }
 
 async function resolveTwitterDirect(link) {
+  const tweetId = link.match(/\/status(?:es)?\/(\d+)/)?.[1];
+
+  function buildVariantFormat(vUrl, defaultRank) {
+    const dimMatch = vUrl.match(/\/(\d+)x(\d+)\//);
+    const w = dimMatch ? parseInt(dimMatch[1], 10) : 0;
+    const h = dimMatch ? parseInt(dimMatch[2], 10) : 0;
+    const tier = (w > 0 && h > 0) ? Math.min(w, h) : (defaultRank === 0 ? 1080 : defaultRank === 1 ? 720 : defaultRank === 2 ? 480 : 360);
+    const dimStr = (w > 0 && h > 0) ? `${w}x${h} ` : '';
+    let note = `🎬 ${tier}p (${dimStr}MP4)`;
+    if (tier >= 1080) note = `🎬 1080p FHD (${dimStr}MP4)`;
+    else if (tier >= 720) note = `🎬 720p HD (${dimStr}MP4)`;
+    else if (tier >= 480) note = `🎬 480p SD (${dimStr}MP4)`;
+    return {
+      directUrl: vUrl,
+      token: vUrl,
+      note,
+      ext: 'mp4',
+      height: tier,
+      hasAudio: true
+    };
+  }
+
+  if (tweetId) {
+    // 1. Official Twitter Syndication JSON API
+    try {
+      const synResp = await fetch(`https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&token=0`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/json'
+        },
+        signal: AbortSignal.timeout(6000)
+      });
+      if (synResp.ok) {
+        const synData = await synResp.json();
+        const rawText = (synData.text || '').split('https://t.co/')[0].trim();
+        const title = (rawText || 'Twitter / X Video').slice(0, 90);
+        let thumbnail = '';
+        const mp4List = [];
+        for (const m of (synData.mediaDetails || [])) {
+          if (!thumbnail && m.media_url_https) thumbnail = m.media_url_https;
+          for (const v of (m.video_info?.variants || [])) {
+            if (v.url && ((v.content_type || '').includes('mp4') || v.url.includes('.mp4'))) {
+              mp4List.push({ bitrate: v.bitrate || 0, url: v.url });
+            }
+          }
+        }
+        if (mp4List.length > 0) {
+          mp4List.sort((a, b) => b.bitrate - a.bitrate);
+          const seen = new Set();
+          const formats = [];
+          for (const item of mp4List) {
+            if (seen.has(item.url)) continue;
+            seen.add(item.url);
+            formats.push(buildVariantFormat(item.url, formats.length));
+          }
+          formats.push({
+            directUrl: formats[0].directUrl,
+            token: formats[0].directUrl,
+            note: '🎵 High Quality Audio (MP3)',
+            ext: 'mp3',
+            isAudio: true
+          });
+          return { title, thumbnail, type: 'twitter', formats, maxResolution: `${formats[0].height || 720}p` };
+        }
+      }
+    } catch (e) {}
+
+    // 2. FxTwitter JSON API
+    try {
+      const fxResp = await fetch(`https://api.fxtwitter.com/i/status/${tweetId}`, {
+        headers: { 'User-Agent': 'HKDownloaderPro/2.0', 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(6000)
+      });
+      if (fxResp.ok) {
+        const fxData = await fxResp.json();
+        const tweet = fxData.tweet;
+        if (tweet) {
+          const title = (tweet.text || 'Twitter / X Video').slice(0, 90);
+          let thumbnail = '';
+          const mp4List = [];
+          for (const vid of (tweet.media?.videos || [])) {
+            if (!thumbnail && vid.thumbnail_url) thumbnail = vid.thumbnail_url;
+            for (const v of (vid.variants || [])) {
+              if (v.url && ((v.content_type || '').includes('mp4') || v.url.includes('.mp4'))) {
+                mp4List.push({ bitrate: v.bitrate || 0, url: v.url });
+              }
+            }
+            if (mp4List.length === 0 && vid.url) {
+              mp4List.push({ bitrate: 2000000, url: vid.url });
+            }
+          }
+          if (mp4List.length > 0) {
+            mp4List.sort((a, b) => b.bitrate - a.bitrate);
+            const seen = new Set();
+            const formats = [];
+            for (const item of mp4List) {
+              if (seen.has(item.url)) continue;
+              seen.add(item.url);
+              formats.push(buildVariantFormat(item.url, formats.length));
+            }
+            formats.push({
+              directUrl: formats[0].directUrl,
+              token: formats[0].directUrl,
+              note: '🎵 High Quality Audio (MP3)',
+              ext: 'mp3',
+              isAudio: true
+            });
+            return { title, thumbnail, type: 'twitter', formats, maxResolution: `${formats[0].height || 720}p` };
+          }
+        }
+      }
+    } catch (e) {}
+
+    // 3. VxTwitter JSON API
+    try {
+      const vxResp = await fetch(`https://api.vxtwitter.com/i/status/${tweetId}`, {
+        headers: { 'User-Agent': 'HKDownloaderPro/2.0', 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(6000)
+      });
+      if (vxResp.ok) {
+        const vxData = await vxResp.json();
+        const title = (vxData.text || 'Twitter / X Video').slice(0, 90);
+        let thumbnail = '';
+        const formats = [];
+        for (const m of (vxData.media_extended || [])) {
+          if (!thumbnail && m.thumbnail_url) thumbnail = m.thumbnail_url;
+          if (m.url && (m.type === 'video' || m.type === 'gif' || m.url.includes('.mp4'))) {
+            formats.push(buildVariantFormat(m.url, formats.length));
+          }
+        }
+        if (formats.length > 0) {
+          formats.push({
+            directUrl: formats[0].directUrl,
+            token: formats[0].directUrl,
+            note: '🎵 High Quality Audio (MP3)',
+            ext: 'mp3',
+            isAudio: true
+          });
+          return { title, thumbnail, type: 'twitter', formats, maxResolution: `${formats[0].height || 720}p` };
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 4. TwitSave HTML fallback
   const enc = encodeURIComponent(link);
   const resp = await fetch(`https://twitsave.com/info?url=${enc}`, {
     headers: {
@@ -349,11 +494,74 @@ async function resolveTwitterDirect(link) {
   throw new Error('No playable Twitter video streams found');
 }
 
+async function fetchYoutubeWatchSession(vidId) {
+  const cookiePairs = ['PREF=hl=en&tz=UTC', 'SOCS=CAI'];
+  let visitorData = '';
+  let sts = 20746;
+  try {
+    const watchRes = await fetch(`https://www.youtube.com/watch?v=${vidId}&bpctr=9999999999&has_verified=1`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cookie': 'PREF=hl=en&tz=UTC; SOCS=CAI'
+      },
+      signal: AbortSignal.timeout(4500)
+    });
+    const setCookies = typeof watchRes.headers.getSetCookie === 'function' ? watchRes.headers.getSetCookie() : [];
+    for (const sc of setCookies) {
+      const pair = sc.split(';')[0]?.trim();
+      if (pair) cookiePairs.push(pair);
+    }
+    const html = await watchRes.text();
+    const vm = html.match(/"VISITOR_DATA"\s*:\s*"([^"]+)"/);
+    if (vm) visitorData = vm[1];
+    const sm = html.match(/"STS"\s*:\s*(\d+)/);
+    if (sm) sts = parseInt(sm[1], 10);
+  } catch (e) {}
+  return { visitorData, cookieHeader: [...new Set(cookiePairs)].join('; '), sts };
+}
+
 async function resolveYoutubeDirect(link) {
   const vidId = link.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1];
   if (!vidId) throw new Error('Invalid YouTube URL');
 
+  const session = await fetchYoutubeWatchSession(vidId);
+  const visionUa = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15';
+
   const clients = [
+    {
+      name: 'VISIONOS',
+      version: '1.02',
+      clientNameId: '101',
+      ua: visionUa,
+      context: {
+        clientName: 'VISIONOS',
+        clientVersion: '1.02',
+        deviceMake: 'Apple',
+        deviceModel: 'RealityDevice17,1',
+        userAgent: visionUa,
+        osName: 'visionOS',
+        osVersion: '26.5.23O471',
+        hl: 'en',
+        timeZone: 'UTC',
+        utcOffsetMinutes: 0
+      }
+    },
+    {
+      name: 'ANDROID',
+      version: '20.10.38',
+      clientNameId: '3',
+      ua: 'com.google.android.youtube/20.10.38 (Linux; U; Android 14; en_US) gzip',
+      context: {
+        clientName: 'ANDROID',
+        clientVersion: '20.10.38',
+        androidSdkVersion: 34,
+        osName: 'Android',
+        osVersion: '14',
+        gl: 'US',
+        hl: 'en'
+      }
+    },
     {
       name: 'IOS',
       version: '20.03.02',
@@ -366,35 +574,6 @@ async function resolveYoutubeDirect(link) {
         deviceModel: 'iPhone16,2',
         osName: 'iPhone',
         osVersion: '18.2.1.22C161',
-        gl: 'US',
-        hl: 'en'
-      }
-    },
-    {
-      name: 'ANDROID_VR',
-      version: '1.62.27',
-      clientNameId: '28',
-      ua: 'com.google.android.apps.youtube.vr.oculus/1.62.27 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip',
-      context: {
-        clientName: 'ANDROID_VR',
-        clientVersion: '1.62.27',
-        deviceMake: 'Oculus',
-        deviceModel: 'Quest 3',
-        osName: 'Android',
-        osVersion: '12L',
-        androidSdkVersion: 32,
-        gl: 'US',
-        hl: 'en'
-      }
-    },
-    {
-      name: 'VISIONOS',
-      version: '0.1',
-      clientNameId: '96',
-      ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
-      context: {
-        clientName: 'VISIONOS',
-        clientVersion: '0.1',
         gl: 'US',
         hl: 'en'
       }
@@ -413,22 +592,26 @@ async function resolveYoutubeDirect(link) {
         'X-YouTube-Client-Name': c.clientNameId,
         'X-YouTube-Client-Version': c.version,
         'Origin': 'https://www.youtube.com',
-        'User-Agent': c.ua
+        'User-Agent': c.ua,
+        'Cookie': session.cookieHeader
       };
+      if (session.visitorData) {
+        headers['X-Goog-Visitor-Id'] = session.visitorData;
+      }
       const payload = {
         videoId: vidId,
         context: { client: c.context },
         playbackContext: {
           contentPlaybackContext: {
             html5Preference: 'HTML5_PREF_WANTS',
-            signatureTimestamp: 20717
+            signatureTimestamp: session.sts
           }
         },
         contentCheckOk: true,
         racyCheckOk: true
       };
 
-      const resp = await fetch('https://www.youtube.com/youtubei/v1/player', {
+      const resp = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
@@ -455,9 +638,9 @@ async function resolveYoutubeDirect(link) {
       let bestAudio = null;
       if (audioStreams.length > 0) {
         bestAudio = audioStreams.reduce((prev, curr) => {
-          const prevBitrate = prev.bitrate || prev.averageBitrate || 0;
-          const currBitrate = curr.bitrate || curr.averageBitrate || 0;
-          return currBitrate > prevBitrate ? curr : prev;
+          const prevScore = (prev.bitrate || prev.averageBitrate || 0) + ((prev.mimeType || '').includes('mp4') ? 1000000 : 0) + (!prev.isDrc ? 100000 : 0);
+          const currScore = (curr.bitrate || curr.averageBitrate || 0) + ((curr.mimeType || '').includes('mp4') ? 1000000 : 0) + (!curr.isDrc ? 100000 : 0);
+          return currScore > prevScore ? curr : prev;
         }, audioStreams[0]);
       }
       const bestAudioUrl = bestAudio ? bestAudio.url : null;
@@ -468,7 +651,7 @@ async function resolveYoutubeDirect(link) {
         const w = f.width || 0;
         const h = f.height || 0;
         if (w > 0 && h > 0) return Math.min(w, h);
-        return h || 360;
+        return h || 0;
       }
 
       // Collect all video streams mapped by normalized tier
@@ -477,12 +660,14 @@ async function resolveYoutubeDirect(link) {
       for (const f of rawFormats) {
         if (f.url) {
           const tier = parseNormalizedTier(f);
+          if (tier <= 0) continue;
           const clen = f.contentLength ? parseInt(f.contentLength, 10) : undefined;
           videoMap[tier] = {
             url: f.url,
             height: tier,
             ext: 'mp4',
             hasMuxedAudio: true,
+            isAvcMp4: true,
             qualityLabel: f.qualityLabel || `${tier}p`,
             sizeBytes: clen
           };
@@ -491,17 +676,24 @@ async function resolveYoutubeDirect(link) {
 
       // 2. Adaptive streams (video only)
       for (const af of adaptive) {
-        if (af.url) {
+        const mime = af.mimeType || '';
+        if (af.url && mime.includes('video')) {
           const tier = parseNormalizedTier(af);
-          const isMp4 = (af.mimeType || '').includes('mp4');
+          if (tier <= 0) continue;
+          const isMp4 = mime.includes('mp4');
+          const isAvc = mime.includes('avc1');
           const existing = videoMap[tier];
-          if (!existing || (!existing.hasMuxedAudio && isMp4)) {
+          const shouldReplace = !existing ||
+            (!existing.hasMuxedAudio && isMp4 && (!existing.isAvcMp4 && isAvc)) ||
+            (!existing.hasMuxedAudio && existing.ext !== 'mp4' && isMp4);
+          if (shouldReplace) {
             const clen = af.contentLength ? parseInt(af.contentLength, 10) : undefined;
             videoMap[tier] = {
               url: af.url,
               height: tier,
               ext: isMp4 ? 'mp4' : 'webm',
               hasMuxedAudio: false,
+              isAvcMp4: isMp4 && isAvc,
               qualityLabel: af.qualityLabel || `${tier}p`,
               sizeBytes: clen
             };

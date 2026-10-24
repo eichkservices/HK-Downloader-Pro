@@ -54,8 +54,71 @@ function isSafePublicUrl(urlStr) {
   }
 }
 
-async function resolveYoutubeFreshStream(videoId) {
+async function fetchYoutubeWatchSession(vidId) {
+  const cookiePairs = ['PREF=hl=en&tz=UTC', 'SOCS=CAI'];
+  let visitorData = '';
+  let sts = 20746;
+  try {
+    const watchRes = await fetch(`https://www.youtube.com/watch?v=${vidId}&bpctr=9999999999&has_verified=1`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cookie': 'PREF=hl=en&tz=UTC; SOCS=CAI'
+      },
+      signal: AbortSignal.timeout(4500)
+    });
+    const setCookies = typeof watchRes.headers.getSetCookie === 'function' ? watchRes.headers.getSetCookie() : [];
+    for (const sc of setCookies) {
+      const pair = sc.split(';')[0]?.trim();
+      if (pair) cookiePairs.push(pair);
+    }
+    const html = await watchRes.text();
+    const vm = html.match(/"VISITOR_DATA"\s*:\s*"([^"]+)"/);
+    if (vm) visitorData = vm[1];
+    const sm = html.match(/"STS"\s*:\s*(\d+)/);
+    if (sm) sts = parseInt(sm[1], 10);
+  } catch (e) {}
+  return { visitorData, cookieHeader: [...new Set(cookiePairs)].join('; '), sts };
+}
+
+async function resolveYoutubeFreshStream(videoId, targetItag = null) {
+  const session = await fetchYoutubeWatchSession(videoId);
+  const visionUa = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15';
+
   const clients = [
+    {
+      name: 'VISIONOS',
+      version: '1.02',
+      clientNameId: '101',
+      ua: visionUa,
+      context: {
+        clientName: 'VISIONOS',
+        clientVersion: '1.02',
+        deviceMake: 'Apple',
+        deviceModel: 'RealityDevice17,1',
+        userAgent: visionUa,
+        osName: 'visionOS',
+        osVersion: '26.5.23O471',
+        hl: 'en',
+        timeZone: 'UTC',
+        utcOffsetMinutes: 0
+      }
+    },
+    {
+      name: 'ANDROID',
+      version: '20.10.38',
+      clientNameId: '3',
+      ua: 'com.google.android.youtube/20.10.38 (Linux; U; Android 14; en_US) gzip',
+      context: {
+        clientName: 'ANDROID',
+        clientVersion: '20.10.38',
+        androidSdkVersion: 34,
+        osName: 'Android',
+        osVersion: '14',
+        gl: 'US',
+        hl: 'en'
+      }
+    },
     {
       name: 'IOS',
       version: '20.03.02',
@@ -71,35 +134,6 @@ async function resolveYoutubeFreshStream(videoId) {
         gl: 'US',
         hl: 'en'
       }
-    },
-    {
-      name: 'ANDROID_VR',
-      version: '1.62.27',
-      clientNameId: '28',
-      ua: 'com.google.android.apps.youtube.vr.oculus/1.62.27 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip',
-      context: {
-        clientName: 'ANDROID_VR',
-        clientVersion: '1.62.27',
-        deviceMake: 'Oculus',
-        deviceModel: 'Quest 3',
-        osName: 'Android',
-        osVersion: '12L',
-        androidSdkVersion: 32,
-        gl: 'US',
-        hl: 'en'
-      }
-    },
-    {
-      name: 'VISIONOS',
-      version: '0.1',
-      clientNameId: '96',
-      ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
-      context: {
-        clientName: 'VISIONOS',
-        clientVersion: '0.1',
-        gl: 'US',
-        hl: 'en'
-      }
     }
   ];
 
@@ -110,21 +144,25 @@ async function resolveYoutubeFreshStream(videoId) {
         'X-YouTube-Client-Name': c.clientNameId,
         'X-YouTube-Client-Version': c.version,
         'Origin': 'https://www.youtube.com',
-        'User-Agent': c.ua
+        'User-Agent': c.ua,
+        'Cookie': session.cookieHeader
       };
+      if (session.visitorData) {
+        headers['X-Goog-Visitor-Id'] = session.visitorData;
+      }
       const payload = {
         videoId: videoId,
         context: { client: c.context },
         playbackContext: {
           contentPlaybackContext: {
             html5Preference: 'HTML5_PREF_WANTS',
-            signatureTimestamp: 20717
+            signatureTimestamp: session.sts
           }
         },
         contentCheckOk: true,
         racyCheckOk: true
       };
-      const resp = await fetch('https://www.youtube.com/youtubei/v1/player', {
+      const resp = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
@@ -133,10 +171,24 @@ async function resolveYoutubeFreshStream(videoId) {
       if (!resp.ok) continue;
       const data = await resp.json();
       const rawFormats = data?.streamingData?.formats || [];
+      const adaptive = data?.streamingData?.adaptiveFormats || [];
+
+      if (targetItag) {
+        const itagNum = parseInt(targetItag, 10);
+        for (const af of adaptive) {
+          if (af.itag === itagNum && af.url) return af.url;
+        }
+        for (const f of rawFormats) {
+          if (f.itag === itagNum && f.url) return f.url;
+        }
+      }
+
       for (const f of rawFormats) {
         if (f.url) return f.url;
       }
-      const adaptive = data?.streamingData?.adaptiveFormats || [];
+      for (const af of adaptive) {
+        if (af.url && (af.mimeType || '').includes('avc1')) return af.url;
+      }
       for (const af of adaptive) {
         if (af.url) return af.url;
       }
@@ -158,11 +210,12 @@ export async function onRequestGet(context) {
     const m = targetUrl.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_-]{11})/);
     if (m) resolvedYtId = m[1];
   }
+  const targetItag = targetUrl ? (targetUrl.match(/[?&]itag=(\d+)/)?.[1] || null) : null;
 
   // If no direct targetUrl provided, resolve freshly on this Cloudflare node
   if ((!targetUrl || !targetUrl.startsWith('http')) && resolvedYtId) {
     try {
-      const freshUrl = await resolveYoutubeFreshStream(resolvedYtId);
+      const freshUrl = await resolveYoutubeFreshStream(resolvedYtId, targetItag);
       if (freshUrl) {
         targetUrl = freshUrl;
       }
@@ -179,11 +232,15 @@ export async function onRequestGet(context) {
   try {
     let referer = '';
     if (targetUrl.includes('googlevideo') || targetUrl.includes('youtube')) {
-      referer = 'https://www.youtube.com/';
+      if (!targetUrl.includes('c=IOS') && !targetUrl.includes('c=ANDROID')) {
+        referer = 'https://www.youtube.com/';
+      }
     } else if (targetUrl.includes('instagram')) {
       referer = 'https://www.instagram.com/';
     } else if (targetUrl.includes('facebook') || targetUrl.includes('fbcdn')) {
       referer = 'https://www.facebook.com/';
+    } else if (targetUrl.includes('twimg') || targetUrl.includes('twitter') || targetUrl.includes('x.com')) {
+      referer = 'https://x.com/';
     } else if (targetUrl.includes('rapidsave')) {
       referer = 'https://rapidsave.com/';
     } else if (targetUrl.includes('redd.it') || targetUrl.includes('reddit')) {
@@ -194,13 +251,12 @@ export async function onRequestGet(context) {
 
     const isYt = targetUrl.includes('googlevideo') || targetUrl.includes('youtube');
     const uasToTry = isYt ? [
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15',
+      'com.google.android.youtube/20.10.38 (Linux; U; Android 14; en_US) gzip',
       'com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)',
-      'com.google.android.apps.youtube.vr.oculus/1.62.27 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip',
-      'com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip',
-      'Mozilla/5.0 (Linux; Android 10; Quest 2) AppleWebKit/537.36',
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36'
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36'
     ] : [
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36'
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36'
     ];
 
     const rangeHeader = request.headers.get('Range');
@@ -219,7 +275,7 @@ export async function onRequestGet(context) {
 
     // If googlevideo returned 403 due to IP mismatch, attempt on-demand re-resolution
     if ((!upstream || upstream.status === 403) && resolvedYtId) {
-      const freshUrl = await resolveYoutubeFreshStream(resolvedYtId);
+      const freshUrl = await resolveYoutubeFreshStream(resolvedYtId, targetItag);
       if (freshUrl && freshUrl !== targetUrl) {
         targetUrl = freshUrl;
         for (const ua of uasToTry) {

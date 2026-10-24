@@ -37,8 +37,75 @@ def is_safe_public_url(url: str) -> bool:
     except Exception:
         return False
 
-def resolve_youtube_fresh_stream(video_id):
+def fetch_youtube_watch_session(video_id):
+    cookie_pairs = ['PREF=hl=en&tz=UTC', 'SOCS=CAI']
+    visitor_data = ''
+    sts = 20746
+    try:
+        watch_req = urllib.request.Request(
+            f"https://www.youtube.com/watch?v={video_id}&bpctr=9999999999&has_verified=1",
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Cookie': 'PREF=hl=en&tz=UTC; SOCS=CAI'
+            }
+        )
+        with urllib.request.urlopen(watch_req, timeout=5) as r:
+            for k, v in r.headers.items():
+                if k.lower() == 'set-cookie':
+                    pair = v.split(';')[0].strip()
+                    if pair and pair not in cookie_pairs:
+                        cookie_pairs.append(pair)
+            watch_html = r.read().decode('utf-8', errors='ignore')
+        vm = re.search(r'"VISITOR_DATA"\s*:\s*"([^"]+)"', watch_html)
+        if vm:
+            visitor_data = vm.group(1)
+        sm = re.search(r'"STS"\s*:\s*(\d+)', watch_html)
+        if sm:
+            sts = int(sm.group(1))
+    except Exception:
+        pass
+    return visitor_data, '; '.join(cookie_pairs), sts
+
+
+def resolve_youtube_fresh_stream(video_id, target_itag=None):
+    visitor_data, cookie_header, sts = fetch_youtube_watch_session(video_id)
+    vision_ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15'
+
     clients = [
+        {
+            'name': 'VISIONOS',
+            'version': '1.02',
+            'clientNameId': '101',
+            'ua': vision_ua,
+            'context': {
+                'clientName': 'VISIONOS',
+                'clientVersion': '1.02',
+                'deviceMake': 'Apple',
+                'deviceModel': 'RealityDevice17,1',
+                'userAgent': vision_ua,
+                'osName': 'visionOS',
+                'osVersion': '26.5.23O471',
+                'hl': 'en',
+                'timeZone': 'UTC',
+                'utcOffsetMinutes': 0
+            }
+        },
+        {
+            'name': 'ANDROID',
+            'version': '20.10.38',
+            'clientNameId': '3',
+            'ua': 'com.google.android.youtube/20.10.38 (Linux; U; Android 14; en_US) gzip',
+            'context': {
+                'clientName': 'ANDROID',
+                'clientVersion': '20.10.38',
+                'androidSdkVersion': 34,
+                'osName': 'Android',
+                'osVersion': '14',
+                'gl': 'US',
+                'hl': 'en'
+            }
+        },
         {
             'name': 'IOS',
             'version': '20.03.02',
@@ -54,23 +121,6 @@ def resolve_youtube_fresh_stream(video_id):
                 'gl': 'US',
                 'hl': 'en'
             }
-        },
-        {
-            'name': 'ANDROID_VR',
-            'version': '1.62.27',
-            'clientNameId': '28',
-            'ua': 'com.google.android.apps.youtube.vr.oculus/1.62.27 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip',
-            'context': {
-                'clientName': 'ANDROID_VR',
-                'clientVersion': '1.62.27',
-                'deviceMake': 'Oculus',
-                'deviceModel': 'Quest 3',
-                'osName': 'Android',
-                'osVersion': '12L',
-                'androidSdkVersion': 32,
-                'gl': 'US',
-                'hl': 'en'
-            }
         }
     ]
 
@@ -81,22 +131,25 @@ def resolve_youtube_fresh_stream(video_id):
                 'X-YouTube-Client-Name': c['clientNameId'],
                 'X-YouTube-Client-Version': c['version'],
                 'Origin': 'https://www.youtube.com',
-                'User-Agent': c['ua']
+                'User-Agent': c['ua'],
+                'Cookie': cookie_header
             }
+            if visitor_data:
+                headers['X-Goog-Visitor-Id'] = visitor_data
             payload = {
                 'videoId': video_id,
                 'context': {'client': c['context']},
                 'playbackContext': {
                     'contentPlaybackContext': {
                         'html5Preference': 'HTML5_PREF_WANTS',
-                        'signatureTimestamp': 20717
+                        'signatureTimestamp': sts
                     }
                 },
                 'contentCheckOk': True,
                 'racyCheckOk': True
             }
             req = urllib.request.Request(
-                'https://www.youtube.com/youtubei/v1/player',
+                'https://www.youtube.com/youtubei/v1/player?prettyPrint=false',
                 data=json.dumps(payload).encode('utf-8'),
                 headers=headers,
                 method='POST'
@@ -105,10 +158,20 @@ def resolve_youtube_fresh_stream(video_id):
                 if response.status == 200:
                     data = json.loads(response.read().decode('utf-8'))
                     raw_formats = data.get('streamingData', {}).get('formats', [])
+                    adaptive = data.get('streamingData', {}).get('adaptiveFormats', [])
+                    if target_itag is not None:
+                        for af in adaptive:
+                            if af.get('itag') == target_itag and af.get('url'):
+                                return af['url']
+                        for f in raw_formats:
+                            if f.get('itag') == target_itag and f.get('url'):
+                                return f['url']
                     for f in raw_formats:
                         if f.get('url'):
                             return f['url']
-                    adaptive = data.get('streamingData', {}).get('adaptiveFormats', [])
+                    for af in adaptive:
+                        if af.get('url') and 'avc1' in (af.get('mimeType') or ''):
+                            return af['url']
                     for af in adaptive:
                         if af.get('url'):
                             return af['url']
@@ -141,8 +204,14 @@ class handler(BaseHTTPRequestHandler):
             if m:
                 yt_id = m.group(1)
 
+        target_itag = None
+        if target_url:
+            itag_m = re.search(r'[?&]itag=(\d+)', target_url)
+            if itag_m:
+                target_itag = int(itag_m.group(1))
+
         if (not target_url or not target_url.startswith('http')) and yt_id:
-            fresh_url = resolve_youtube_fresh_stream(yt_id)
+            fresh_url = resolve_youtube_fresh_stream(yt_id, target_itag)
             if fresh_url:
                 target_url = fresh_url
 
@@ -157,11 +226,14 @@ class handler(BaseHTTPRequestHandler):
         # Upstream streaming
         referer = ''
         if 'googlevideo' in target_url or 'youtube' in target_url:
-            referer = 'https://www.youtube.com/'
+            if 'c=IOS' not in target_url and 'c=ANDROID' not in target_url:
+                referer = 'https://www.youtube.com/'
         elif 'instagram' in target_url:
             referer = 'https://www.instagram.com/'
         elif 'facebook' in target_url or 'fbcdn' in target_url:
             referer = 'https://www.facebook.com/'
+        elif 'twimg' in target_url or 'twitter' in target_url or 'x.com' in target_url:
+            referer = 'https://x.com/'
         elif 'reddit' in target_url or 'redd.it' in target_url:
             referer = 'https://www.reddit.com/'
         elif 'pinterest' in target_url or 'pinimg' in target_url:
@@ -169,12 +241,12 @@ class handler(BaseHTTPRequestHandler):
 
         is_yt = 'googlevideo' in target_url or 'youtube' in target_url
         uas_to_try = [
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15',
+            'com.google.android.youtube/20.10.38 (Linux; U; Android 14; en_US) gzip',
             'com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)',
-            'com.google.android.apps.youtube.vr.oculus/1.62.27 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip',
-            'com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36'
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36'
         ] if is_yt else [
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36'
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36'
         ]
 
         range_hdr = self.headers.get('Range')
@@ -194,6 +266,24 @@ class handler(BaseHTTPRequestHandler):
                     break
             except Exception:
                 continue
+
+        if not upstream_resp and yt_id:
+            fresh_url = resolve_youtube_fresh_stream(yt_id, target_itag)
+            if fresh_url and fresh_url != target_url and is_safe_public_url(fresh_url):
+                target_url = fresh_url
+                for ua in uas_to_try:
+                    req_headers = {'User-Agent': ua}
+                    if referer:
+                        req_headers['Referer'] = referer
+                    if range_hdr:
+                        req_headers['Range'] = range_hdr
+                    try:
+                        upstream_req = urllib.request.Request(target_url, headers=req_headers)
+                        upstream_resp = urllib.request.urlopen(upstream_req, timeout=15)
+                        if upstream_resp.status in (200, 206):
+                            break
+                    except Exception:
+                        continue
 
         if not upstream_resp:
             self.send_response(502)
