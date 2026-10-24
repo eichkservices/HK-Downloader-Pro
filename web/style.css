@@ -2076,5 +2076,111 @@ html, body {
   text-decoration: underline;
 }
 
+/* ==========================================================================
+   Language Selector (i18n Dropdown) & RTL Support
+   ========================================================================== */
+.lang-switcher-wrap {
+  position: relative;
+  display: inline-block;
+  z-index: 100;
+}
+
+.lang-picker-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lang-picker-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent-cyan);
+}
+
+.lang-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #0f131d;
+  border: 1px solid var(--glass-border-strong);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 155px;
+  z-index: 999;
+}
+
+.lang-dropdown.hidden {
+  display: none;
+}
+
+.lang-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.lang-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.lang-option.active {
+  background: rgba(34, 211, 238, 0.15);
+  color: var(--accent-cyan);
+  font-weight: 700;
+}
+
+.lang-flag {
+  font-size: 15px;
+}
+
+/* RTL Support for Arabic and Urdu */
+html[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+}
+
+html[dir="rtl"] .lang-dropdown {
+  right: auto;
+  left: 0;
+}
+
+html[dir="rtl"] .lang-option {
+  text-align: right;
+}
+
+html[dir="rtl"] .header-actions {
+  flex-direction: row-reverse;
+}
+
+html[dir="rtl"] .nav-brand {
+  margin-right: 0;
+  margin-left: auto;
+}
+
+
 
 

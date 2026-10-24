@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Facebook Video Downloader – Download FB Videos & Reels in 1080p HD Free</title>
+  
+  <meta name="description" content="Free Facebook video downloader. Download Facebook videos, Reels, and Watch clips in 1080p Full HD and standard MP4. Fast, free online Facebook video saver.">
+  <meta name="keywords" content="facebook video downloader, fb video download 1080p, download facebook reels, facebook watch downloader, save fb video hd, fbdown alternative, fdownloader alternative">
+  <meta name="author" content="HK Downloader">
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <link rel="canonical" href="https://hkdownloader.online/facebook-downloader">
+
+  <!-- Open Graph / Social Sharing -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="HK Downloader Pro">
+  <meta property="og:url" content="https://hkdownloader.online/facebook-downloader">
+  <meta property="og:title" content="Facebook Video Downloader – Download FB Videos & Reels in 1080p HD">
+  <meta property="og:description" content="Download Facebook videos and Reels in Full HD 1080p MP4. Free online video downloader.">
+  <meta property="og:image" content="https://hkdownloader.online/logo.jpg">
+
+  <!-- Twitter / X Cards -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Facebook Video Downloader 1080p HD Free">
+  <meta name="twitter:description" content="Fast, high quality Facebook video and Reel downloader. No software installation needed.">
+  <meta name="twitter:image" content="https://hkdownloader.online/logo.jpg">
+
+  <!-- Schema.org Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebApplication",
+        "name": "Facebook Video Downloader - HK Downloader Pro",
+        "url": "https://hkdownloader.online/facebook-downloader",
+        "applicationCategory": "MultimediaApplication",
+        "operatingSystem": "All",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "featureList": [
+          "Facebook 1080p Full HD video downloader",
+          "Facebook Reels and Watch clips support",
+          "Fast direct stream extraction without logging in",
+          "High quality MP4 audio/video sync"
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "How to download Facebook videos in 1080p HD?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Click 'Share' on any public Facebook video or Reel, select 'Copy link', paste it into the downloader box above, and choose 1080p HD."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can I download Facebook Reels?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes, HK Downloader Pro supports all public Facebook Reels URLs and Watch clips."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Do I need to sign into Facebook?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No login or Facebook account access is needed. The tool works for all public videos."
+            }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/png" sizes="192x192" href="/logo-192.png">
+  <link rel="stylesheet" href="/style.css?v=2.9.5">
+</head>
+<body>
+  <div class="mobile-frame">
+    <div id="ambientBg" class="ambient-bg">
+      <div class="ambient-blob b1"></div>
+      <div class="ambient-blob b2"></div>
+      <div class="ambient-blob b3"></div>
+    </div>
+    <div id="toastContainer"></div>
+
+    <header class="app-header">
+      <a href="/" class="header-brand-wrap" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff;">
+        <img src="/logo.png" alt="HK Downloader Pro logo" class="header-logo-icon" style="width: 28px; height: 28px; min-width: 28px; border-radius: 7px; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.4);">
+        <h1 class="header-title" style="margin: 0; font-size: 17px; font-weight: 700;">HK Downloader Pro</h1>
+      </a>
+      
+      <div class="header-right-actions">
+        <div class="lang-switcher-wrap">
+          <button id="langPickerBtn" class="lang-picker-btn">
+            <span id="currentLangFlag">🇺🇸</span>
+            <span id="currentLangLabel">EN</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"></path></svg>
+          </button>
+          <div id="langDropdown" class="lang-dropdown hidden"></div>
+        </div>
+
+        <button id="btnHeaderInstall" class="btn-header-install">
+          <img src="/logo.png" alt="Logo" class="install-btn-logo" style="width: 18px; height: 18px; border-radius: 4px; object-fit: cover;">
+          <span data-i18n="navInstallApp">Install App</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="content-scroll">
+      <div id="tabDownloader" class="tab-page active">
+        <section class="section-container" style="text-align: center; padding-top: 10px;">
+          <div style="display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; color:#3b82f6; background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.25); padding:4px 12px; border-radius:999px; margin-bottom:12px;">
+            <span>🌐</span> FACEBOOK HD VIDEO & REELS DOWNLOADER
+          </div>
+          <h2 style="font-size:26px; font-weight:800; color:#fff; margin:0 0 8px; line-height:1.3;">Download Facebook Videos in 1080p HD</h2>
+          <p style="font-size:13px; color:var(--text-secondary); max-width:540px; margin:0 auto 18px; line-height:1.5;">Fast, unrestricted Full HD and standard MP4 video downloads from Facebook and Facebook Reels.</p>
+
+          <form id="downloadForm" class="glowing-input-box">
+            <div class="input-inner">
+              <input type="text" id="urlInput" placeholder="Paste Facebook video or Reel link here (facebook.com/...)..." autocomplete="off" spellcheck="false">
+            </div>
+            <button type="submit" id="analyzeBtn" class="btn-start-download">
+              <span id="btnText">Download</span>
+              <span id="btnSpinner" class="spinner hidden"></span>
+            </button>
+          </form>
+
+          <!-- Top Ad Slot Container -->
+          <div id="adSlotTop" class="ad-slot-container" style="min-height: 52px; display: flex; justify-content: center; align-items: center; margin: 12px 0;">
+            <iframe srcdoc="&lt;!DOCTYPE html&gt;&lt;html&gt;&lt;head&gt;&lt;base target='_blank'&gt;&lt;style&gt;body{margin:0;padding:0;background:transparent;display:flex;justify-content:center;align-items:center;}&lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;script&gt;atOptions = {'key' : '4b2df97582819d253d8e3ad0e8cdd918','format' : 'iframe','height' : 50,'width' : 320,'params' : {}};&lt;/script&gt;&lt;script src='https://bellnewyork.org/22/4b2df97582819d253d8e3ad0e8cdd918'&gt;&lt;/script&gt;&lt;/body&gt;&lt;/html&gt;" width="320" height="50" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:320px;height:50px;max-width:100%;display:block;"></iframe>
+          </div>
+        </section>
+
+        <!-- Active Downloads -->
+        <section class="section-container active-section">
+          <div class="section-header">
+            <h2 class="section-title">Active Downloads</h2>
+            <button id="clearHistoryBtn" class="btn-clear">Clear Completed</button>
+          </div>
+          <div id="downloadsList" class="downloads-list">
+            <div id="emptyState" class="empty-state">
+              <div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></div>
+              <p>No active downloads</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Platform Specific SEO Guide Section -->
+        <section class="section-container" style="margin-top:24px; padding:20px; background:rgba(255,255,255,0.02); border:1px solid var(--glass-border); border-radius:16px;">
+          <h3 style="color:#fff; font-size:18px; font-weight:800; margin:0 0 14px;">How to Download Facebook Videos & Reels</h3>
+          <ol style="color:var(--text-secondary); font-size:13px; line-height:1.8; padding-left:20px; margin:0 0 20px;">
+            <li><strong style="color:#fff;">Copy Link:</strong> Click Share below the Facebook post or Reel and choose "Copy link".</li>
+            <li><strong style="color:#fff;">Paste & Extract:</strong> Paste the URL in the box above and tap Download.</li>
+            <li><strong style="color:#fff;">Save in Full HD:</strong> Choose 1080p HD or SD quality to save the MP4 video directly to your gallery.</li>
+          </ol>
+
+          <h3 style="color:#fff; font-size:16px; font-weight:800; margin:0 0 10px;">Why Use HK Downloader Pro for Facebook?</h3>
+          <ul style="color:var(--text-secondary); font-size:13px; line-height:1.7; padding-left:18px; margin:0 0 20px;">
+            <li><strong>Maximum 1080p Resolution:</strong> Downloads the original Facebook HD stream directly from Meta servers.</li>
+            <li><strong>Reels & Watch Video:</strong> Works for standard feed posts, Reels, and Watch video streams.</li>
+            <li><strong>Zero Account Tracking:</strong> Completely anonymous with no user data retained.</li>
+          </ul>
+
+          <!-- Other Platforms -->
+          <div style="border-top:1px solid var(--glass-border); padding-top:16px;">
+            <div style="font-size:12px; font-weight:700; color:#cbd5e1; margin-bottom:10px;">More Free Video Downloaders:</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <a href="/youtube-downloader" style="font-size:12px; color:#ef4444; text-decoration:none;">YouTube 4K & 1080p</a> •
+              <a href="/tiktok-downloader" style="font-size:12px; color:#22d3ee; text-decoration:none;">TikTok No Watermark</a> •
+              <a href="/instagram-downloader" style="font-size:12px; color:#ec4899; text-decoration:none;">Instagram Reels</a> •
+              <a href="/twitter-downloader" style="font-size:12px; color:#38bdf8; text-decoration:none;">Twitter / X Downloader</a> •
+              <a href="/reddit-downloader" style="font-size:12px; color:#ff6a1f; text-decoration:none;">Reddit Downloader</a> •
+              <a href="/pinterest-downloader" style="font-size:12px; color:#e11d48; text-decoration:none;">Pinterest Downloader</a>
+            </div>
+          </div>
+        </section>
+
+        <!-- Bottom Ad Slot -->
+        <div id="adSlotBottom" class="ad-slot-container fixed-ad-slot" style="margin-top:20px;">
+          <script async="async" data-cfasync="false" src="https://bellnewyork.org/21/0dc5280b04ec0aeab29bb231530dbf13"></script>
+          <div id="container-0dc5280b04ec0aeab29bb231530dbf13"></div>
+        </div>
+
+        <footer class="legal-footer">
+          <a href="/home">Features & Guides</a> • 
+          <a href="/privacy.html">Privacy Policy</a> • 
+          <a href="/terms.html">Terms of Service</a> • 
+          <a href="/dmca.html">DMCA & Contact</a>
+        </footer>
+      </div>
+
+      <!-- Library Tab Page -->
+      <div id="tabLibrary" class="tab-page hidden">
+        <section class="section-container">
+          <div class="section-header">
+            <h2 class="section-title">Media Library</h2>
+            <span id="libraryCount" class="badge-count">0 Files</span>
+          </div>
+          <div id="libraryGrid" class="library-grid"></div>
+          <div id="emptyLibrary" class="empty-state">
+            <div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></div>
+            <p>Your library is empty. Downloaded files will appear here!</p>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-tab="downloader">
+        <div class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></div>
+        <span data-i18n="navDownloader">Downloader</span>
+      </button>
+      <button class="nav-item cyan-tab" data-tab="library">
+        <div class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></div>
+        <span data-i18n="navLibrary">Library</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Format Selection Popup Modal -->
+  <div id="formatModal" class="modal-overlay hidden">
+    <div class="modal-card format-modal-card">
+      <div class="modal-hero-banner">
+        <img id="modalThumb" src="" alt="Cover" class="hero-cover-img hidden">
+        <div id="modalThumbFallback" class="hero-cover-fallback"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></div>
+        <div class="hero-overlay-gradient"></div>
+        <span id="modalTypeBadge" class="hero-type-badge">FACEBOOK</span>
+        <button id="closeModalBtn" class="hero-close-btn">&times;</button>
+        <h3 id="modalTitle" class="hero-video-title">Video Title</h3>
+      </div>
+      <div class="modal-body-container">
+        <div class="modal-label" data-i18n="modalChooseOption">Choose Download Option:</div>
+        <div id="formatList" class="format-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Task-Based Download Station Modal -->
+  <div id="taskDownloadModal" class="modal-overlay hidden">
+    <div class="modal-card task-download-card">
+      <div class="task-modal-header">
+        <div class="task-header-left">
+          <span class="task-live-indicator"><span class="pulse-dot"></span> <span id="taskStatusHeading">Downloading Media...</span></span>
+        </div>
+        <div class="task-header-actions">
+          <button id="btnMinimizeTask" class="btn-task-action" title="Minimize">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline></svg>
+            <span>Minimize</span>
+          </button>
+          <button id="btnCancelTaskModal" class="btn-task-action danger" title="Cancel">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="task-active-card">
+        <div class="task-card-main-row">
+          <div class="task-thumb-wrap">
+            <img id="taskThumb" src="" alt="Thumbnail" class="task-thumb">
+            <div id="taskThumbFallback" class="task-thumb-fallback hidden"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></div>
+          </div>
+          <div class="task-info-wrap">
+            <h4 id="taskTitle" class="task-title">Media Title</h4>
+            <div class="task-stream-badges">
+              <span id="taskQualityBadge" class="badge-mini badge-quality">1080p HD</span>
+              <span id="taskSpeedEtaBadge" class="badge-mini badge-orange">Preparing stream...</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="task-card-progress-section">
+          <div class="task-progress-labels">
+            <div class="task-pct-box">
+              <span id="taskProgressPct" class="task-pct">0%</span>
+              <span class="task-live-chip"><span class="pulse-dot"></span> LIVE</span>
+            </div>
+            <span id="taskProgressSize" class="task-size">Connecting...</span>
+          </div>
+          <div class="task-bar-track">
+            <div id="taskProgressBar" class="task-bar-fill" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="taskModalAdSlot" class="task-modal-ad-slot">
+        <div class="ad-banner-header">
+          <span class="ad-pill">SPONSORED</span>
+          <span class="ad-notice">Supports free high-speed downloads</span>
+        </div>
+        <div id="taskModalAdContainer" class="ad-fixed-container" style="display:flex;justify-content:center;align-items:center;">
+          <iframe srcdoc="&lt;!DOCTYPE html&gt;&lt;html&gt;&lt;head&gt;&lt;base target='_blank'&gt;&lt;style&gt;body{margin:0;padding:0;background:transparent;display:flex;justify-content:center;align-items:center;}&lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;script&gt;atOptions = {'key' : 'd7f3167ed3f54a1c22e2784563d62361','format' : 'iframe','height' : 250,'width' : 300,'params' : {}};&lt;/script&gt;&lt;script src='https://bellnewyork.org/22/d7f3167ed3f54a1c22e2784563d62361'&gt;&lt;/script&gt;&lt;/body&gt;&lt;/html&gt;" width="300" height="250" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:300px;height:250px;max-width:100%;display:block;"></iframe>
+        </div>
+      </div>
+
+      <div id="taskCompleteActions" class="task-complete-actions hidden">
+        <div class="complete-banner">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span data-i18n="taskComplete">Download Complete & Ready!</span>
+        </div>
+        <div class="complete-btn-row">
+          <button id="btnTaskPlay" class="btn-complete-play" data-i18n="btnPlay">Play in Player</button>
+          <button id="btnTaskSave" class="btn-complete-save" data-i18n="btnSave">Save to Device</button>
+        </div>
+        <button id="btnTaskCloseDone" class="btn-complete-close" data-i18n="btnClose">Done & Return</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Install Modal -->
+  <div id="installModal" class="modal-overlay hidden">
+    <div class="modal-card install-modal-card">
+      <div class="install-sheet-header">
+        <div class="install-app-preview">
+          <img src="/logo.png" alt="HK Downloader Pro logo" class="install-sheet-logo" style="width:44px; height:44px; border-radius:10px;">
+          <div>
+            <h3 class="install-sheet-title">HK Downloader Pro</h3>
+            <p class="install-sheet-subtitle">Universal Media Downloader & Player</p>
+          </div>
+        </div>
+        <button id="closeInstallModal" class="hero-close-btn">&times;</button>
+      </div>
+      <div class="install-options-list">
+        <a href="/hk-downloader-pro.apk" download id="btnModalApk" class="install-option-card apk-card">
+          <div class="option-title">Download Android APK (Full Speed)</div>
+          <div class="option-desc">Background downloads & offline player</div>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script src="/i18n.js?v=2.9.5"></script>
+  <script src="/app.js?v=2.9.5"></script>
+</body>
+</html>
