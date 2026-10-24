@@ -2181,6 +2181,59 @@ html[dir="rtl"] .nav-brand {
   margin-left: auto;
 }
 
+/* ==========================================================================
+   Collapsible SEO Platforms Drawer (Clean UI + Full SEO Indexing)
+   ========================================================================== */
+.platforms-collapsible {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  padding: 12px 16px;
+  transition: all 0.2s ease;
+}
+
+.platforms-collapsible[open] {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(34, 211, 238, 0.3);
+}
+
+.platforms-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: #cbd5e1;
+  user-select: none;
+  list-style: none;
+}
+
+.platforms-summary::-webkit-details-marker {
+  display: none;
+}
+
+.platforms-summary-chevron {
+  transition: transform 0.2s ease;
+  color: var(--accent-cyan);
+}
+
+.platforms-collapsible[open] .platforms-summary-chevron {
+  transform: rotate(180deg);
+}
+
+.platforms-drawer-content {
+  display: flex;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-size: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--glass-border);
+}
+
+
 
 
 

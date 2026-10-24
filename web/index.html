@@ -213,6 +213,11 @@
           <div id="langDropdown" class="lang-dropdown hidden"></div>
         </div>
 
+        <a href="/platforms" class="lang-picker-btn" style="text-decoration:none;" title="Supported Platforms (50+)">
+          <span>🌐</span>
+          <span>50+ Sites</span>
+        </a>
+
         <button id="btnHeaderInstall" class="btn-header-install" title="Install HK Downloader Pro (APK or Web App)">
           <img src="logo.png" alt="Logo" class="install-btn-logo" style="width: 18px; height: 18px; border-radius: 4px; object-fit: cover;">
           <span data-i18n="navInstallApp">Install App</span>
@@ -238,15 +243,9 @@
             </button>
           </form>
 
-          <!-- Platform Quick Shortcuts -->
-          <div class="platform-shortcuts-bar" style="display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin:14px 0 6px;">
-            <a href="/youtube-downloader" class="shortcut-tag" style="display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700; color:#ef4444; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); padding:5px 10px; border-radius:8px; text-decoration:none;">YouTube 4K</a>
-            <a href="/tiktok-downloader" class="shortcut-tag" style="display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700; color:#22d3ee; background:rgba(34,211,238,0.1); border:1px solid rgba(34,211,238,0.25); padding:5px 10px; border-radius:8px; text-decoration:none;">TikTok No Watermark</a>
-            <a href="/instagram-downloader" class="shortcut-tag" style="display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700; color:#ec4899; background:rgba(236,72,153,0.1); border:1px solid rgba(236,72,153,0.25); padding:5px 10px; border-radius:8px; text-decoration:none;">Instagram Reels</a>
-            <a href="/twitter-downloader" class="shortcut-tag" style="display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700; color:#38bdf8; background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.25); padding:5px 10px; border-radius:8px; text-decoration:none;">Twitter / X</a>
-            <a href="/facebook-downloader" class="shortcut-tag" style="display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700; color:#3b82f6; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.25); padding:5px 10px; border-radius:8px; text-decoration:none;">Facebook HD</a>
-            <a href="/reddit-downloader" class="shortcut-tag" style="display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700; color:#ff6a1f; background:rgba(255,106,31,0.1); border:1px solid rgba(255,106,31,0.25); padding:5px 10px; border-radius:8px; text-decoration:none;">Reddit Sound</a>
-            <a href="/pinterest-downloader" class="shortcut-tag" style="display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700; color:#e11d48; background:rgba(225,29,72,0.1); border:1px solid rgba(225,29,72,0.25); padding:5px 10px; border-radius:8px; text-decoration:none;">Pinterest Pins</a>
+          <!-- Subtle platform hint (Zero visual clutter, links to directory) -->
+          <div style="text-align:center; margin:8px 0 2px; font-size:11.5px; color:var(--text-secondary);">
+            <span>Supports YouTube, TikTok, Reels, Drive, Mega &amp; <a href="/platforms" style="color:var(--accent-cyan); text-decoration:none; font-weight:600;">50+ sites →</a></span>
           </div>
 
           <!-- Top Ad Slot Container (Adsterra Banner 320x50) -->
@@ -270,29 +269,34 @@
           </div>
         </section>
 
-        <!-- Dedicated Platform Downloaders Directory -->
-        <section class="section-container" style="margin-top:16px; padding:16px; background:rgba(255,255,255,0.02); border:1px solid var(--glass-border); border-radius:14px; text-align:center;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <span style="font-size:12px; font-weight:800; color:#fff; text-transform:uppercase; letter-spacing:0.5px;">Supported Platforms:</span>
-            <a href="/platforms" style="font-size:12px; font-weight:700; color:var(--accent-cyan); text-decoration:none;">View All 50+ →</a>
-          </div>
-          <div style="display:flex; gap:8px 12px; flex-wrap:wrap; justify-content:center; font-size:12px;">
-            <a href="/youtube-downloader" style="color:#ef4444; text-decoration:none; font-weight:600;">YouTube 4K</a> •
-            <a href="/tiktok-downloader" style="color:#22d3ee; text-decoration:none; font-weight:600;">TikTok No-Watermark</a> •
-            <a href="/instagram-downloader" style="color:#ec4899; text-decoration:none; font-weight:600;">Instagram Reels</a> •
-            <a href="/google-drive-downloader" style="color:#10b981; text-decoration:none; font-weight:600;">Google Drive</a> •
-            <a href="/dropbox-downloader" style="color:#3b82f6; text-decoration:none; font-weight:600;">Dropbox</a> •
-            <a href="/mega-downloader" style="color:#ef4444; text-decoration:none; font-weight:600;">Mega.nz</a> •
-            <a href="/twitter-downloader" style="color:#38bdf8; text-decoration:none; font-weight:600;">Twitter / X</a> •
-            <a href="/facebook-downloader" style="color:#3b82f6; text-decoration:none; font-weight:600;">Facebook HD</a> •
-            <a href="/reddit-downloader" style="color:#ff6a1f; text-decoration:none; font-weight:600;">Reddit with Sound</a> •
-            <a href="/dailymotion-downloader" style="color:#0284c7; text-decoration:none; font-weight:600;">Dailymotion</a> •
-            <a href="/soundcloud-downloader" style="color:#ff5500; text-decoration:none; font-weight:600;">SoundCloud MP3</a> •
-            <a href="/snapchat-downloader" style="color:#eab308; text-decoration:none; font-weight:600;">Snapchat</a> •
-            <a href="/vimeo-downloader" style="color:#06b6d4; text-decoration:none; font-weight:600;">Vimeo 4K</a> •
-            <a href="/twitch-downloader" style="color:#9333ea; text-decoration:none; font-weight:600;">Twitch 60fps</a> •
-            <a href="/pinterest-downloader" style="color:#e11d48; text-decoration:none; font-weight:600;">Pinterest Pins</a>
-          </div>
+        <!-- Collapsible Platform Directory (100% SEO indexable, compact & clean UI) -->
+        <section class="section-container" style="margin-top:16px;">
+          <details class="platforms-collapsible">
+            <summary class="platforms-summary">
+              <span style="display:flex; align-items:center; gap:6px;">
+                <span>🌐</span> Dedicated Platform Downloaders (50+)
+              </span>
+              <span class="platforms-summary-chevron">▼</span>
+            </summary>
+            <div class="platforms-drawer-content">
+              <a href="/youtube-downloader" style="color:#ef4444; text-decoration:none; font-weight:600;">YouTube 4K</a> •
+              <a href="/tiktok-downloader" style="color:#22d3ee; text-decoration:none; font-weight:600;">TikTok No-Watermark</a> •
+              <a href="/instagram-downloader" style="color:#ec4899; text-decoration:none; font-weight:600;">Instagram Reels</a> •
+              <a href="/google-drive-downloader" style="color:#10b981; text-decoration:none; font-weight:600;">Google Drive</a> •
+              <a href="/dropbox-downloader" style="color:#3b82f6; text-decoration:none; font-weight:600;">Dropbox</a> •
+              <a href="/mega-downloader" style="color:#ef4444; text-decoration:none; font-weight:600;">Mega.nz</a> •
+              <a href="/twitter-downloader" style="color:#38bdf8; text-decoration:none; font-weight:600;">Twitter / X</a> •
+              <a href="/facebook-downloader" style="color:#3b82f6; text-decoration:none; font-weight:600;">Facebook HD</a> •
+              <a href="/reddit-downloader" style="color:#ff6a1f; text-decoration:none; font-weight:600;">Reddit with Sound</a> •
+              <a href="/dailymotion-downloader" style="color:#0284c7; text-decoration:none; font-weight:600;">Dailymotion</a> •
+              <a href="/soundcloud-downloader" style="color:#ff5500; text-decoration:none; font-weight:600;">SoundCloud MP3</a> •
+              <a href="/snapchat-downloader" style="color:#eab308; text-decoration:none; font-weight:600;">Snapchat</a> •
+              <a href="/vimeo-downloader" style="color:#06b6d4; text-decoration:none; font-weight:600;">Vimeo 4K</a> •
+              <a href="/twitch-downloader" style="color:#9333ea; text-decoration:none; font-weight:600;">Twitch 60fps</a> •
+              <a href="/pinterest-downloader" style="color:#e11d48; text-decoration:none; font-weight:600;">Pinterest Pins</a> •
+              <a href="/platforms" style="color:#a855f7; text-decoration:none; font-weight:700;">View 50+ Hub →</a>
+            </div>
+          </details>
         </section>
 
         <!-- Bottom Fixed Ad Slot Container (Adsterra Native Banner) -->
