@@ -41,13 +41,35 @@ object VideoResolver {
     val videoPlatformTypes = setOf(
         "youtube", "tiktok", "reddit", "facebook", "instagram", "twitter", "bilibili",
         "bluesky", "dailymotion", "loom", "ok", "pinterest", "rutube", "snapchat",
-        "soundcloud", "streamable", "tumblr", "twitch", "vimeo", "vk", "xiaohongshu"
+        "soundcloud", "streamable", "tumblr", "twitch", "vimeo", "vk", "xiaohongshu",
+        "mega", "threads", "rumble", "kick", "mediafire", "bandcamp", "mixcloud", "audiomack",
+        "linkedin", "likee", "kuaishou", "douyin", "weibo", "9gag", "ifunny", "imgur", "flickr",
+        "archive", "ted"
     )
 
     fun identifyLinkType(url: String): String {
         return when {
             url.contains("drive.google.com") -> "google-drive"
             url.contains("dropbox.com") -> "dropbox"
+            url.contains("mega.nz") || url.contains("mega.co.nz") -> "mega"
+            url.contains("threads.net") -> "threads"
+            url.contains("rumble.com") -> "rumble"
+            url.contains("kick.com") -> "kick"
+            url.contains("mediafire.com") -> "mediafire"
+            url.contains("bandcamp.com") -> "bandcamp"
+            url.contains("mixcloud.com") -> "mixcloud"
+            url.contains("audiomack.com") -> "audiomack"
+            url.contains("linkedin.com") -> "linkedin"
+            url.contains("likee.video") -> "likee"
+            url.contains("kuaishou.com") || url.contains("kwai.com") -> "kuaishou"
+            url.contains("douyin.com") -> "douyin"
+            url.contains("weibo.com") -> "weibo"
+            url.contains("9gag.com") -> "9gag"
+            url.contains("ifunny.co") -> "ifunny"
+            url.contains("imgur.com") -> "imgur"
+            url.contains("flickr.com") -> "flickr"
+            url.contains("archive.org") -> "archive"
+            url.contains("ted.com") -> "ted"
             url.contains("youtube.com") || url.contains("youtu.be") -> "youtube"
             url.contains("reddit.com") -> "reddit"
             url.contains("tiktok.com") -> "tiktok"
@@ -56,7 +78,7 @@ object VideoResolver {
             url.contains("twitter.com") || url.contains("x.com") -> "twitter"
             url.contains("bilibili.com") || url.contains("bilibili.tv") -> "bilibili"
             url.contains("bsky.app") -> "bluesky"
-            url.contains("dailymotion.com") -> "dailymotion"
+            url.contains("dailymotion.com") || url.contains("dai.ly") -> "dailymotion"
             url.contains("loom.com") -> "loom"
             url.contains("ok.ru") -> "ok"
             url.contains("pinterest.com") || url.contains("pin.it") -> "pinterest"

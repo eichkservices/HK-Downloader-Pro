@@ -25,7 +25,7 @@ const COBALT_PLATFORMS = {
   'reddit.com': 'Reddit',
   'bilibili.com': 'Bilibili', 'bilibili.tv': 'Bilibili',
   'bsky.app': 'Bluesky',
-  'dailymotion.com': 'Dailymotion',
+  'dailymotion.com': 'Dailymotion', 'dai.ly': 'Dailymotion',
   'loom.com': 'Loom',
   'ok.ru': 'OK',
   'pinterest.com': 'Pinterest', 'pin.it': 'Pinterest',
@@ -38,11 +38,36 @@ const COBALT_PLATFORMS = {
   'vimeo.com': 'Vimeo',
   'vk.com': 'VK', 'vk.ru': 'VK',
   'xiaohongshu.com': 'Xiaohongshu', 'xhslink.com': 'Xiaohongshu',
+  'drive.google.com': 'GoogleDrive',
+  'dropbox.com': 'Dropbox',
+  'mega.nz': 'Mega', 'mega.co.nz': 'Mega',
+  'threads.net': 'Threads',
+  'rumble.com': 'Rumble',
+  'kick.com': 'Kick',
+  'mediafire.com': 'MediaFire',
+  'bandcamp.com': 'Bandcamp',
+  'mixcloud.com': 'Mixcloud',
+  'audiomack.com': 'Audiomack',
+  'linkedin.com': 'LinkedIn',
+  'likee.video': 'Likee',
+  'kwai.com': 'Kuaishou', 'kuaishou.com': 'Kuaishou',
+  'douyin.com': 'Douyin',
+  'weibo.com': 'Weibo',
+  '9gag.com': '9GAG',
+  'ifunny.co': 'iFunny',
+  'imgur.com': 'Imgur',
+  'flickr.com': 'Flickr',
+  'archive.org': 'Archive',
+  'ted.com': 'TED'
 };
 
 function identifyLinkType(link) {
   const l = link.toLowerCase();
   if (l.includes('tiktok.com')) return 'tiktok';
+  if (l.includes('drive.google.com')) return 'googledrive';
+  if (l.includes('dropbox.com')) return 'dropbox';
+  if (l.includes('mega.nz') || l.includes('mega.co.nz')) return 'mega';
+  if (l.includes('dailymotion.com') || l.includes('dai.ly')) return 'dailymotion';
   for (const domain of Object.keys(COBALT_PLATFORMS)) {
     if (l.includes(domain)) return COBALT_PLATFORMS[domain].toLowerCase();
   }
@@ -62,6 +87,113 @@ function cleanUrl(rawUrl) {
   } catch (e) {
     return u;
   }
+}
+
+
+async function resolveGoogleDriveDirect(link) {
+  const m = link.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([a-zA-Z0-9_-]+)/);
+  if (!m) throw new Error('Invalid Google Drive URL');
+  const fileId = m[1];
+  let title = 'Google Drive File';
+  try {
+    const metaResp = await fetch(`https://drive.google.com/file/d/${fileId}/view`, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      signal: AbortSignal.timeout(3500)
+    });
+    if (metaResp.ok) {
+      const html = await metaResp.text();
+      const tm = html.match(/<title>([^<]+)<\/title>/);
+      if (tm) {
+        title = tm[1].replace(/\s*-\s*Google Drive\s*$/i, '').trim();
+      }
+    }
+  } catch (e) {}
+
+  const directUrl = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&authuser=0`;
+  const fallbackUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+  const ext = title.includes('.') ? title.split('.').pop().toLowerCase() : 'file';
+
+  return {
+    title,
+    thumbnail: 'https://ssl.gstatic.com/docs/doclist/images/mediatype/icon_1_generic_x64.png',
+    type: 'googledrive',
+    formats: [
+      { directUrl, token: directUrl, note: '💾 Direct File Download (Full Speed)', ext },
+      { directUrl: fallbackUrl, token: fallbackUrl, note: '⚡ Alternative Download Mirror', ext }
+    ]
+  };
+}
+
+async function resolveDropboxDirect(link) {
+  try {
+    const u = new URL(link);
+    u.searchParams.set('dl', '1');
+    if (u.hostname === 'www.dropbox.com' || u.hostname === 'dropbox.com') {
+      u.hostname = 'dl.dropboxusercontent.com';
+    }
+    const directUrl = u.toString();
+    const fname = u.pathname.split('/').pop() || 'Dropbox File';
+    const ext = fname.includes('.') ? fname.split('.').pop().toLowerCase() : 'file';
+    return {
+      title: decodeURIComponent(fname),
+      thumbnail: '',
+      type: 'dropbox',
+      formats: [
+        { directUrl, token: directUrl, note: `📦 Direct Download (${ext.toUpperCase()})`, ext }
+      ]
+    };
+  } catch (e) {
+    throw new Error('Invalid Dropbox link: ' + e.message);
+  }
+}
+
+async function resolveDailymotionDirect(link) {
+  const m = link.match(/(?:dailymotion\.com\/(?:video|embed\/video)\/|dai\.ly\/)([a-zA-Z0-9]+)/);
+  if (!m) throw new Error('Invalid Dailymotion link');
+  const videoId = m[1];
+  const resp = await fetch(`https://www.dailymotion.com/player/metadata/video/${videoId}`, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+    signal: AbortSignal.timeout(4500)
+  });
+  if (!resp.ok) throw new Error(`Dailymotion metadata error ${resp.status}`);
+  const data = await resp.json();
+  const title = data.title || 'Dailymotion Video';
+  const thumbnail = data.posters ? Object.values(data.posters).pop() : (data.poster_url || '');
+
+  const formats = [];
+  if (data.qualities) {
+    for (const [res, streamList] of Object.entries(data.qualities)) {
+      if (Array.isArray(streamList)) {
+        for (const s of streamList) {
+          if (s.url && (s.type === 'video/mp4' || s.url.includes('.mp4'))) {
+            formats.push({
+              directUrl: s.url,
+              token: s.url,
+              note: `🎬 ${res.toUpperCase()} MP4 Video`,
+              ext: 'mp4'
+            });
+          }
+        }
+      }
+    }
+    if (formats.length === 0 && data.qualities.auto) {
+      const autoStream = data.qualities.auto[0];
+      if (autoStream && autoStream.url) {
+        formats.push({
+          directUrl: autoStream.url,
+          token: autoStream.url,
+          note: '🎬 HD Adaptive Video Stream',
+          ext: 'mp4'
+        });
+      }
+    }
+  }
+
+  if (formats.length === 0) {
+    throw new Error('No direct streams found in Dailymotion metadata');
+  }
+
+  return { title, thumbnail, type: 'dailymotion', formats };
 }
 
 async function resolveFacebookDirect(link) {
@@ -994,6 +1126,39 @@ export async function onRequestPost(context) {
   inputUrl = cleanUrl(inputUrl);
   const type = identifyLinkType(inputUrl);
   let ytDirectFallback = null;
+
+  // Direct Cloud Storage & Video Resolvers
+  if (type === 'googledrive') {
+    try {
+      const gdData = await resolveGoogleDriveDirect(inputUrl);
+      if (gdData && gdData.formats && gdData.formats.length > 0) {
+        return new Response(JSON.stringify(gdData), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+    } catch (e) {}
+  } else if (type === 'dropbox') {
+    try {
+      const dbData = await resolveDropboxDirect(inputUrl);
+      if (dbData && dbData.formats && dbData.formats.length > 0) {
+        return new Response(JSON.stringify(dbData), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+    } catch (e) {}
+  } else if (type === 'dailymotion') {
+    try {
+      const dmData = await resolveDailymotionDirect(inputUrl);
+      if (dmData && dmData.formats && dmData.formats.length > 0) {
+        return new Response(JSON.stringify(dmData), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+    } catch (e) {}
+  }
 
   // 1. Direct Edge & Universal Resolvers
   if (type === 'youtube') {

@@ -480,7 +480,7 @@ document.addEventListener('DOMContentLoaded', () => {
     'reddit.com': 'Reddit',
     'bilibili.com': 'Bilibili', 'bilibili.tv': 'Bilibili',
     'bsky.app': 'Bluesky',
-    'dailymotion.com': 'Dailymotion',
+    'dailymotion.com': 'Dailymotion', 'dai.ly': 'Dailymotion',
     'loom.com': 'Loom',
     'ok.ru': 'OK',
     'pinterest.com': 'Pinterest', 'pin.it': 'Pinterest',
@@ -493,11 +493,36 @@ document.addEventListener('DOMContentLoaded', () => {
     'vimeo.com': 'Vimeo',
     'vk.com': 'VK', 'vk.ru': 'VK',
     'xiaohongshu.com': 'Xiaohongshu', 'xhslink.com': 'Xiaohongshu',
+    'drive.google.com': 'GoogleDrive',
+    'dropbox.com': 'Dropbox',
+    'mega.nz': 'Mega', 'mega.co.nz': 'Mega',
+    'threads.net': 'Threads',
+    'rumble.com': 'Rumble',
+    'kick.com': 'Kick',
+    'mediafire.com': 'MediaFire',
+    'bandcamp.com': 'Bandcamp',
+    'mixcloud.com': 'Mixcloud',
+    'audiomack.com': 'Audiomack',
+    'linkedin.com': 'LinkedIn',
+    'likee.video': 'Likee',
+    'kwai.com': 'Kuaishou', 'kuaishou.com': 'Kuaishou',
+    'douyin.com': 'Douyin',
+    'weibo.com': 'Weibo',
+    '9gag.com': '9GAG',
+    'ifunny.co': 'iFunny',
+    'imgur.com': 'Imgur',
+    'flickr.com': 'Flickr',
+    'archive.org': 'Archive',
+    'ted.com': 'TED'
   };
 
   function identifyLinkType(link) {
     const l = link.toLowerCase();
     if (l.includes('tiktok.com')) return 'tiktok';
+    if (l.includes('drive.google.com')) return 'googledrive';
+    if (l.includes('dropbox.com')) return 'dropbox';
+    if (l.includes('mega.nz') || l.includes('mega.co.nz')) return 'mega';
+    if (l.includes('dailymotion.com') || l.includes('dai.ly')) return 'dailymotion';
     for (const domain of Object.keys(COBALT_PLATFORMS)) {
       if (l.includes(domain)) return COBALT_PLATFORMS[domain].toLowerCase();
     }

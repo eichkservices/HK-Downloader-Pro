@@ -52,6 +52,64 @@ def extract_direct_media(url):
             }
     return None
 
+
+def extract_google_drive(url):
+    m = re.search(r'drive\.google\.com/(?:file/d/|open\?id=|uc\?id=)([a-zA-Z0-9_-]+)', url)
+    if not m:
+        return None
+    file_id = m.group(1)
+    title = 'Google Drive File'
+    try:
+        req = urllib.request.Request(f'https://drive.google.com/file/d/{file_id}/view', headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            html_text = resp.read().decode('utf-8', errors='ignore')
+            tm = re.search(r'<title>([^<]+)</title>', html_text)
+            if tm:
+                raw_t = tm.group(1).strip()
+                if raw_t.endswith('- Google Drive'):
+                    title = raw_t[:-14].strip()
+                else:
+                    title = raw_t
+    except Exception:
+        pass
+
+    direct_url = f'https://drive.usercontent.google.com/download?id={file_id}&export=download&authuser=0'
+    fallback_url = f'https://drive.google.com/uc?export=download&id={file_id}'
+    ext = title.split('.')[-1].lower() if '.' in title else 'file'
+
+    return {
+        'title': title,
+        'thumbnail': 'https://ssl.gstatic.com/docs/doclist/images/mediatype/icon_1_generic_x64.png',
+        'type': 'googledrive',
+        'formats': [
+            {'directUrl': direct_url, 'token': direct_url, 'note': '💾 Direct File Download (Full Speed)', 'ext': ext},
+            {'directUrl': fallback_url, 'token': fallback_url, 'note': '⚡ Alternative Download Mirror', 'ext': ext}
+        ]
+    }
+
+def extract_dropbox(url):
+    try:
+        parsed = urlparse(url)
+        if 'dropbox.com' not in parsed.netloc.lower():
+            return None
+        qs = parse_qs(parsed.query)
+        qs['dl'] = ['1']
+        new_query = urlencode(qs, doseq=True)
+        netloc = 'dl.dropboxusercontent.com'
+        direct_url = urlunparse((parsed.scheme, netloc, parsed.path, '', new_query, ''))
+        fname = parsed.path.split('/')[-1] or 'Dropbox File'
+        ext = fname.split('.')[-1].lower() if '.' in fname else 'file'
+        return {
+            'title': unquote(fname),
+            'thumbnail': '',
+            'type': 'dropbox',
+            'formats': [
+                {'directUrl': direct_url, 'token': direct_url, 'note': f'📦 Direct Download ({ext.upper()})', 'ext': ext}
+            ]
+        }
+    except Exception:
+        return None
+
 def extract_tiktok(url):
     try:
         api_url = f"https://www.tikwm.com/api/?url={urllib.parse.quote(url)}"
@@ -1387,6 +1445,27 @@ class handler(BaseHTTPRequestHandler):
             return
 
         url = clean_url(raw_url)
+
+        # Google Drive & Dropbox Direct Resolvers
+        if 'drive.google.com' in url:
+            gd_res = extract_google_drive(url)
+            if gd_res:
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps(gd_res).encode('utf-8'))
+                return
+
+        if 'dropbox.com' in url:
+            db_res = extract_dropbox(url)
+            if db_res:
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps(db_res).encode('utf-8'))
+                return
 
         # 1. Direct Media File Check (.mp4, .webm, .mp3, etc.)
         direct_result = extract_direct_media(url)
