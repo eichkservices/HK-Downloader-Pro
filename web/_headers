@@ -3,3 +3,36 @@
   X-Frame-Options: SAMEORIGIN
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Never cache Service Worker so updates are immediate
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Cache CSS & JavaScript (7 days + stale-while-revalidate)
+/*.css
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+/*.js
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
+# Cache images and favicons (30 days)
+/*.png
+  Cache-Control: public, max-age=2592000, stale-while-revalidate=604800
+/*.jpg
+  Cache-Control: public, max-age=2592000, stale-while-revalidate=604800
+/*.svg
+  Cache-Control: public, max-age=2592000, stale-while-revalidate=604800
+/*.ico
+  Cache-Control: public, max-age=2592000, stale-while-revalidate=604800
+
+# APK file cache (1 day)
+/hk-downloader-pro.apk
+  Cache-Control: public, max-age=86400
+
+# SEO & Manifest (1 day)
+/robots.txt
+  Cache-Control: public, max-age=86400
+/sitemap.xml
+  Cache-Control: public, max-age=86400
+/manifest.json
+  Cache-Control: public, max-age=86400
