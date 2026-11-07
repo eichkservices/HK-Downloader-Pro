@@ -1,4 +1,49 @@
 document.addEventListener('DOMContentLoaded', () => {
+
+  // ── Fair-Use & Abuse Prevention: Daily Download Quota & Policy Modal ──
+  const DAILY_DOWNLOAD_LIMIT = 30;
+  function checkDailyDownloadQuota() {
+    const today = new Date().toISOString().slice(0, 10);
+    try {
+      const raw = localStorage.getItem('hk_dl_quota');
+      let data = raw ? JSON.parse(raw) : null;
+      if (!data || data.date !== today) {
+        data = { date: today, count: 0 };
+      }
+      if (data.count >= DAILY_DOWNLOAD_LIMIT) {
+        return false;
+      }
+      data.count += 1;
+      localStorage.setItem('hk_dl_quota', JSON.stringify(data));
+      return true;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  const policyModal = document.getElementById('policyModal');
+  const btnPolicyModal = document.getElementById('btnPolicyModal');
+  const closePolicyModal = document.getElementById('closePolicyModal');
+  const btnUnderstandPolicy = document.getElementById('btnUnderstandPolicy');
+
+  if (btnPolicyModal && policyModal) {
+    btnPolicyModal.addEventListener('click', (e) => {
+      e.preventDefault();
+      policyModal.classList.remove('hidden');
+    });
+  }
+  if (closePolicyModal && policyModal) {
+    closePolicyModal.addEventListener('click', () => policyModal.classList.add('hidden'));
+  }
+  if (btnUnderstandPolicy && policyModal) {
+    btnUnderstandPolicy.addEventListener('click', () => policyModal.classList.add('hidden'));
+  }
+  if (policyModal) {
+    policyModal.addEventListener('click', (e) => {
+      if (e.target === policyModal) policyModal.classList.add('hidden');
+    });
+  }
+
   const downloadForm       = document.getElementById('downloadForm');
   const urlInput           = document.getElementById('urlInput');
   const analyzeBtn         = document.getElementById('analyzeBtn');
@@ -1280,7 +1325,7 @@ document.addEventListener('DOMContentLoaded', () => {
           ${thumbMarkup}
           <div class="option-details">
             <div class="option-name">${cleanNote}</div>
-            ${sizeText ? `<div class="option-size">${sizeText}</div>` : ''}
+            ${sizeText ? `<div class="option-size">${sizeText} ${f.sizeBytes > 100 * 1024 * 1024 || (f.note && (f.note.includes('4K') || f.note.includes('1440p'))) ? '<span style="font-size:10px;font-weight:700;padding:2px 6px;background:rgba(34,211,238,0.15);color:#22d3ee;border:1px solid rgba(34,211,238,0.3);border-radius:4px;margin-left:6px;">⚡ Direct CDN (>100MB)</span>' : ''}</div>` : ''}
           </div>
         </div>
         <div class="option-actions">
@@ -1688,6 +1733,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 8. Download Execution Engine with Task-Based Ad Wait-Time Station
   async function startDownload(tokenOrUrl, filename, title, thumbnail, knownSize, formatObj) {
+    // 🛡️ Abuse Prevention: Daily Fair-Use Quota Check
+    if (!checkDailyDownloadQuota()) {
+      showToast('Daily Limit Reached (30/30)', 'You have reached today\'s fair-use limit. Quotas reset at 00:00 UTC.', true);
+      if (policyModal) policyModal.classList.remove('hidden');
+      return;
+    }
+
+    // ⚡ Bigger Files Policy (> 100 MB):
+    // Streaming multi-hundred MB files into JS memory crashes mobile browsers and triggers proxy timeouts.
+    // We direct-stream via the browser's native download manager with full ISP bandwidth and resume support.
+    const isBigMedia = Boolean(
+      (knownSize && knownSize > 100 * 1024 * 1024) ||
+      (formatObj?.sizeBytes && formatObj.sizeBytes > 100 * 1024 * 1024) ||
+      (formatObj?.size && formatObj.size > 100 * 1024 * 1024) ||
+      (formatObj?.note && (formatObj.note.includes('4K') || formatObj.note.includes('1440p') || formatObj.note.includes('2160p')))
+    );
+
+    if (isBigMedia) {
+      showToast('Big File Policy (>100MB)', 'Starting direct high-speed browser stream to prevent memory limits.', false);
+      const isYt = (formatObj?.type || '').toLowerCase() === 'youtube' || (tokenOrUrl || '').includes('googlevideo') || (tokenOrUrl || '').includes('youtube');
+      const ytVidId = formatObj?.videoId || (tokenOrUrl || '').match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1] || '';
+      const directHref = isYt && ytVidId
+        ? `/api/download?type=youtube&id=${encodeURIComponent(ytVidId)}&url=${encodeURIComponent(tokenOrUrl)}&filename=${encodeURIComponent(filename)}`
+        : tokenOrUrl;
+
+      const a = document.createElement('a');
+      a.href = directHref;
+      a.download = filename || 'video.mp4';
+      a.target = '_blank';
+      a.rel = 'noreferrer noopener';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => a.remove(), 1000);
+      return;
+    }
     const card = addDownloadCard(title, filename, thumbnail);
     const { cardElem, bar, percent, meta, statusText, btnCancel, actionsContainer, adStrip } = card;
 

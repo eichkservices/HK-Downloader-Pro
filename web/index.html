@@ -309,6 +309,7 @@
         <footer class="legal-footer">
           <a href="/platforms">Supported Platforms</a> • 
           <a href="/home">Features & Guides</a> • 
+          <a href="#" id="btnPolicyModal">🛡️ Fair Use & Big Files Policy</a> • 
           <a href="privacy.html">Privacy Policy</a> • 
           <a href="terms.html">Terms of Service</a> • 
           <a href="dmca.html">DMCA & Contact</a>
@@ -366,28 +367,14 @@
       </div>
 
       <div class="install-options-list">
-        <!-- Option 1: Direct Android APK -->
-        <a href="hk-downloader-pro.apk" download id="btnModalApk" class="install-option-card apk-card">
-          <div class="option-icon-box apk-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.463 11.463 0 0 0-9.94 0L4.61 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L5.36 9.48C2.5 11.24.5 14.34.5 18h23c0-3.66-2-6.76-4.9-8.52z"></path>
-            </svg>
-          </div>
-          <div class="option-text">
-            <div class="option-title">Download Android APK <span class="option-badge">Full Speed</span></div>
-            <div class="option-desc">Native app with MX Player Pro, background downloads & toasts</div>
-          </div>
-          <svg class="option-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"></polyline></svg>
-        </a>
-
-        <!-- Option 2: Add to Home Screen (PWA) -->
+        <!-- Option: Add to Home Screen (PWA) -->
         <button id="btnModalPwa" class="install-option-card pwa-card">
           <div class="option-icon-box pwa-icon" style="background: transparent; border: none; padding: 0;">
             <img src="logo.png" alt="Add to Home logo" style="width: 42px; height: 42px; border-radius: 9px; object-fit: cover; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.4);">
           </div>
           <div class="option-text">
             <div class="option-title">Add to Home Screen <span class="option-badge pwa-badge">Instant</span></div>
-            <div class="option-desc">Install web app with exact icon for one-tap home screen access</div>
+            <div class="option-desc">Install web app for fast one-tap home screen access on all devices</div>
           </div>
           <svg class="option-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"></polyline></svg>
         </button>
@@ -647,8 +634,41 @@
     </div>
   </div>
 
+  <!-- Fair Use & Big Files Policy Modal -->
+  <div id="policyModal" class="modal-overlay hidden">
+    <div class="modal-sheet" style="max-width: 520px; text-align: left; padding: 24px;">
+      <div class="install-sheet-header" style="margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="background: rgba(34, 211, 238, 0.15); border: 1px solid rgba(34, 211, 238, 0.3); display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 12px; font-size: 22px;">🛡️</div>
+          <div>
+            <h3 style="margin: 0; font-size: 17px; font-weight: 700; color: #fff;">Fair Use & Download Policy</h3>
+            <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-secondary);">High-Speed Bandwidth & Server Protection</p>
+          </div>
+        </div>
+        <button id="closePolicyModal" class="hero-close-btn" style="position: static; font-size: 24px; line-height: 1;" aria-label="Close modal">&times;</button>
+      </div>
+      <div style="font-size: 13px; line-height: 1.6; color: var(--text-secondary); display: flex; flex-direction: column; gap: 14px;">
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 12px 14px; border-radius: 10px;">
+          <strong style="color: #fff; display: flex; align-items: center; gap: 6px;">⚡ Bigger Files Policy (>100MB)</strong>
+          <p style="margin: 4px 0 0;">Videos exceeding 100MB (4K UHD, high-bitrate 1080p, long streams) are automatically routed through direct secure CDN streaming. This bypasses browser RAM buffer limitations, prevents memory crashes on mobile devices, and ensures full ISP download speeds with resume support.</p>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 12px 14px; border-radius: 10px;">
+          <strong style="color: #fff; display: flex; align-items: center; gap: 6px;">🛡️ Daily Fair-Use Limit (30 Downloads / Day)</strong>
+          <p style="margin: 4px 0 0;">Each user receives 30 free high-speed downloads daily. This prevents automated scrapers and DoS bots from degrading service quality for genuine visitors. Free quotas reset automatically every 24 hours at 00:00 UTC.</p>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 12px 14px; border-radius: 10px;">
+          <strong style="color: #fff; display: flex; align-items: center; gap: 6px;">🚫 Anti-Abuse & Rate Limiting</strong>
+          <p style="margin: 4px 0 0;">Automated multi-threaded scraping, bulk API scripts, and rapid-fire requests are challenged and blocked at the Cloudflare edge to protect bandwidth and server uptime.</p>
+        </div>
+      </div>
+      <div style="margin-top: 20px; text-align: center;">
+        <button id="btnUnderstandPolicy" class="btn-primary" style="width: 100%; justify-content: center; padding: 11px 16px; font-size: 14px; font-weight: 700; border-radius: 10px;">I Understand</button>
+      </div>
+    </div>
+  </div>
+
   <div class="version-corner-tag" title="HK Downloader Pro Web Engine v2.9.5">
-    <span class="pulse-dot"></span> Web v2.9.5 • <a href="hk-downloader-pro.apk" download>APK v2.9.5</a>
+    <span class="pulse-dot"></span> Web v2.9.5
   </div>
 
   <script src="i18n.js?v=2.9.5"></script>

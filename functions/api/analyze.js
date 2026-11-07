@@ -1097,8 +1097,46 @@ export async function onRequestOptions() {
   });
 }
 
+// Rate limiting map: client IP -> { count, expiresAt }
+const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_ANALYZES_PER_WINDOW = 35; // max 35 URL analyzes per 5 minutes per IP
+const analyzeIpCounts = new Map();
+
+function isAnalyzeRateLimited(ip) {
+  if (!ip || ip === 'unknown') return false;
+  const now = Date.now();
+  if (analyzeIpCounts.size > 2000) {
+    for (const [key, val] of analyzeIpCounts.entries()) {
+      if (val.expiresAt < now) analyzeIpCounts.delete(key);
+    }
+  }
+  const record = analyzeIpCounts.get(ip);
+  if (!record || record.expiresAt < now) {
+    analyzeIpCounts.set(ip, { count: 1, expiresAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+  record.count += 1;
+  return record.count > MAX_ANALYZES_PER_WINDOW;
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
+
+  // Enforce IP Rate Limiting (Abuse Prevention against scraper bots)
+  const clientIp = request.headers.get('CF-Connecting-IP') || request.headers.get('x-real-ip') || 'unknown';
+  if (isAnalyzeRateLimited(clientIp)) {
+    return new Response(JSON.stringify({
+      error: 'Fair-use rate limit exceeded (max 35 links / 5 min). Please wait a few moments before analyzing more links.',
+      code: 'RATE_LIMITED'
+    }), {
+      status: 429,
+      headers: {
+        'Content-Type': 'application/json',
+        'Retry-After': '300',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  }
   const cobaltInstanceUrl = env.COBALT_INSTANCE_URL || '';
   const DEFAULT_YTDLP_URL = 'https://hk-downloader-pro.vercel.app';
   const ytdlpApiUrl = env.YTDLP_API_URL || DEFAULT_YTDLP_URL;

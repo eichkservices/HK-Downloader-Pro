@@ -306,7 +306,19 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', ct)
 
         cl = upstream_resp.headers.get('Content-Length')
+        # Bigger Files Policy (> 100 MB):
+        # Redirect directly to target_url to avoid buffering large files through serverless proxy memory
         if cl:
+            try:
+                if int(cl) > 100 * 1024 * 1024:
+                    self.send_response(302)
+                    self.send_header('Location', target_url)
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    upstream_resp.close()
+                    return
+            except (ValueError, TypeError):
+                pass
             self.send_header('Content-Length', cl)
 
         cr = upstream_resp.headers.get('Content-Range')

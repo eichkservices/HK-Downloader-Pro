@@ -2,6 +2,28 @@
 // Cloudflare Pages Function that proxies video/audio streams with proper CORS headers
 // so browser fetch() and streaming downloads never fail with CORS or network errors.
 
+// Rate limiting map: client IP -> { count, expiresAt }
+const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_DOWNLOADS_PER_WINDOW = 25; // max 25 downloads per 5 minutes per IP
+const downloadIpCounts = new Map();
+
+function isDownloadRateLimited(ip) {
+  if (!ip || ip === 'unknown') return false;
+  const now = Date.now();
+  if (downloadIpCounts.size > 2000) {
+    for (const [key, val] of downloadIpCounts.entries()) {
+      if (val.expiresAt < now) downloadIpCounts.delete(key);
+    }
+  }
+  const record = downloadIpCounts.get(ip);
+  if (!record || record.expiresAt < now) {
+    downloadIpCounts.set(ip, { count: 1, expiresAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+  record.count += 1;
+  return record.count > MAX_DOWNLOADS_PER_WINDOW;
+}
+
 export async function onRequestOptions() {
   return new Response(null, {
     status: 204,
@@ -199,6 +221,23 @@ async function resolveYoutubeFreshStream(videoId, targetItag = null) {
 
 export async function onRequestGet(context) {
   const { request } = context;
+
+  // Enforce IP Rate Limiting (Abuse Prevention)
+  const clientIp = request.headers.get('CF-Connecting-IP') || request.headers.get('x-real-ip') || 'unknown';
+  if (isDownloadRateLimited(clientIp)) {
+    return new Response(JSON.stringify({
+      error: 'Fair-use download limit exceeded (max 25 requests / 5 min). Please wait a few minutes before starting more downloads.',
+      code: 'RATE_LIMITED'
+    }), {
+      status: 429,
+      headers: {
+        'Content-Type': 'application/json',
+        'Retry-After': '300',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  }
+
   const urlObj = new URL(request.url);
   let targetUrl = urlObj.searchParams.get('url') || urlObj.searchParams.get('token');
   const filename = urlObj.searchParams.get('filename') || 'video.mp4';
@@ -300,6 +339,16 @@ export async function onRequestGet(context) {
     const headers = new Headers();
     const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
     const contentLength = upstream.headers.get('content-length');
+    const parsedLength = contentLength ? parseInt(contentLength, 10) : 0;
+
+    // Bigger Files Policy (> 100 MB):
+    // Streaming multi-hundred MB files through Cloudflare worker memory exhausts edge limits and triggers
+    // connection aborts. Redirect directly (HTTP 302) to the upstream CDN so the client browser handles
+    // the stream natively with full bandwidth, resume support, and zero memory exhaustion.
+    if (parsedLength > 100 * 1024 * 1024) {
+      return Response.redirect(targetUrl, 302);
+    }
+
     const contentRange = upstream.headers.get('content-range');
     const acceptRanges = upstream.headers.get('accept-ranges');
 

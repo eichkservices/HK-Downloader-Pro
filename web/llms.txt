@@ -10,7 +10,7 @@ HK Downloader Pro (https://hkdownloader.online) is a fast, free, privacy-first w
 - **TikTok Downloader**: Downloads TikTok videos in full HD without watermark, plus standalone audio tracks.
 - **Facebook & Twitter/X**: HD video download and GIF saving.
 - **Pinterest & Reddit**: Media extraction with direct download links.
-- **Android App**: Free native APK available directly from https://hkdownloader.online/hk-downloader-pro.apk.
+- **Android App**: Free native APK available from the official home page at https://hkdownloader.online/home.
 
 ## How Users Can Use It
 1. Visit https://hkdownloader.online
