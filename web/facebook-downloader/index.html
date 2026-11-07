@@ -91,7 +91,7 @@
   <link rel="apple-touch-icon" href="/logo-192.png">
   <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="/style.css?v=3.0.0">
-  <link rel="stylesheet" href="/hk-theme.css?v=3.0.5">
+  <link rel="stylesheet" href="/hk-theme.css?v=3.0.6">
 </head>
 <body>
   <div id="toastContainer"></div>
@@ -164,11 +164,13 @@
       </div>
 
             <!-- Sponsor Banner Ad (320x50) -->
-      <div id="adSlotTop" class="sponsor-station" style="margin: 14px auto 16px;">
-        <div class="ad-slot-wrap">
-          <span class="ad-tag-corner">Ad</span>
+      <div id="adSlotTop" class="sponsor-station" style="margin: 14px auto 16px; border:none; background:transparent; padding:0;">
+        <div style="width:320px; max-width:100%; margin:0 auto;">
+          <div style="display:flex; justify-content:flex-end; margin-bottom:3px; padding-right:2px;">
+            <span style="font-family:'Chakra Petch',sans-serif; font-size:9px; font-weight:700; color:rgba(255,255,255,0.45); letter-spacing:.08em; text-transform:uppercase;">AD</span>
+          </div>
           <div class="sponsor-frame-320">
-            <iframe id="mainAdFrame" src="/ad-320x50" width="320" height="50" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:320px;height:50px;max-width:100%;display:block;"></iframe>
+            <iframe id="mainAdFrame" src="/ad-320x50" width="320" height="50" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:320px;height:50px;max-width:100%;display:block;border-radius:8px;"></iframe>
           </div>
         </div>
       </div>
@@ -226,8 +228,17 @@
           </div>
         </section>
 
-        <!-- Collapsible Platform Directory (50+) -->
-        <details class="platforms-collapsible" style="margin-top:16px;">
+<!-- Native Sponsored Recommendation Box (Adsterra) -->
+        <div id="adSlotNative" class="sponsor-station native" style="margin: 18px auto 14px; padding: 0; text-align: center; border: none; background: transparent;">
+          <div style="display:flex; justify-content:flex-end; margin-bottom:4px; padding-right:2px; width:100%;">
+            <span style="font-family:'Chakra Petch',sans-serif; font-size:9px; font-weight:700; color:rgba(255,255,255,0.45); letter-spacing:.08em; text-transform:uppercase;">SPONSORED</span>
+          </div>
+          <script async="async" data-cfasync="false" src="https://bellnewyork.org/21/0dc5280b04ec0aeab29bb231530dbf13"></script>
+          <div id="container-0dc5280b04ec0aeab29bb231530dbf13"></div>
+        </div>
+
+        <!-- Dedicated Platform Downloaders (50+) - Placed Down Under Sponsored Box -->
+        <details class="platforms-collapsible" style="margin-top:14px;">
           <summary class="platforms-summary">
             <span style="display:flex; align-items:center; gap:6px;">
               <span>🌐</span> Dedicated Platform Downloaders (50+)
@@ -253,16 +264,6 @@
             <a href="/platforms" style="color:#a855f7; text-decoration:none; font-weight:700;">View 50+ Hub →</a>
           </div>
         </details>
-
-        <!-- Native Banner Placement (Adsterra) -->
-        <div id="adSlotNative" class="sponsor-station native" style="margin: 20px 0 10px; padding: 10px; text-align: center; border-radius: 16px; background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.14);">
-          <small style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:11px; color:var(--mut); font-family:'Outfit',system-ui,sans-serif;">
-            <span>Sponsored Recommendation</span>
-            <span>Free High-Speed Partner</span>
-          </small>
-          <script async="async" data-cfasync="false" src="https://bellnewyork.org/21/0dc5280b04ec0aeab29bb231530dbf13"></script>
-          <div id="container-0dc5280b04ec0aeab29bb231530dbf13"></div>
-        </div>
       </div>
 
       <!-- Library Tab Page (Saved Videos Grid) -->
@@ -342,12 +343,14 @@
         </div>
       </div>
 
-      <!-- Sponsored Ad Slot (During Download - 300x250 tight wrapper with corner tag) -->
-      <div class="sponsor-station" style="margin-top: 14px;">
-        <div class="ad-slot-wrap">
-          <span class="ad-tag-corner">Ad</span>
+      <!-- Sponsored Ad Slot (During Download - 300x250 with clean outside corner tag) -->
+      <div class="sponsor-station" style="margin-top: 14px; border:none; background:transparent; padding:0;">
+        <div style="width:300px; max-width:100%; margin:0 auto;">
+          <div style="display:flex; justify-content:flex-end; margin-bottom:3px; padding-right:2px;">
+            <span style="font-family:'Chakra Petch',sans-serif; font-size:9px; font-weight:700; color:rgba(255,255,255,0.45); letter-spacing:.08em; text-transform:uppercase;">AD</span>
+          </div>
           <div id="sheetAdContainer" class="sponsor-frame-300">
-            <iframe id="sheetAdFrame" src="/ad-300x250" width="300" height="250" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:300px;height:250px;max-width:100%;display:block;"></iframe>
+            <iframe id="sheetAdFrame" src="/ad-300x250" width="300" height="250" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:300px;height:250px;max-width:100%;display:block;border-radius:10px;"></iframe>
           </div>
         </div>
       </div>
@@ -387,10 +390,14 @@
           <div id="btnNavLibComp" role="button">Library</div>
           <div id="btnNewLinkComp" role="button">New link</div>
         </div>
-        <div class="sponsor-station" style="margin-top: 14px; padding: 6px 8px;">
-          <small><span>Sponsored</span><span>Keeps downloads free</span></small>
-          <div id="compAdContainer" class="sponsor-frame-320">
-            <iframe id="compAdFrame" src="/ad-320x50" width="320" height="50" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:320px;height:50px;max-width:100%;display:block;"></iframe>
+        <div class="sponsor-station" style="margin-top: 14px; border:none; background:transparent; padding:0;">
+          <div style="width:320px; max-width:100%; margin:0 auto;">
+            <div style="display:flex; justify-content:flex-end; margin-bottom:3px; padding-right:2px;">
+              <span style="font-family:'Chakra Petch',sans-serif; font-size:9px; font-weight:700; color:rgba(255,255,255,0.45); letter-spacing:.08em; text-transform:uppercase;">AD</span>
+            </div>
+            <div id="compAdContainer" class="sponsor-frame-320">
+              <iframe id="compAdFrame" src="/ad-320x50" width="320" height="50" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:320px;height:50px;max-width:100%;display:block;border-radius:8px;"></iframe>
+            </div>
           </div>
         </div>
       </div>
