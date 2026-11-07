@@ -92,7 +92,7 @@
   <link rel="apple-touch-icon" href="logo-192.png">
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css?v=3.0.0">
-  <link rel="stylesheet" href="hk-theme.css?v=3.0.2">
+  <link rel="stylesheet" href="hk-theme.css?v=3.0.3">
 </head>
 <body>
   <div id="toastContainer"></div>
@@ -156,6 +156,14 @@
           <!-- Rendered dynamically by HKUI.showPreview -->
         </div>
         <button type="button" class="dbtn" id="dbtn">DOWNLOAD</button>
+      </div>
+
+      <!-- Main Page Sponsor Banner Ad (320x50) -->
+      <div id="adSlotTop" class="sponsor-station" style="margin: 14px 0 16px; padding: 6px 8px;">
+        <small><span>Sponsored</span><span>Free High-Speed Downloads</span></small>
+        <div class="sponsor-frame-320">
+          <iframe id="mainAdFrame" src="/ad-320x50.html" width="320" height="50" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:320px;height:50px;max-width:100%;display:block;"></iframe>
+        </div>
       </div>
 
       <!-- Live Stats Row (Today / Speed / Saved) -->
@@ -255,11 +263,11 @@
           <div><i>Status</i><span id="stt">Live</span></div>
         </div>
       </div>
-      <!-- Sponsored Ad Slot (Fixed Impression Area, no shift) -->
-      <div class="adslot">
+      <!-- Sponsored Ad Slot (During Download - 300x250) -->
+      <div class="sponsor-station" style="margin-top: 14px; padding: 8px;">
         <small><span>Sponsored</span><span>Supports free downloads</span></small>
-        <div id="sheetAdContainer">
-          <iframe srcdoc="&lt;!DOCTYPE html&gt;&lt;html&gt;&lt;head&gt;&lt;base target='_blank'&gt;&lt;style&gt;body{margin:0;padding:0;background:transparent;display:flex;justify-content:center;align-items:center;}&lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;script&gt;atOptions = {'key' : 'd7f3167ed3f54a1c22e2784563d62361','format' : 'iframe','height' : 250,'width' : 300,'params' : {}};&lt;/script&gt;&lt;script src='https://bellnewyork.org/22/d7f3167ed3f54a1c22e2784563d62361'&gt;&lt;/script&gt;&lt;/body&gt;&lt;/html&gt;" width="300" height="250" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:300px;height:250px;max-width:100%;display:block;"></iframe>
+        <div id="sheetAdContainer" class="sponsor-frame-300">
+          <iframe id="sheetAdFrame" src="/ad-300x250.html" width="300" height="250" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:300px;height:250px;max-width:100%;display:block;"></iframe>
         </div>
       </div>
       <div class="cx" id="btnCancelSheet" role="button">Cancel download</div>
@@ -299,10 +307,10 @@
           <div id="btnNavLibComp" role="button">Library</div>
           <div id="btnNewLinkComp" role="button">New link</div>
         </div>
-        <div class="ad" style="margin-top:14px;">
-          <small>Sponsored · keeps downloads free</small>
-          <div id="compAdContainer">
-            <iframe srcdoc="&lt;!DOCTYPE html&gt;&lt;html&gt;&lt;head&gt;&lt;base target='_blank'&gt;&lt;style&gt;body{margin:0;padding:0;background:transparent;display:flex;justify-content:center;align-items:center;}&lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;script&gt;atOptions = {'key' : '4b2df97582819d253d8e3ad0e8cdd918','format' : 'iframe','height' : 50,'width' : 320,'params' : {}};&lt;/script&gt;&lt;script src='https://bellnewyork.org/22/4b2df97582819d253d8e3ad0e8cdd918'&gt;&lt;/script&gt;&lt;/body&gt;&lt;/html&gt;" width="320" height="50" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:320px;height:50px;max-width:100%;display:block;"></iframe>
+        <div class="sponsor-station" style="margin-top: 14px; padding: 6px 8px;">
+          <small><span>Sponsored</span><span>Keeps downloads free</span></small>
+          <div id="compAdContainer" class="sponsor-frame-320">
+            <iframe id="compAdFrame" src="/ad-320x50.html" width="320" height="50" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:320px;height:50px;max-width:100%;display:block;"></iframe>
           </div>
         </div>
       </div>
@@ -427,7 +435,7 @@
 
   <!-- Scripts: i18n, HKUI Controller, and Main App Engine -->
   <script src="i18n.js?v=3.0.0"></script>
-  <script src="hk-ui.js?v=3.0.0"></script>
+  <script src="hk-ui.js?v=3.0.3"></script>
   <script src="app.js?v=3.0.0"></script>
 </body>
 </html>

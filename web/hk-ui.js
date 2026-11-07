@@ -86,6 +86,8 @@
         $('sheetTags').innerHTML = '<span>' + (info.quality || 'HD MP4') + '</span><span>High Speed</span>';
       }
       this.progress({ percent: 0, doneMB: 0, speedMB: 0, etaSec: null });
+      var saf = $('sheetAdFrame');
+      if (saf) saf.src = '/ad-300x250.html?r=' + Date.now();
       var r = root();
       if (r) r.classList.add('open');
     },
@@ -117,6 +119,8 @@
         if ($('compTags') && info) {
           $('compTags').innerHTML = '<span>' + (info.quality || '1080p HD') + '</span><span>No watermark</span><span>' + (info.ext ? info.ext.toUpperCase() : 'MP4') + '</span>';
         }
+        var caf = $('compAdFrame');
+        if (caf) caf.src = '/ad-320x50.html?r=' + Date.now();
         comp.classList.remove('hidden');
       }
     },
