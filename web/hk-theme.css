@@ -15,6 +15,9 @@ background:radial-gradient(420px 300px at 0% 0%,rgba(255,122,26,.30),transparent
 @keyframes scan{to{top:100%}}
 .hk-app>*{position:relative;z-index:1}
 .top{display:flex;align-items:center;gap:10px}
+.brand-link{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--tx);user-select:none}
+.hk-logo{width:34px;height:34px;min-width:34px;border-radius:9px;object-fit:cover;box-shadow:0 0 16px rgba(255,122,26,.45),0 2px 8px rgba(0,0,0,.6);border:1px solid rgba(255,122,26,.3);transition:transform .2s ease,box-shadow .2s ease}
+.brand-link:hover .hk-logo{transform:scale(1.06);box-shadow:0 0 22px rgba(34,211,238,.6),0 2px 10px rgba(0,0,0,.7);border-color:rgba(34,211,238,.5)}
 .hex{width:42px;height:46px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:linear-gradient(135deg,var(--org),#ffb347 55%,var(--cy));display:grid;place-items:center;filter:drop-shadow(0 0 10px rgba(255,122,26,.8));font:600 15px 'Chakra Petch';color:#1a0b00}
 .name{font:600 18px 'Chakra Petch';letter-spacing:.02em;white-space:nowrap}
 .name b{background:linear-gradient(90deg,var(--org),var(--cy));-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:600}
@@ -150,7 +153,7 @@ h1 span{background:linear-gradient(90deg,var(--org),#ffd27a);-webkit-background-
 .q span{cursor:pointer}
 
 /* Modal sheets cybernetic theme */
-#completeView .modal-sheet, #policyModal .modal-sheet, #deleteModal .modal-card {
+#completeView .modal-sheet, #policyModal .modal-sheet, #deleteModal .modal-card, #installModal .modal-sheet {
   background: linear-gradient(180deg, rgba(14,22,46,.98), rgba(6,10,24,.99))!important;
   border: 1px solid rgba(34,211,238,.45)!important;
   box-shadow: 0 0 50px rgba(34,211,238,.28), 0 -2px 0 rgba(255,122,26,.6)!important;

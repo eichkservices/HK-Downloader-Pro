@@ -92,7 +92,7 @@
   <link rel="apple-touch-icon" href="logo-192.png">
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css?v=3.0.0">
-  <link rel="stylesheet" href="hk-theme.css?v=3.0.1">
+  <link rel="stylesheet" href="hk-theme.css?v=3.0.2">
 </head>
 <body>
   <div id="toastContainer"></div>
@@ -103,8 +103,10 @@
     <div class="bgdim" id="bgDimArea">
       <!-- Top Cyber Bar -->
       <div class="top">
-        <div class="hex">HK</div>
-        <div class="name">HK <b>Downloader</b> Pro</div>
+        <a href="/" class="brand-link" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;">
+          <img src="logo.png" alt="HK Downloader Pro logo" class="hk-logo" width="34" height="34">
+          <div class="name">HK <b>Downloader</b> Pro</div>
+        </a>
         <div class="top-actions" style="margin-left:auto; display:flex; align-items:center; gap:8px;">
           <!-- Language Selector -->
           <button id="langPickerBtn" class="sb" style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:6px 10px;" title="Change Language">
@@ -117,6 +119,12 @@
           <a href="/platforms" class="sb" style="text-decoration:none;display:flex;align-items:center;gap:4px;padding:6px 10px;" title="Supported Platforms (50+)">
             <span>🌐</span><span>50+</span>
           </a>
+
+          <!-- Add to Home Screen (Instant PWA) -->
+          <button id="btnHeaderInstall" class="sb" style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:6px 10px;color:var(--org);border-color:rgba(255,122,26,0.35);" title="Add to Home Screen (Instant PWA)">
+            <img src="logo.png" alt="Logo" style="width:16px;height:16px;border-radius:4px;object-fit:cover;">
+            <span data-i18n="navInstallApp">Add to Home</span>
+          </button>
         </div>
       </div>
 
@@ -386,6 +394,30 @@
         <button id="btnDelTaskOnly" class="btn-del-opt" style="padding:10px 14px; border-radius:10px; background:rgba(255,255,255,0.05); color:#fff; border:1px solid var(--glass-border); cursor:pointer;">Delete Record Only</button>
         <button id="btnDelTaskAndFile" class="btn-del-opt danger" style="padding:10px 14px; border-radius:10px; background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3); cursor:pointer;">Delete Record & File</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Add to Home Screen (PWA) Modal Sheet -->
+  <div id="installModal" class="modal-overlay hidden">
+    <div class="modal-sheet" style="max-width: 440px; padding: 22px;">
+      <div class="install-sheet-header" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <img src="logo.png" alt="HK Downloader Pro logo" style="width:42px; height:42px; border-radius:10px; object-fit:cover; box-shadow:0 0 16px rgba(255,122,26,0.5);">
+          <div>
+            <h3 style="margin:0; font-family:'Chakra Petch',sans-serif; font-size:17px; font-weight:700; color:#fff;">HK Downloader Pro</h3>
+            <p style="margin:2px 0 0; font-size:12px; color:var(--mut);">Universal Media Downloader & Player</p>
+          </div>
+        </div>
+        <button id="closeInstallModal" class="sb" style="padding:6px 10px; font-size:18px; line-height:1; cursor:pointer;" aria-label="Close modal">&times;</button>
+      </div>
+      <button id="btnModalPwa" class="sb" style="width:100%; display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:14px; background:rgba(255,122,26,0.08); border:1px solid rgba(255,122,26,0.4); cursor:pointer; text-align:left;">
+        <img src="logo.png" alt="Add to Home" style="width:36px; height:36px; border-radius:8px; object-fit:cover;">
+        <div style="flex:1;">
+          <div style="font-weight:600; font-size:14px; color:#fff; display:flex; align-items:center; gap:6px;">Add to Home Screen <span style="font-size:10px; padding:2px 6px; border-radius:6px; background:var(--org); color:#1a0b00; font-weight:700;">Instant</span></div>
+          <div style="font-size:11px; color:var(--mut); margin-top:2px;">Install web app for fast one-tap home screen access on all devices</div>
+        </div>
+        <span style="font-size:16px; color:var(--org);">→</span>
+      </button>
     </div>
   </div>
 
