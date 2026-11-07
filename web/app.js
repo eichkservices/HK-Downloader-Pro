@@ -1406,20 +1406,123 @@ document.addEventListener('DOMContentLoaded', () => {
     if (fbx) fbx.classList.remove('flash');
     if (fbtn) fbtn.textContent = 'DONE';
 
-    // Map resolutions into human-readable quality badges
-    const qualities = [];
-    data.formats.forEach((f, idx) => {
-      let qLabel = f.note || 'Video';
-      if (f.ext === 'mp3' || f.isAudio) qLabel = 'MP3 Audio';
-      else if (qLabel.includes('1080') || f.quality === '1080') qLabel = '1080p FHD';
-      else if (qLabel.includes('720') || f.quality === '720') qLabel = '720p HD';
-      else if (qLabel.includes('480') || f.quality === '480') qLabel = '480p';
-      else if (qLabel.includes('360') || f.quality === '360') qLabel = '360p';
-      else if (qLabel.includes('4K') || f.quality === '2160') qLabel = '4K UHD';
-      qualities.push(qLabel);
-    });
+    // Curate formats into clean, human-readable tiers:
+    // 1. Original (for best available quality) with resolution (e.g. Original (1080p), Original (4K))
+    // 2. HD 1080p if 2nd after original
+    // 3. 720p, 480p, 360p (cleanly filtered, no 240p/144p clutter)
+    // 4. MP3 Audio
+    function curateFormats(rawFormats) {
+      if (!rawFormats || rawFormats.length === 0) return { formats: [], qualities: [] };
 
-    const primaryFormat = data.formats[0] || {};
+      const videoFormats = [];
+      let bestAudioFormat = null;
+
+      rawFormats.forEach(f => {
+        const isAud = f.ext === 'mp3' || f.isAudio || (f.note && f.note.toLowerCase().includes('audio')) || (f.type && f.type === 'audio');
+        if (isAud) {
+          if (!bestAudioFormat) bestAudioFormat = f;
+          return;
+        }
+
+        let res = 0;
+        if (f.quality && !isNaN(parseInt(f.quality, 10))) {
+          res = parseInt(f.quality, 10);
+        } else if (f.height && !isNaN(parseInt(f.height, 10))) {
+          res = parseInt(f.height, 10);
+        } else if (f.note) {
+          const match = f.note.match(/(\d{3,4})p/i);
+          if (match) res = parseInt(match[1], 10);
+          else if (f.note.includes('4K') || f.note.includes('2160')) res = 2160;
+          else if (f.note.includes('1440')) res = 1440;
+          else if (f.note.includes('1080')) res = 1080;
+          else if (f.note.includes('720')) res = 720;
+          else if (f.note.includes('480')) res = 480;
+          else if (f.note.includes('360')) res = 360;
+          else if (f.note.includes('320')) res = 320;
+          else if (f.note.includes('240')) res = 240;
+        }
+
+        videoFormats.push({ format: f, res: res });
+      });
+
+      videoFormats.sort((a, b) => b.res - a.res);
+
+      const seenRes = new Set();
+      const uniqueVideos = [];
+      videoFormats.forEach(item => {
+        if (item.res > 0) {
+          if (!seenRes.has(item.res)) {
+            seenRes.add(item.res);
+            uniqueVideos.push(item);
+          }
+        } else if (uniqueVideos.length === 0) {
+          uniqueVideos.push(item);
+        }
+      });
+
+      const curatedVideos = [];
+      if (uniqueVideos.length > 0) {
+        const top = uniqueVideos[0];
+        let topLabel = 'Original';
+        if (top.res >= 2160) topLabel = 'Original (4K)';
+        else if (top.res >= 1440) topLabel = 'Original (1440p)';
+        else if (top.res >= 1080) topLabel = 'Original (1080p)';
+        else if (top.res > 0) topLabel = `Original (${top.res}p)`;
+        else topLabel = 'Original';
+
+        curatedVideos.push({ format: top.format, label: topLabel, res: top.res });
+
+        for (let i = 1; i < uniqueVideos.length; i++) {
+          const v = uniqueVideos[i];
+          let label = '';
+          if (v.res >= 1080) {
+            label = 'HD 1080p';
+          } else if (v.res >= 720) {
+            label = '720p';
+          } else if (v.res >= 480) {
+            label = '480p';
+          } else if (v.res >= 360) {
+            label = '360p';
+          } else if (v.res >= 320) {
+            label = '320p';
+          } else if (curatedVideos.length < 3 && v.res > 0) {
+            label = `${v.res}p`;
+          } else {
+            continue; // drop clutter like 240p/144p when better tiers exist
+          }
+
+          if (curatedVideos.length < 4) {
+            curatedVideos.push({ format: v.format, label: label, res: v.res });
+          }
+        }
+      }
+
+      const finalFormats = [];
+      const finalQualities = [];
+
+      curatedVideos.forEach(item => {
+        finalFormats.push(item.format);
+        finalQualities.push(item.label);
+      });
+
+      if (bestAudioFormat) {
+        finalFormats.push(bestAudioFormat);
+        finalQualities.push('MP3 Audio');
+      }
+
+      if (finalFormats.length === 0) {
+        return {
+          formats: rawFormats.slice(0, 4),
+          qualities: rawFormats.slice(0, 4).map(f => f.note || 'Video')
+        };
+      }
+
+      return { formats: finalFormats, qualities: finalQualities };
+    }
+
+    const { formats: curatedFormats, qualities: curatedQualities } = curateFormats(data.formats);
+
+    const primaryFormat = curatedFormats[0] || {};
     const primarySizeMB = primaryFormat.sizeBytes ? (primaryFormat.sizeBytes / 1048576).toFixed(1) : (primaryFormat.size ? (primaryFormat.size / 1048576).toFixed(1) : '5.3');
 
     if (window.HKUI) {
@@ -1427,8 +1530,8 @@ document.addEventListener('DOMContentLoaded', () => {
         title: data.title || 'Video',
         sizeMB: primarySizeMB,
         thumbnail: data.thumbnail || '',
-        formats: data.formats,
-        qualities: qualities,
+        formats: curatedFormats,
+        qualities: curatedQualities,
         selected: 0
       });
     }
@@ -1439,7 +1542,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dbtn.classList.add('tap');
         setTimeout(() => dbtn.classList.remove('tap'), 220);
         const selIdx = (window.HKUI && window.HKUI.selectedFormatIndex) ? window.HKUI.selectedFormatIndex : 0;
-        const selFormat = data.formats[selIdx] || data.formats[0];
+        const selFormat = curatedFormats[selIdx] || curatedFormats[0] || data.formats[0];
         const cleanTitle = (data.title || 'download').replace(/[\\/:*?"<>|]/g, '').trim() || 'download';
         const filename = `${cleanTitle}.${selFormat.ext || 'mp4'}`;
         const ytVidId = data.videoId || (data.url || urlInput.value || '').match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1] || '';

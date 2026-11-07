@@ -33,7 +33,8 @@
       if (titleEl) titleEl.textContent = info.title;
 
       var subEl = pv.querySelector('.s') || $('pvSubtitle');
-      if (subEl) subEl.textContent = 'VIDEO FOUND · ' + (info.sizeMB || 'HD');
+      var firstQuality = (info.qualities && info.qualities[0]) ? info.qualities[0] : '';
+      if (subEl) subEl.textContent = 'VIDEO FOUND · ' + (info.sizeMB && info.sizeMB !== 'HD' ? info.sizeMB + ' MB' : firstQuality || 'HD');
 
       var thumbEl = pv.querySelector('.th') || $('pvThumb');
       if (thumbEl) {
@@ -57,8 +58,9 @@
             HKUI.selectedFormatIndex = parseInt(sp.getAttribute('data-i'), 10) || 0;
             if (info.formats && info.formats[HKUI.selectedFormatIndex]) {
               var f = info.formats[HKUI.selectedFormatIndex];
-              var mb = f.sizeBytes ? (f.sizeBytes / 1048576).toFixed(1) + ' MB' : (f.size ? (f.size / 1048576).toFixed(1) + ' MB' : 'HD');
-              if (subEl) subEl.textContent = 'VIDEO FOUND · ' + mb;
+              var qualityName = info.qualities ? info.qualities[HKUI.selectedFormatIndex] : '';
+              var mb = f.sizeBytes ? (f.sizeBytes / 1048576).toFixed(1) + ' MB' : (f.size ? (f.size / 1048576).toFixed(1) + ' MB' : '');
+              if (subEl) subEl.textContent = 'READY · ' + (qualityName ? qualityName + (mb ? ' (' + mb + ')' : '') : (mb || 'HD'));
             }
           });
         });

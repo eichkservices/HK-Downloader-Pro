@@ -132,8 +132,11 @@ h1 span{background:linear-gradient(90deg,var(--org),#ffd27a);-webkit-background-
 @keyframes rt2{to{transform:rotate(360deg)}}
 .pv{opacity:0;transform:translateY(24px) scale(.97);transition:all .7s cubic-bezier(.2,.8,.2,1);padding:14px;border-radius:22px;background:linear-gradient(130deg,rgba(34,211,238,.12),rgba(255,255,255,.03) 60%);border:1px solid rgba(34,211,238,.45);box-shadow:0 0 24px rgba(34,211,238,.18)}
 .pv.show{opacity:1;transform:none}
-.q{display:flex;gap:8px;margin:14px 0}.q span{flex:1;text-align:center;font:500 12px 'Chakra Petch';padding:9px 0;border-radius:12px;border:1px solid rgba(255,255,255,.14);color:var(--mut);background:rgba(255,255,255,.04);transition:all .3s}
-.q span.on{color:#1a0b00;background:var(--cy);border-color:var(--cy);box-shadow:0 0 16px rgba(34,211,238,.8)}
+.q{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0;justify-content:center}
+.q span{flex:1 1 calc(33.333% - 8px);min-width:92px;max-width:calc(50% - 4px);height:42px;display:flex;align-items:center;justify-content:center;text-align:center;font:600 13px/1.2 'Chakra Petch',sans-serif;letter-spacing:.02em;padding:0 8px;border-radius:12px;border:1px solid rgba(255,255,255,.16);color:#cbd5e1;background:rgba(255,255,255,.04);cursor:pointer;user-select:none;white-space:nowrap;box-sizing:border-box;transition:all .2s cubic-bezier(.2,.8,.2,1)}
+.q span:hover{border-color:rgba(34,211,238,.55);background:rgba(34,211,238,.09);color:#fff;transform:translateY(-1px)}
+.q span:active{transform:scale(.96)}
+.q span.on{color:#040711!important;background:linear-gradient(135deg,#22d3ee,#06b6d4)!important;border-color:#22d3ee!important;box-shadow:0 0 18px rgba(34,211,238,.85)!important;font-weight:700!important;transform:scale(1.02)}
 .dbtn{width:100%;height:50px;border:0;font:600 16px 'Chakra Petch';color:#1a0b00;background:linear-gradient(135deg,#ffa24a,var(--org));clip-path:polygon(14px 0,100% 0,calc(100% - 14px) 100%,0 100%);box-shadow:0 0 26px rgba(255,122,26,.9);transition:transform .15s,filter .15s}
 .dbtn.tap{transform:scale(.94);filter:brightness(1.4)}
 .go.tap{transform:scale(.9);filter:brightness(1.4)}
