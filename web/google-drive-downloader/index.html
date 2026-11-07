@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+<meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Google Drive Direct Download Link Generator & File Saver Free</title>
   
@@ -82,265 +82,382 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="icon" type="image/png" sizes="192x192" href="/logo-192.png">
-  <link rel="stylesheet" href="/style.css?v=2.9.5">
+  <!-- Google Fonts: Chakra Petch + Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/png" sizes="192x192" href="/logo-192.png">
+  <link rel="apple-touch-icon" href="/logo-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/style.css?v=3.0.0">
+  <link rel="stylesheet" href="/hk-theme.css?v=3.0.5">
 </head>
 <body>
-  <div class="mobile-frame">
-    <div id="ambientBg" class="ambient-bg">
-      <div class="ambient-blob b1"></div>
-      <div class="ambient-blob b2"></div>
-      <div class="ambient-blob b3"></div>
-    </div>
-    <div id="toastContainer"></div>
+  <div id="toastContainer"></div>
 
-    <header class="app-header">
-      <a href="/" class="header-brand-wrap" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff;">
-        <img src="/logo.png" alt="HK Downloader Pro logo" class="header-logo-icon" style="width: 28px; height: 28px; min-width: 28px; border-radius: 7px; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.4);">
-        <h1 class="header-title" style="margin: 0; font-size: 17px; font-weight: 700;">HK Downloader Pro</h1>
-      </a>
-      
-      <div class="header-right-actions">
-        <div class="lang-switcher-wrap">
-          <button id="langPickerBtn" class="lang-picker-btn">
+  <!-- Futuristic HK App Container -->
+  <div class="hk-app" id="flow">
+    <!-- Main Scrollable Background Area -->
+    <div class="bgdim" id="bgDimArea">
+      <!-- Top Cyber Bar -->
+      <div class="top">
+        <a href="/" class="brand-link" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;">
+          <img src="/logo.png" alt="HK Downloader Pro logo" class="hk-logo" width="34" height="34">
+          <div class="name">HK <b>Downloader</b> Pro</div>
+        </a>
+        <div class="top-actions" style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+          <!-- Language Selector -->
+          <button id="langPickerBtn" class="sb" style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:6px 10px;" title="Change Language">
             <span id="currentLangFlag">🇺🇸</span>
             <span id="currentLangLabel">EN</span>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"></path></svg>
           </button>
           <div id="langDropdown" class="lang-dropdown hidden"></div>
+
+          <!-- 50+ Sites Hub Pill -->
+          <a href="/platforms" class="sb" style="text-decoration:none;display:flex;align-items:center;gap:4px;padding:6px 10px;" title="Supported Platforms (50+)">
+            <span>🌐</span><span>50+</span>
+          </a>
+
+          <!-- Add to Home Screen (Instant PWA) -->
+          <button id="btnHeaderInstall" class="sb" style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:6px 10px;color:var(--org);border-color:rgba(255,122,26,0.35);" title="Add to Home Screen (Instant PWA)">
+            <img src="/logo.png" alt="Logo" style="width:16px;height:16px;border-radius:4px;object-fit:cover;">
+            <span data-i18n="navInstallApp">Add to Home</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Dynamic Platform Hero Badge -->
+      <div style="text-align:center; margin-top: 14px;">
+        <div class="platform-hero-badge" style="background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.35); color:#10b981;">
+          <span class="platform-icon-box"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7.71 3.5L1.15 15l3.43 6 6.55-11.5L7.71 3.5zm1.72 6.5l3.43 6h9.99l-3.43-6H9.43zm6.86-6.5l-3.43 6 4.99 8.5 3.43-6-4.99-8.5z"/></svg></span>
+          <span>GOOGLE DRIVE DIRECT DOWNLOADER</span>
+        </div>
+      </div>
+
+      <!-- Hero Headline -->
+      <h1>Download Google Drive <span>Direct Files</span></h1>
+      <p class="sub">Direct high-speed stream extraction bypassing quota limits.</p>
+
+      <!-- Glowing Cyber Input Box -->
+      <div class="bx" id="fbx">
+        <div>
+          <input type="text" id="urlInput" placeholder="Paste Google Drive public share link here..." autocomplete="off" spellcheck="false">
+          <button type="button" class="go" id="fbtn">PASTE</button>
+        </div>
+      </div>
+
+      <!-- Cyber Status Line -->
+      <div class="fst" id="fst">&nbsp;</div>
+
+      <!-- Dynamic Preview Card -->
+      <div class="pv hidden" id="pv">
+        <div class="dl-h">
+          <div class="th" id="pvThumb" style="width:54px;height:54px">&#9654;</div>
+          <div style="min-width:0;flex:1">
+            <div class="dl-t" id="pvTitle">Media Title</div>
+            <div class="s" id="pvSubtitle" style="margin-top:3px">VIDEO FOUND · 5.3 MB</div>
+          </div>
+        </div>
+        <div class="q" id="pvQualities"></div>
+        <button type="button" class="dbtn" id="dbtn">DOWNLOAD</button>
+      </div>
+
+      <!-- Sponsor Banner Ad (320x50) -->
+      <div id="adSlotTop" class="sponsor-station" style="margin: 14px 0 16px; padding: 6px 8px;">
+        <small><span>Sponsored</span><span>Free High-Speed Downloads</span></small>
+        <div class="sponsor-frame-320">
+          <iframe id="mainAdFrame" src="/ad-320x50" width="320" height="50" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:320px;height:50px;max-width:100%;display:block;"></iframe>
+        </div>
+      </div>
+
+      <!-- Live Stats Row -->
+      <div class="stats">
+        <div class="st"><b id="statToday" data-n="14" data-u="">14</b><small>Today</small></div>
+        <div class="st"><b id="statSpeed" data-n="4.6" data-u=" MB/s">4.6 MB/s</b><small>Speed</small></div>
+        <div class="st"><b id="statSaved" data-n="2.1" data-u=" GB">2.1 GB</b><small>Saved</small></div>
+      </div>
+
+      <!-- Downloader Tab Content -->
+      <div id="tabDownloader" class="tab-page active">
+        <div class="lbl">RECENT</div>
+        <div id="downloadsList" class="recent-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+          <div id="emptyState" class="empty-state" style="padding: 24px 16px; text-align: center; color: var(--mut); font-size: 13px; background: rgba(255,255,255,0.02); border-radius: 16px; border: 1px dashed rgba(255,255,255,0.1);">
+            <p style="margin:0;">No downloads yet. Paste any Google Drive link above!</p>
+          </div>
         </div>
 
-        <button id="btnHeaderInstall" class="btn-header-install">
-          <img src="/logo.png" alt="Logo" class="install-btn-logo" style="width: 18px; height: 18px; border-radius: 4px; object-fit: cover;">
-          <span data-i18n="navInstallApp">Install App</span>
-        </button>
-      </div>
-    </header>
-
-    <div class="content-scroll">
-      <div id="tabDownloader" class="tab-page active">
-        <section class="section-container" style="text-align: center; padding-top: 10px;">
-          <div style="display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; color:#10b981; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.25); padding:4px 12px; border-radius:999px; margin-bottom:12px;">
-            <span>💾</span> GOOGLE DRIVE DIRECT LINK GENERATOR
-          </div>
-          <h2 style="font-size:26px; font-weight:800; color:#fff; margin:0 0 8px; line-height:1.3;">Google Drive Direct File Downloader</h2>
-          <p style="font-size:13px; color:var(--text-secondary); max-width:540px; margin:0 auto 18px; line-height:1.5;">Convert Google Drive sharing URLs into direct high-speed download links. Bypass preview screens effortlessly.</p>
-
-          <form id="downloadForm" class="glowing-input-box">
-            <div class="input-inner">
-              <input type="text" id="urlInput" placeholder="Paste Google Drive file link (drive.google.com/file/d/...)..." autocomplete="off" spellcheck="false">
-            </div>
-            <button type="submit" id="analyzeBtn" class="btn-start-download">
-              <span id="btnText">Download</span>
-              <span id="btnSpinner" class="spinner hidden"></span>
-            </button>
-          </form>
-
-          <!-- Top Ad Slot Container -->
-          <div id="adSlotTop" class="ad-slot-container" style="min-height: 52px; display: flex; justify-content: center; align-items: center; margin: 12px 0;">
-            <iframe srcdoc="&lt;!DOCTYPE html&gt;&lt;html&gt;&lt;head&gt;&lt;base target='_blank'&gt;&lt;style&gt;body{margin:0;padding:0;background:transparent;display:flex;justify-content:center;align-items:center;}&lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;script&gt;atOptions = {'key' : '4b2df97582819d253d8e3ad0e8cdd918','format' : 'iframe','height' : 50,'width' : 320,'params' : {}};&lt;/script&gt;&lt;script src='https://bellnewyork.org/22/4b2df97582819d253d8e3ad0e8cdd918'&gt;&lt;/script&gt;&lt;/body&gt;&lt;/html&gt;" width="320" height="50" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:320px;height:50px;max-width:100%;display:block;"></iframe>
-          </div>
-        </section>
-
-        <!-- Active Downloads -->
-        <section class="section-container active-section">
-          <div class="section-header">
-            <h2 class="section-title">Active Downloads</h2>
-            <button id="clearHistoryBtn" class="btn-clear">Clear Completed</button>
-          </div>
-          <div id="downloadsList" class="downloads-list">
-            <div id="emptyState" class="empty-state">
-              <div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></div>
-              <p>No active downloads</p>
-            </div>
-          </div>
-        </section>
-
         <!-- Platform Specific SEO Guide Section -->
-        <section class="section-container" style="margin-top:24px; padding:20px; background:rgba(255,255,255,0.02); border:1px solid var(--glass-border); border-radius:16px;">
-          <h3 style="color:#fff; font-size:18px; font-weight:800; margin:0 0 14px;">How to Get Google Drive Direct Download Links</h3>
-          <ol style="color:var(--text-secondary); font-size:13px; line-height:1.8; padding-left:20px; margin:0 0 20px;">
-            <li><strong style="color:#fff;">Share File:</strong> Right-click the file in Google Drive, select "Share" → ensure General Access is "Anyone with the link".</li>
-            <li><strong style="color:#fff;">Paste URL:</strong> Paste the link into HK Downloader and tap Download.</li>
-            <li><strong style="color:#fff;">Instant Direct Link:</strong> Click to download the file directly at maximum connection speed.</li>
+        <section class="platform-seo-guide" >
+          <h3 >How to Get Google Drive Direct Download Links</h3>
+          <ol >
+            <li><strong >Share File:</strong> Right-click the file in Google Drive, select "Share" → ensure General Access is "Anyone with the link".</li>
+            <li><strong >Paste URL:</strong> Paste the link into HK Downloader and tap Download.</li>
+            <li><strong >Instant Direct Link:</strong> Click to download the file directly at maximum connection speed.</li>
           </ol>
 
-          <h3 style="color:#fff; font-size:16px; font-weight:800; margin:0 0 10px;">Why Use HK Downloader for Google Drive?</h3>
-          <ul style="color:var(--text-secondary); font-size:13px; line-height:1.7; padding-left:18px; margin:0 0 20px;">
+          <h3 >Why Use HK Downloader for Google Drive?</h3>
+          <ul >
             <li><strong>No Preview Screen:</strong> Downloads directly without forcing you to view Google's web player or document viewer.</li>
             <li><strong>Multi-Connection Speed:</strong> Supports parallel download managers and mobile background savers.</li>
             <li><strong>100% Free:</strong> No registration or limits.</li>
           </ul>
 
           <!-- Other Platforms -->
-          <div style="border-top:1px solid var(--glass-border); padding-top:16px;">
-            <div style="font-size:12px; font-weight:700; color:#cbd5e1; margin-bottom:10px;">Explore More Free Downloaders:</div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-              <a href="/dropbox-downloader" style="font-size:12px; color:#3b82f6; text-decoration:none;">Dropbox Downloader</a> •
-              <a href="/mega-downloader" style="font-size:12px; color:#ef4444; text-decoration:none;">Mega Downloader</a> •
-              <a href="/dailymotion-downloader" style="font-size:12px; color:#0284c7; text-decoration:none;">Dailymotion</a> •
-              <a href="/youtube-downloader" style="font-size:12px; color:#ef4444; text-decoration:none;">YouTube 4K</a> •
-              <a href="/tiktok-downloader" style="font-size:12px; color:#22d3ee; text-decoration:none;">TikTok No Watermark</a> •
-              <a href="/platforms" style="font-size:12px; color:#a855f7; text-decoration:none; font-weight:700;">All 50+ Platforms →</a>
+          <div >
+            <div >Explore More Free Downloaders:</div>
+            <div >
+              <a href="/dropbox-downloader" >Dropbox Downloader</a> •
+              <a href="/mega-downloader" >Mega Downloader</a> •
+              <a href="/dailymotion-downloader" >Dailymotion</a> •
+              <a href="/youtube-downloader" >YouTube 4K</a> •
+              <a href="/tiktok-downloader" >TikTok No Watermark</a> •
+              <a href="/platforms" >All 50+ Platforms →</a>
             </div>
           </div>
         </section>
 
-        <!-- Bottom Ad Slot -->
-        <div id="adSlotBottom" class="ad-slot-container fixed-ad-slot" style="margin-top:20px;">
-          <script async="async" data-cfasync="false" src="https://bellnewyork.org/21/0dc5280b04ec0aeab29bb231530dbf13"></script>
-          <div id="container-0dc5280b04ec0aeab29bb231530dbf13"></div>
-        </div>
-
-        <footer class="legal-footer">
-          <a href="/platforms">Supported Platforms</a> • 
-          <a href="/home">Features & Guides</a> • 
-          <a href="/privacy.html">Privacy Policy</a> • 
-          <a href="/terms.html">Terms of Service</a> • 
-          <a href="/dmca.html">DMCA & Contact</a>
-        </footer>
+        <!-- Collapsible Platform Directory (50+) -->
+        <details class="platforms-collapsible" style="margin-top:16px;">
+          <summary class="platforms-summary">
+            <span style="display:flex; align-items:center; gap:6px;">
+              <span>🌐</span> Dedicated Platform Downloaders (50+)
+            </span>
+            <span class="platforms-summary-chevron">▼</span>
+          </summary>
+          <div class="platforms-drawer-content">
+            <a href="/youtube-downloader" style="color:#ef4444; text-decoration:none; font-weight:600;">YouTube 4K</a> •
+            <a href="/tiktok-downloader" style="color:#22d3ee; text-decoration:none; font-weight:600;">TikTok No-Watermark</a> •
+            <a href="/instagram-downloader" style="color:#ec4899; text-decoration:none; font-weight:600;">Instagram Reels</a> •
+            <a href="/facebook-downloader" style="color:#3b82f6; text-decoration:none; font-weight:600;">Facebook HD</a> •
+            <a href="/twitter-downloader" style="color:#38bdf8; text-decoration:none; font-weight:600;">Twitter/X Clips</a> •
+            <a href="/reddit-downloader" style="color:#ff6a1f; text-decoration:none; font-weight:600;">Reddit Audio</a> •
+            <a href="/snapchat-downloader" style="color:#ffd600; text-decoration:none; font-weight:600;">Snapchat HD</a> •
+            <a href="/google-drive-downloader" style="color:#10b981; text-decoration:none; font-weight:600;">Google Drive</a> •
+            <a href="/dropbox-downloader" style="color:#3b82f6; text-decoration:none; font-weight:600;">Dropbox</a> •
+            <a href="/mega-downloader" style="color:#ef4444; text-decoration:none; font-weight:600;">Mega Cloud</a> •
+            <a href="/soundcloud-downloader" style="color:#f97316; text-decoration:none; font-weight:600;">SoundCloud MP3</a> •
+            <a href="/dailymotion-downloader" style="color:#06b6d4; text-decoration:none; font-weight:600;">Dailymotion 1080p</a> •
+            <a href="/vimeo-downloader" style="color:#06b6d4; text-decoration:none; font-weight:600;">Vimeo 4K</a> •
+            <a href="/twitch-downloader" style="color:#9333ea; text-decoration:none; font-weight:600;">Twitch 60fps</a> •
+            <a href="/pinterest-downloader" style="color:#e11d48; text-decoration:none; font-weight:600;">Pinterest Pins</a> •
+            <a href="/platforms" style="color:#a855f7; text-decoration:none; font-weight:700;">View 50+ Hub →</a>
+          </div>
+        </details>
       </div>
 
-      <!-- Library Tab Page -->
+      <!-- Library Tab Page (Saved Videos Grid) -->
       <div id="tabLibrary" class="tab-page hidden">
-        <section class="section-container">
-          <div class="section-header">
-            <h2 class="section-title">Media Library</h2>
-            <span id="libraryCount" class="badge-count">0 Files</span>
+        <div class="lbl" style="display:flex; justify-content:space-between; align-items:center;">
+          <span>SAVED LIBRARY</span>
+          <span id="libraryCount" style="font-size:11px;color:var(--mut);">0 Files</span>
+        </div>
+        <div id="libraryGrid" class="library-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px;">
+          <div id="libraryEmptyState" class="empty-state" style="grid-column:1/-1;padding:30px 16px;text-align:center;color:var(--mut);font-size:13px;background:rgba(255,255,255,0.02);border-radius:16px;border:1px dashed rgba(255,255,255,0.1);">
+            <p style="margin:0;">No saved media yet. Downloaded videos appear here for offline playback!</p>
           </div>
-          <div id="libraryGrid" class="library-grid"></div>
-          <div id="emptyLibrary" class="empty-state">
-            <div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></div>
-            <p>Your library is empty. Downloaded files will appear here!</p>
+        </div>
+      </div>
+
+      <!-- Legal Compliance & Policies Footer -->
+      <footer class="legal-footer" style="margin-top:24px; padding-bottom:80px; text-align:center; font-size:11px; color:var(--mut); display:flex; flex-wrap:wrap; justify-content:center; gap:8px;">
+        <a href="/platforms" style="color:var(--mut);text-decoration:none;">Supported Platforms</a> • 
+        <a href="/home" style="color:var(--mut);text-decoration:none;">Features & Guides</a> • 
+        <a href="#" id="btnPolicyModal" style="color:var(--cy);text-decoration:none;">🛡️ Fair Use & Big Files Policy</a> • 
+        <a href="/privacy.html" style="color:var(--mut);text-decoration:none;">Privacy Policy</a> • 
+        <a href="/terms.html" style="color:var(--mut);text-decoration:none;">Terms of Service</a> • 
+        <a href="/dmca.html" style="color:var(--mut);text-decoration:none;">DMCA & Contact</a>
+      </footer>
+    </div>
+
+    <!-- Background Scrim for Bottom Sheet -->
+    <div class="scrim" id="scrim"></div>
+
+    <!-- Download Progress Sheet (Slides up smoothly from bottom) -->
+    <div class="sheet" id="sheet">
+      <div class="grab" id="sheetGrab"></div>
+      <div class="sh-top">
+        <span class="sdot" id="sheetDot"></span>
+        <b id="sttl">Downloading media</b>
+        <div class="sb" id="btnMinimizeSheet" role="button">Minimize</div>
+        <div class="sb" id="btnCloseSheet" role="button">&#10005;</div>
+      </div>
+      <div class="dl">
+        <div class="dl-h">
+          <div class="th" id="sheetThumb" style="width:54px;height:54px">&#9654;</div>
+          <div style="min-width:0;flex:1">
+            <div class="dl-t" id="sheetMediaTitle">Media title...</div>
+            <div class="tg" id="sheetTags"><span>1080p HD</span><span>High Speed</span></div>
           </div>
-        </section>
+        </div>
+        <div class="pr"><b id="pp">0%</b><span id="sz">0.0 / 0.0 MB</span></div>
+        <div class="trk"><div class="fl" id="fl"></div></div>
+        <div class="mt">
+          <div><i>Speed</i><span id="sp">0.0 MB/s</span></div>
+          <div><i>Time left</i><span id="eta">--</span></div>
+          <div><i>Status</i><span id="stt">Live</span></div>
+        </div>
+      </div>
+      <!-- Sponsored Ad Slot (During Download - 300x250) -->
+      <div class="sponsor-station" style="margin-top: 14px; padding: 8px;">
+        <small><span>Sponsored</span><span>Supports free downloads</span></small>
+        <div id="sheetAdContainer" class="sponsor-frame-300">
+          <iframe id="sheetAdFrame" src="/ad-300x250" width="300" height="250" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:300px;height:250px;max-width:100%;display:block;"></iframe>
+        </div>
+      </div>
+      <div class="cx" id="btnCancelSheet" role="button">Cancel download</div>
+    </div>
+
+    <!-- Complete Screen Modal (Circular Neon Halo Ring at 100%) -->
+    <div id="completeView" class="modal-overlay hidden">
+      <div class="modal-sheet" style="max-width:440px; padding: 22px; text-align:center;">
+        <div class="ringw">
+          <svg class="ring" width="190" height="190" viewBox="0 0 190 190">
+            <defs>
+              <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#2ee6a0"/>
+                <stop offset="1" stop-color="#22d3ee"/>
+              </linearGradient>
+            </defs>
+            <circle cx="95" cy="95" r="82" fill="none" stroke="#14203b" stroke-width="10"/>
+            <circle class="rc" cx="95" cy="95" r="82" fill="none" stroke="url(#g)" stroke-width="10" stroke-linecap="round" stroke-dasharray="515" stroke-dashoffset="0" transform="rotate(-90 95 95)"/>
+            <circle class="rot" cx="95" cy="95" r="66" fill="none" stroke="rgba(34,211,238,.4)" stroke-dasharray="3 7"/>
+          </svg>
+          <div class="ringt"><b id="compPercent">100%</b><small id="compSavedText">5.3 MB saved</small></div>
+        </div>
+        <div class="tt" id="compHeading">Download complete</div>
+        <div class="tag" id="compTags"><span>1080p HD</span><span>No watermark</span><span>MP4</span></div>
+        <div class="item" style="margin-bottom:16px;">
+          <div class="th" id="compThumb">&#9654;</div>
+          <div class="meta" style="text-align:left;">
+            <div class="t" id="compTitle">Video Title</div>
+            <div class="s">READY TO PLAY</div>
+            <div class="bar2"><i></i></div>
+          </div>
+        </div>
+        <button type="button" class="big a" id="btnPlayPlayer">PLAY IN HK PLAYER</button>
+        <button type="button" class="big b" id="btnSaveDevice">SAVE TO DEVICE</button>
+        <div class="mini">
+          <div id="btnShareComp" role="button">Share</div>
+          <div id="btnNavLibComp" role="button">Library</div>
+          <div id="btnNewLinkComp" role="button">New link</div>
+        </div>
+        <div class="sponsor-station" style="margin-top: 14px; padding: 6px 8px;">
+          <small><span>Sponsored</span><span>Keeps downloads free</span></small>
+          <div id="compAdContainer" class="sponsor-frame-320">
+            <iframe id="compAdFrame" src="/ad-320x50" width="320" height="50" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:320px;height:50px;max-width:100%;display:block;"></iframe>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Bottom Navigation -->
-    <nav class="bottom-nav">
-      <button class="nav-item active" data-tab="downloader">
-        <div class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></div>
-        <span data-i18n="navDownloader">Downloader</span>
-      </button>
-      <button class="nav-item cyan-tab" data-tab="library">
-        <div class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></div>
-        <span data-i18n="navLibrary">Library</span>
-      </button>
-    </nav>
+    <!-- Floating Bottom Dock Navigation -->
+    <div class="dock">
+      <div id="dockNavDownloader" class="on" role="button">Downloader</div>
+      <div id="dockNavPlus" class="orb" role="button" title="Paste or Focus">+</div>
+      <div id="dockNavLibrary" role="button">Library</div>
+    </div>
   </div>
 
-  <!-- Format Selection Popup Modal -->
-  <div id="formatModal" class="modal-overlay hidden">
-    <div class="modal-card format-modal-card">
-      <div class="modal-hero-banner">
-        <img id="modalThumb" src="" alt="Cover" class="hero-cover-img hidden">
-        <div id="modalThumbFallback" class="hero-cover-fallback"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></div>
-        <div class="hero-overlay-gradient"></div>
-        <span id="modalTypeBadge" class="hero-type-badge">GOOGLE DRIVE</span>
-        <button id="closeModalBtn" class="hero-close-btn">&times;</button>
-        <h3 id="modalTitle" class="hero-video-title">File Title</h3>
+  <!-- MX Player Pro Modal -->
+  <div id="playerModal" class="modal-overlay hidden">
+    <div class="player-wrapper">
+      <div class="player-header">
+        <h3 id="playerTitle" class="player-title">Now Playing</h3>
+        <button id="closePlayerBtn" class="btn-close-player">&times;</button>
       </div>
-      <div class="modal-body-container">
-        <div class="modal-label" data-i18n="modalChooseOption">Choose Download Option:</div>
-        <div id="formatList" class="format-list"></div>
+      <div class="video-container">
+        <video id="customVideo" playsinline preload="metadata"></video>
+        <div id="mxControls" class="mx-controls">
+          <button id="mxPlayPause" class="mx-btn"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></button>
+          <div class="mx-time" id="mxTime">00:00 / 00:00</div>
+          <input type="range" id="mxSeek" class="mx-seek" min="0" max="100" value="0" step="0.1">
+          <button id="mxSpeed" class="mx-btn-text">1.0x</button>
+          <button id="mxPip" class="mx-btn"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"></rect><rect x="11" y="9" width="9" height="6" rx="1"></rect></svg></button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Task-Based Download Station Modal -->
-  <div id="taskDownloadModal" class="modal-overlay hidden">
-    <div class="modal-card task-download-card">
-      <div class="task-modal-header">
-        <div class="task-header-left">
-          <span class="task-live-indicator"><span class="pulse-dot"></span> <span id="taskStatusHeading">Downloading Media...</span></span>
-        </div>
-        <div class="task-header-actions">
-          <button id="btnMinimizeTask" class="btn-task-action" title="Minimize">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline></svg>
-            <span>Minimize</span>
-          </button>
-          <button id="btnCancelTaskModal" class="btn-task-action danger" title="Cancel">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-          </button>
-        </div>
-      </div>
-
-      <div class="task-active-card">
-        <div class="task-card-main-row">
-          <div class="task-thumb-wrap">
-            <img id="taskThumb" src="" alt="Thumbnail" class="task-thumb">
-            <div id="taskThumbFallback" class="task-thumb-fallback hidden"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></div>
-          </div>
-          <div class="task-info-wrap">
-            <h4 id="taskTitle" class="task-title">Media Title</h4>
-            <div class="task-stream-badges">
-              <span id="taskQualityBadge" class="badge-mini badge-quality">Direct Stream</span>
-              <span id="taskSpeedEtaBadge" class="badge-mini badge-orange">Preparing stream...</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="task-card-progress-section">
-          <div class="task-progress-labels">
-            <div class="task-pct-box">
-              <span id="taskProgressPct" class="task-pct">0%</span>
-              <span class="task-live-chip"><span class="pulse-dot"></span> LIVE</span>
-            </div>
-            <span id="taskProgressSize" class="task-size">Connecting...</span>
-          </div>
-          <div class="task-bar-track">
-            <div id="taskProgressBar" class="task-bar-fill" style="width: 0%"></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="taskModalAdSlot" class="task-modal-ad-slot">
-        <div class="ad-banner-header">
-          <span class="ad-pill">SPONSORED</span>
-          <span class="ad-notice">Supports free high-speed downloads</span>
-        </div>
-        <div id="taskModalAdContainer" class="ad-fixed-container" style="display:flex;justify-content:center;align-items:center;">
-          <iframe srcdoc="&lt;!DOCTYPE html&gt;&lt;html&gt;&lt;head&gt;&lt;base target='_blank'&gt;&lt;style&gt;body{margin:0;padding:0;background:transparent;display:flex;justify-content:center;align-items:center;}&lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;script&gt;atOptions = {'key' : 'd7f3167ed3f54a1c22e2784563d62361','format' : 'iframe','height' : 250,'width' : 300,'params' : {}};&lt;/script&gt;&lt;script src='https://bellnewyork.org/22/d7f3167ed3f54a1c22e2784563d62361'&gt;&lt;/script&gt;&lt;/body&gt;&lt;/html&gt;" width="300" height="250" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:300px;height:250px;max-width:100%;display:block;"></iframe>
-        </div>
-      </div>
-
-      <div id="taskCompleteActions" class="task-complete-actions hidden">
-        <div class="complete-banner">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-          <span data-i18n="taskComplete">Download Complete & Ready!</span>
-        </div>
-        <div class="complete-btn-row">
-          <button id="btnTaskPlay" class="btn-complete-play" data-i18n="btnPlay">Play in Player</button>
-          <button id="btnTaskSave" class="btn-complete-save" data-i18n="btnSave">Save to Device</button>
-        </div>
-        <button id="btnTaskCloseDone" class="btn-complete-close" data-i18n="btnClose">Done & Return</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Install Modal -->
-  <div id="installModal" class="modal-overlay hidden">
-    <div class="modal-card install-modal-card">
-      <div class="install-sheet-header">
-        <div class="install-app-preview">
-          <img src="/logo.png" alt="HK Downloader Pro logo" class="install-sheet-logo" style="width:44px; height:44px; border-radius:10px;">
+  <!-- Fair Use & Big Files Policy Modal -->
+  <div id="policyModal" class="modal-overlay hidden">
+    <div class="modal-sheet" style="max-width: 520px; text-align: left; padding: 24px;">
+      <div class="install-sheet-header" style="margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="background: rgba(34, 211, 238, 0.15); border: 1px solid rgba(34, 211, 238, 0.3); display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 12px; font-size: 22px;">🛡️</div>
           <div>
-            <h3 class="install-sheet-title">HK Downloader Pro</h3>
-            <p class="install-sheet-subtitle">Universal Media Downloader & Player</p>
+            <h3 style="margin: 0; font-size: 17px; font-weight: 700; color: #fff;">Fair Use & Download Policy</h3>
+            <p style="margin: 2px 0 0; font-size: 12px; color: var(--mut);">High-Speed Bandwidth & Server Protection</p>
           </div>
         </div>
-        <button id="closeInstallModal" class="hero-close-btn">&times;</button>
+        <button id="closePolicyModal" class="sb" style="padding: 6px 10px; font-size: 18px; line-height: 1; cursor: pointer;">&times;</button>
       </div>
-      <div class="install-options-list">
-        <a href="/home" id="btnModalHome" class="install-option-card apk-card">
-          <div class="option-title">Official App & Features</div>
-          <div class="option-desc">Learn more on our official Home page</div>
-        </a>
+      <div style="font-size: 13px; line-height: 1.6; color: var(--mut); display: flex; flex-direction: column; gap: 14px;">
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 12px 14px; border-radius: 10px;">
+          <strong style="color: #fff; display: flex; align-items: center; gap: 6px;">⚡ Bigger Files Policy (>100MB)</strong>
+          <p style="margin: 4px 0 0;">Videos exceeding 100MB (4K UHD, high-bitrate 1080p, long streams) are automatically routed through direct secure CDN streaming. This bypasses browser RAM buffer limitations, prevents memory crashes on mobile devices, and ensures full ISP download speeds with resume support.</p>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 12px 14px; border-radius: 10px;">
+          <strong style="color: #fff; display: flex; align-items: center; gap: 6px;">🛡️ Daily Fair-Use Limit (30 Downloads / Day)</strong>
+          <p style="margin: 4px 0 0;">Each user receives 30 free high-speed downloads daily. This prevents automated scrapers and DoS bots from degrading service quality for genuine visitors. Free quotas reset automatically every 24 hours at 00:00 UTC.</p>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 12px 14px; border-radius: 10px;">
+          <strong style="color: #fff; display: flex; align-items: center; gap: 6px;">🚫 Anti-Abuse & Rate Limiting</strong>
+          <p style="margin: 4px 0 0;">Automated multi-threaded scraping, bulk API scripts, and rapid-fire requests are challenged and blocked at the Cloudflare edge to protect bandwidth and server uptime.</p>
+        </div>
+      </div>
+      <div style="margin-top: 20px; text-align: center;">
+        <button id="btnUnderstandPolicy" class="big a" style="width: 100%; height: 46px; font-size: 14px;">I Understand</button>
       </div>
     </div>
   </div>
 
-  <script src="/i18n.js?v=2.9.5"></script>
-  <script src="/app.js?v=2.9.5"></script>
+  <!-- Delete Options Modal -->
+  <div id="deleteModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Delete Options</h3>
+        <button id="closeDeleteModalBtn" class="btn-close-modal">&times;</button>
+      </div>
+      <p class="delete-msg" style="font-size:13px; color:var(--text-secondary); margin: 12px 0;">What would you like to delete for this item?</p>
+      <div class="delete-options-col" style="display:flex; flex-direction:column; gap:8px;">
+        <button id="btnDelTaskOnly" class="btn-del-opt" style="padding:10px 14px; border-radius:10px; background:rgba(255,255,255,0.05); color:#fff; border:1px solid var(--glass-border); cursor:pointer;">Delete Record Only</button>
+        <button id="btnDelTaskAndFile" class="btn-del-opt danger" style="padding:10px 14px; border-radius:10px; background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3); cursor:pointer;">Delete Record & File</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add to Home Screen (PWA) Modal Sheet -->
+  <div id="installModal" class="modal-overlay hidden">
+    <div class="modal-sheet" style="max-width: 440px; padding: 22px;">
+      <div class="install-sheet-header" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <img src="/logo.png" alt="HK Downloader Pro logo" style="width:42px; height:42px; border-radius:10px; object-fit:cover; box-shadow:0 0 16px rgba(255,122,26,0.5);">
+          <div>
+            <h3 style="margin:0; font-family:'Chakra Petch',sans-serif; font-size:17px; font-weight:700; color:#fff;">HK Downloader Pro</h3>
+            <p style="margin:2px 0 0; font-size:12px; color:var(--mut);">Universal Media Downloader & Player</p>
+          </div>
+        </div>
+        <button id="closeInstallModal" class="sb" style="padding:6px 10px; font-size:18px; line-height:1; cursor:pointer;" aria-label="Close modal">&times;</button>
+      </div>
+      <button id="btnModalPwa" class="sb" style="width:100%; display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:14px; background:rgba(255,122,26,0.08); border:1px solid rgba(255,122,26,0.4); cursor:pointer; text-align:left;">
+        <img src="/logo.png" alt="Add to Home" style="width:36px; height:36px; border-radius:8px; object-fit:cover;">
+        <div style="flex:1;">
+          <div style="font-weight:600; font-size:14px; color:#fff; display:flex; align-items:center; gap:6px;">Add to Home Screen <span style="font-size:10px; padding:2px 6px; border-radius:6px; background:var(--org); color:#1a0b00; font-weight:700;">Instant</span></div>
+          <div style="font-size:11px; color:var(--mut); margin-top:2px;">Install web app for fast one-tap home screen access on all devices</div>
+        </div>
+        <span style="font-size:16px; color:var(--org);">→</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="version-corner-tag" title="HK Downloader Pro Web Engine v3.0.0">
+    <span class="pulse-dot"></span> Web v3.0.0
+  </div>
+
+  <!-- Scripts: i18n, HKUI Controller, and Main App Engine -->
+  <script src="/i18n.js?v=3.0.0"></script>
+  <script src="/hk-ui.js?v=3.0.5"></script>
+  <script src="/app.js?v=3.0.5"></script>
 </body>
 </html>

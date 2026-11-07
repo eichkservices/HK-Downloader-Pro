@@ -43,175 +43,190 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <!-- Google Fonts: Chakra Petch + Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="icon" type="image/png" sizes="192x192" href="/logo-192.png">
-  <link rel="stylesheet" href="/style.css?v=2.9.5">
+  <link rel="stylesheet" href="/style.css?v=3.0.0">
+  <link rel="stylesheet" href="/hk-theme.css?v=3.0.5">
 
+  
   <style>
+    body {
+      background: #06080e;
+      color: #f1f5f9;
+      font-family: 'Outfit', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .hk-hub-container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px 20px 80px;
+    }
     .platforms-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 12px;
-      margin-top: 16px;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
+      margin-top: 20px;
     }
     .platform-card {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--glass-border);
-      border-radius: 14px;
-      padding: 16px;
+      background: rgba(14, 21, 37, 0.75);
+      border: 1px solid rgba(34, 211, 238, 0.18);
+      border-radius: 16px;
+      padding: 18px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      transition: all 0.2s ease;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       text-decoration: none;
       color: inherit;
+      position: relative;
+      backdrop-filter: blur(8px);
     }
     .platform-card:hover {
-      background: rgba(255, 255, 255, 0.06);
-      border-color: rgba(34, 211, 238, 0.4);
-      transform: translateY(-2px);
+      background: rgba(18, 28, 50, 0.95);
+      border-color: rgba(34, 211, 238, 0.55);
+      transform: translateY(-3px);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4), 0 0 18px rgba(34, 211, 238, 0.2);
     }
     .card-top {
       display: flex;
       align-items: center;
       gap: 12px;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
     .card-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 20px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--glass-border);
+      font-size: 22px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      flex-shrink: 0;
     }
     .card-title {
+      font-family: 'Chakra Petch', sans-serif;
       font-size: 16px;
       font-weight: 700;
       color: #fff;
       margin: 0;
+      letter-spacing: .02em;
     }
     .card-badge {
+      font-family: 'Chakra Petch', sans-serif;
       font-size: 10px;
       font-weight: 700;
       padding: 2px 8px;
       border-radius: 999px;
       display: inline-block;
-      margin-top: 2px;
+      margin-top: 3px;
+      letter-spacing: .04em;
     }
     .card-desc {
-      font-size: 12px;
-      color: var(--text-secondary);
-      line-height: 1.5;
-      margin-bottom: 12px;
+      font-size: 12.5px;
+      color: var(--mut, #8da0be);
+      line-height: 1.55;
+      margin-bottom: 14px;
     }
     .card-footer {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-top: 1px solid var(--glass-border);
-      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      padding-top: 12px;
+      font-family: 'Chakra Petch', sans-serif;
       font-size: 12px;
-      font-weight: 600;
-      color: var(--accent-cyan);
+      font-weight: 700;
+      color: var(--cy, #22d3ee);
+      letter-spacing: .03em;
     }
     .filter-tabs {
       display: flex;
       gap: 8px;
       overflow-x: auto;
-      padding: 4px 0 12px;
+      padding: 6px 0 16px;
       scrollbar-width: none;
     }
     .filter-tabs::-webkit-scrollbar { display: none; }
     .filter-btn {
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--glass-border);
-      color: var(--text-secondary);
-      padding: 6px 14px;
+      background: rgba(14, 21, 37, 0.6);
+      border: 1px solid rgba(34, 211, 238, 0.2);
+      color: #8da0be;
+      padding: 8px 16px;
       border-radius: 999px;
+      font-family: 'Chakra Petch', sans-serif;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       white-space: nowrap;
       transition: all 0.2s ease;
+      letter-spacing: .03em;
     }
     .filter-btn.active, .filter-btn:hover {
-      background: rgba(34, 211, 238, 0.15);
-      border-color: var(--accent-cyan);
+      background: rgba(34, 211, 238, 0.16);
+      border-color: var(--cy, #22d3ee);
       color: #fff;
+      box-shadow: 0 0 12px rgba(34, 211, 238, 0.25);
     }
     .search-input-wrap {
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
     .search-input-wrap input {
       width: 100%;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--glass-border);
+      background: rgba(14, 21, 37, 0.7);
+      border: 1px solid rgba(34, 211, 238, 0.25);
       color: #fff;
-      padding: 12px 16px;
-      border-radius: 12px;
+      padding: 14px 18px;
+      border-radius: 14px;
+      font-family: 'Outfit', sans-serif;
       font-size: 14px;
       outline: none;
       box-sizing: border-box;
-      transition: border-color 0.2s ease;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
     .search-input-wrap input:focus {
-      border-color: var(--accent-cyan);
+      border-color: var(--cy, #22d3ee);
+      box-shadow: 0 0 16px rgba(34, 211, 238, 0.25);
     }
   </style>
+
 </head>
 <body>
-  <div class="mobile-frame">
-    <div id="ambientBg" class="ambient-bg">
-      <div class="ambient-blob b1"></div>
-      <div class="ambient-blob b2"></div>
-      <div class="ambient-blob b3"></div>
-    </div>
 
-    <header class="app-header">
-      <a href="/" class="header-brand-wrap" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff;">
-        <img src="/logo.png" alt="HK Downloader Pro logo" class="header-logo-icon" style="width: 28px; height: 28px; min-width: 28px; border-radius: 7px; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.4);">
-        <h1 class="header-title" style="margin: 0; font-size: 17px; font-weight: 700;">HK Downloader Pro</h1>
+  <div class="hk-app" style="height:auto; min-height:100vh; overflow-y:auto;">
+    <div class="top" style="max-width:960px; margin:0 auto; padding:18px 20px 10px;">
+      <a href="/" class="brand-link" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;">
+        <img src="/logo.png" alt="HK Downloader Pro logo" class="hk-logo" width="34" height="34">
+        <div class="name">HK <b>Downloader</b> Pro</div>
       </a>
-      
-      <div class="header-right-actions">
-        <div class="lang-switcher-wrap">
-          <button id="langPickerBtn" class="lang-picker-btn">
-            <span id="currentLangFlag">🇺🇸</span>
-            <span id="currentLangLabel">EN</span>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"></path></svg>
-          </button>
-          <div id="langDropdown" class="lang-dropdown hidden"></div>
-        </div>
-
-        <a href="/" class="btn-header-install" style="text-decoration:none;">
-          <span>Start Download</span>
+      <div class="top-actions" style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+        <a href="/" class="sb" style="text-decoration:none;display:flex;align-items:center;gap:6px;padding:7px 14px;color:var(--org);border-color:rgba(255,122,26,0.4);" title="Start Download">
+          <span>⚡</span><span>Downloader</span>
         </a>
       </div>
-    </header>
+    </div>
 
-    <div class="content-scroll">
-      <div class="tab-page active">
-        <section class="section-container" style="padding-top: 10px;">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <div style="display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; color:#a855f7; background:rgba(168,85,247,0.12); border:1px solid rgba(168,85,247,0.25); padding:4px 12px; border-radius:999px; margin-bottom:12px;">
-              <span>⚡</span> 50+ SUPPORTED PLATFORMS
-            </div>
-            <h2 style="font-size:26px; font-weight:800; color:#fff; margin:0 0 8px; line-height:1.3;">Universal Platform Directory</h2>
-            <p style="font-size:13px; color:var(--text-secondary); max-width:560px; margin:0 auto; line-height:1.5;">HK Downloader Pro provides high-speed stream extraction for all major video networks, cloud storages, and audio hosts.</p>
-          </div>
+    <div class="hk-hub-container">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <div class="platform-hero-badge" style="background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.3);color:#c084fc;margin:0 auto 12px;display:table;">
+          <span>⚡</span> 50+ SUPPORTED PLATFORMS
+        </div>
+        <h1 style="font:700 28px 'Chakra Petch',sans-serif;text-align:center;color:#fff;margin:0 0 8px;letter-spacing:.02em;">Universal Platform Directory</h1>
+        <p style="font-size:13.5px;color:var(--mut,#8da0be);max-width:560px;margin:0 auto 18px;text-align:center;line-height:1.6;">Extract media streams from over 50 global video portals, cloud drives, and audio streaming networks in pristine original quality.</p>
+      </div>
 
-          <!-- Top Ad Slot -->
-          <div id="adSlotTop" class="ad-slot-container" style="min-height: 52px; display: flex; justify-content: center; align-items: center; margin: 12px 0;">
-            <iframe srcdoc="&lt;!DOCTYPE html&gt;&lt;html&gt;&lt;head&gt;&lt;base target='_blank'&gt;&lt;style&gt;body{margin:0;padding:0;background:transparent;display:flex;justify-content:center;align-items:center;}&lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;script&gt;atOptions = {'key' : '4b2df97582819d253d8e3ad0e8cdd918','format' : 'iframe','height' : 50,'width' : 320,'params' : {}};&lt;/script&gt;&lt;script src='https://bellnewyork.org/22/4b2df97582819d253d8e3ad0e8cdd918'&gt;&lt;/script&gt;&lt;/body&gt;&lt;/html&gt;" width="320" height="50" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:320px;height:50px;max-width:100%;display:block;"></iframe>
-          </div>
+      <!-- Top Ad Slot (Same-Origin Clean Frame) -->
+      <div class="sponsor-station" style="min-height:52px; display:flex; justify-content:center; align-items:center; margin:14px 0 20px;">
+        <iframe src="/ad-320x50" width="320" height="50" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:320px;height:50px;max-width:100%;display:block;"></iframe>
+      </div>
 
-          <!-- Search Filter -->
-          <div class="search-input-wrap">
+      <div class="search-input-wrap">
             <input type="text" id="platformSearchInput" placeholder="Search platforms (e.g., Google Drive, TikTok, Mega, Reddit, Soundcloud)...">
           </div>
 
@@ -787,24 +802,24 @@
           </div>
         </section>
 
-        <!-- Bottom Ad Slot -->
-        <div id="adSlotBottom" class="ad-slot-container fixed-ad-slot" style="margin-top:20px;">
-          <script async="async" data-cfasync="false" src="https://bellnewyork.org/21/0dc5280b04ec0aeab29bb231530dbf13"></script>
-          <div id="container-0dc5280b04ec0aeab29bb231530dbf13"></div>
-        </div>
+        
+      <!-- Bottom Ad Slot -->
+      <div class="sponsor-station" style="margin-top:28px; display:flex; justify-content:center; align-items:center;">
+        <iframe src="/ad-320x50" width="320" height="50" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:320px;height:50px;max-width:100%;display:block;"></iframe>
+      </div>
 
-        <footer class="legal-footer">
-          <a href="/platforms">Supported Platforms</a> • 
-          <a href="/home">Features & Guides</a> • 
-          <a href="/privacy.html">Privacy Policy</a> • 
-          <a href="/terms.html">Terms of Service</a> • 
-          <a href="/dmca.html">DMCA & Contact</a>
-        </footer>
+      <div class="foot" style="margin-top:40px; text-align:center;">
+        <a href="/platforms">Supported Platforms</a>
+        <a href="/home">Features & Guides</a>
+        <a href="/fair-use.html">Fair Use & Big Files Policy</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Service</a>
+        <a href="/dmca.html">DMCA & Contact</a>
       </div>
     </div>
   </div>
 
-  <script src="/i18n.js?v=2.9.5"></script>
+  <script src="/i18n.js?v=3.0.0"></script>
   <script>
     // Search & Filter Tabs Logic
     const searchInput = document.getElementById('platformSearchInput');

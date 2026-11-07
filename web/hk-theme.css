@@ -166,4 +166,16 @@ h1 span{background:linear-gradient(90deg,var(--org),#ffd27a);-webkit-background-
   font-family: 'Outfit', system-ui, sans-serif!important;
 }
 
+/* Platform Landing Badges & SEO Guides */
+.platform-hero-badge{display:inline-flex;align-items:center;gap:8px;font:700 11px 'Chakra Petch',sans-serif;letter-spacing:.06em;padding:6px 14px;border-radius:999px;margin-bottom:14px;box-shadow:0 0 16px rgba(0,0,0,.4)}
+.platform-icon-box{width:20px;height:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.platform-icon-box svg{width:16px;height:16px;display:block}
+.platform-seo-guide{margin-top:24px;padding:22px;background:rgba(255,255,255,.02);border:1px solid rgba(34,211,238,.2);border-radius:22px;text-align:left}
+.platform-seo-guide h3{color:#fff;font:700 17px 'Chakra Petch',sans-serif;margin:0 0 12px;letter-spacing:.02em}
+.platform-seo-guide ol,.platform-seo-guide ul{color:var(--mut);font-size:13px;line-height:1.75;padding-left:20px;margin:0 0 18px}
+.platform-seo-guide strong{color:#fff}
+.platform-seo-guide a{color:var(--cy);text-decoration:none}
+.platform-seo-guide a:hover{text-decoration:underline}
+
+
 
