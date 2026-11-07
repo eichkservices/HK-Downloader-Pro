@@ -44,47 +44,99 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  const downloadForm       = document.getElementById('downloadForm');
-  const urlInput           = document.getElementById('urlInput');
-  const analyzeBtn         = document.getElementById('analyzeBtn');
-  const btnText            = document.getElementById('btnText');
-  const btnSpinner         = document.getElementById('btnSpinner');
+  // Safe Element Helper
+  const getEl = (id) => document.getElementById(id) || document.createElement('div');
+  const getBtn = (id) => document.getElementById(id) || document.createElement('button');
 
-  const formatModal        = document.getElementById('formatModal');
-  const closeModalBtn      = document.getElementById('closeModalBtn');
-  const modalThumb         = document.getElementById('modalThumb');
-  const modalThumbFallback = document.getElementById('modalThumbFallback');
-  const modalTitle         = document.getElementById('modalTitle');
-  const modalTypeBadge     = document.getElementById('modalTypeBadge');
-  const formatList         = document.getElementById('formatList');
+  // Futuristic UI Elements (matching 3.html & hk-reference-markup.html)
+  const flowRoot           = document.getElementById('flow');
+  const fbx                = document.getElementById('fbx');
+  const fbtn               = document.getElementById('fbtn');
+  const fst                = document.getElementById('fst');
+  const pv                 = document.getElementById('pv');
+  const pvThumb            = document.getElementById('pvThumb');
+  const pvTitle            = document.getElementById('pvTitle');
+  const pvSubtitle         = document.getElementById('pvSubtitle');
+  const pvQualities        = document.getElementById('pvQualities');
+  const dbtn               = document.getElementById('dbtn');
 
-  // Task-Based Download Station Modal Elements
-  const taskDownloadModal    = document.getElementById('taskDownloadModal');
-  const taskStatusHeading    = document.getElementById('taskStatusHeading');
-  const btnMinimizeTask      = document.getElementById('btnMinimizeTask');
-  const btnCancelTaskModal   = document.getElementById('btnCancelTaskModal');
-  const taskThumb            = document.getElementById('taskThumb');
-  const taskThumbFallback    = document.getElementById('taskThumbFallback');
-  const taskTitle            = document.getElementById('taskTitle');
-  const taskQualityBadge     = document.getElementById('taskQualityBadge');
-  const taskSpeedEtaBadge    = document.getElementById('taskSpeedEtaBadge');
-  const taskProgressPct      = document.getElementById('taskProgressPct');
-  const taskProgressSize     = document.getElementById('taskProgressSize');
-  const taskProgressBar      = document.getElementById('taskProgressBar');
-  const taskAdCountdown      = document.getElementById('taskAdCountdown');
-  const taskAdContainer      = document.getElementById('taskAdContainer');
+  // Slide-Up Progress Sheet Elements
+  const sheet              = document.getElementById('sheet');
+  const scrim              = document.getElementById('scrim');
+  const sttl               = document.getElementById('sttl');
+  const stt                = document.getElementById('stt');
+  const sheetMediaTitle    = document.getElementById('sheetMediaTitle');
+  const sheetThumb         = document.getElementById('sheetThumb');
+  const sheetTags          = document.getElementById('sheetTags');
+  const fl                 = document.getElementById('fl');
+  const pp                 = document.getElementById('pp');
+  const sz                 = document.getElementById('sz');
+  const sp                 = document.getElementById('sp');
+  const eta                = document.getElementById('eta');
+  const btnMinimizeSheet   = document.getElementById('btnMinimizeSheet');
+  const btnCloseSheet      = document.getElementById('btnCloseSheet');
+  const btnCancelSheet     = document.getElementById('btnCancelSheet');
+
+  // Complete Screen Modal Elements
+  const completeView       = document.getElementById('completeView');
+  const compPercent        = document.getElementById('compPercent');
+  const compSavedText      = document.getElementById('compSavedText');
+  const compTitle          = document.getElementById('compTitle');
+  const compThumb          = document.getElementById('compThumb');
+  const compTags           = document.getElementById('compTags');
+  const btnPlayPlayer      = document.getElementById('btnPlayPlayer');
+  const btnSaveDevice      = document.getElementById('btnSaveDevice');
+  const btnShareComp       = document.getElementById('btnShareComp');
+  const btnNavLibComp      = document.getElementById('btnNavLibComp');
+  const btnNewLinkComp     = document.getElementById('btnNewLinkComp');
+
+  // Bottom Dock Navigation
+  const dockNavDownloader  = document.getElementById('dockNavDownloader');
+  const dockNavPlus        = document.getElementById('dockNavPlus');
+  const dockNavLibrary     = document.getElementById('dockNavLibrary');
+
+  // Core Inputs & Handlers
+  const urlInput           = document.getElementById('urlInput') || getEl('urlInput');
+  const downloadForm       = document.getElementById('downloadForm') || getEl('downloadForm');
+  const analyzeBtn         = document.getElementById('analyzeBtn') || fbtn || getBtn('analyzeBtn');
+  const btnText            = document.getElementById('btnText') || getEl('btnText');
+  const btnSpinner         = document.getElementById('btnSpinner') || getEl('btnSpinner');
+
+  // Legacy & Fallback elements (null-safe)
+  const formatModal        = getEl('formatModal');
+  const closeModalBtn      = getBtn('closeModalBtn');
+  const modalThumb         = getEl('modalThumb');
+  const modalThumbFallback = getEl('modalThumbFallback');
+  const modalTitle         = getEl('modalTitle');
+  const modalTypeBadge     = getEl('modalTypeBadge');
+  const formatList         = getEl('formatList');
+
+  const taskDownloadModal    = getEl('taskDownloadModal');
+  const taskStatusHeading    = getEl('taskStatusHeading');
+  const btnMinimizeTask      = getBtn('btnMinimizeTask');
+  const btnCancelTaskModal   = getBtn('btnCancelTaskModal');
+  const taskThumb            = getEl('taskThumb');
+  const taskThumbFallback    = getEl('taskThumbFallback');
+  const taskTitle            = getEl('taskTitle');
+  const taskQualityBadge     = getEl('taskQualityBadge');
+  const taskSpeedEtaBadge    = getEl('taskSpeedEtaBadge');
+  const taskProgressPct      = getEl('taskProgressPct');
+  const taskProgressSize     = getEl('taskProgressSize');
+  const taskProgressBar      = getEl('taskProgressBar');
+  const taskAdCountdown      = getEl('taskAdCountdown');
+  const taskAdContainer      = getEl('taskAdContainer');
   const taskAdVideo          = document.getElementById('taskAdVideo');
-  const btnTaskAdAudio       = document.getElementById('btnTaskAdAudio');
-  const adAudioMutedIcon     = document.getElementById('adAudioMutedIcon');
-  const adAudioUnmutedIcon   = document.getElementById('adAudioUnmutedIcon');
-  const taskAdVideoTitle     = document.getElementById('taskAdVideoTitle');
-  const taskAdVideoDomain    = document.getElementById('taskAdVideoDomain');
-  const taskAdVideoCta       = document.getElementById('taskAdVideoCta');
-  const taskAdCtaText        = document.getElementById('taskAdCtaText');
-  const taskCompleteActions  = document.getElementById('taskCompleteActions');
-  const btnTaskPlay          = document.getElementById('btnTaskPlay');
-  const btnTaskSave          = document.getElementById('btnTaskSave');
-  const btnTaskCloseDone     = document.getElementById('btnTaskCloseDone');
+  const btnTaskAdAudio       = getBtn('btnTaskAdAudio');
+  const adAudioMutedIcon     = getEl('adAudioMutedIcon');
+  const adAudioUnmutedIcon   = getEl('adAudioUnmutedIcon');
+  const taskAdVideoTitle     = getEl('taskAdVideoTitle');
+  const taskAdVideoDomain    = getEl('taskAdVideoDomain');
+  const taskAdVideoCta       = getEl('taskAdVideoCta');
+  const taskAdCtaText        = getEl('taskAdCtaText');
+  const taskCompleteActions  = getEl('taskCompleteActions');
+  const btnTaskPlay          = getBtn('btnTaskPlay');
+  const btnTaskSave          = getBtn('btnTaskSave');
+  const btnTaskCloseDone     = getBtn('btnTaskCloseDone');
 
   if (btnTaskAdAudio && taskAdVideo) {
     btnTaskAdAudio.addEventListener('click', (e) => {
@@ -371,12 +423,55 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 1. Dynamic Button Text Toggle (Paste Link ↔ Download)
-  urlInput.addEventListener('input', updateButtonText);
+  if (urlInput) {
+    urlInput.addEventListener('input', updateButtonText);
+    urlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handlePasteOrAnalyze();
+      }
+    });
+  }
+
   function updateButtonText() {
+    if (!urlInput) return;
     const text = urlInput.value.trim();
-    btnText.textContent = text.length > 0 ? 'Download' : 'Paste Link';
+    if (fbtn) fbtn.textContent = text.length > 0 ? 'GO' : 'PASTE';
+    if (btnText) btnText.textContent = text.length > 0 ? 'Download' : 'Paste Link';
+    if (fbx) {
+      if (text.length > 0) fbx.classList.add('flash');
+      else fbx.classList.remove('flash');
+    }
   }
   updateButtonText();
+  if (window.HKUI && window.HKUI.countAll) {
+    window.HKUI.countAll();
+  }
+
+  async function handlePasteOrAnalyze() {
+    if (!urlInput) return;
+    const link = urlInput.value.trim();
+    if (!link) {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          urlInput.value = text;
+          updateButtonText();
+          if (text.startsWith('http')) {
+            analyzeUrl(text);
+          }
+        }
+      } catch (err) {
+        urlInput.focus();
+      }
+      return;
+    }
+    analyzeUrl(link);
+  }
+
+  if (fbtn) {
+    fbtn.addEventListener('click', handlePasteOrAnalyze);
+  }
 
   // Auto-analyze URL if passed via share query string (?url=...)
   const urlParams = new URLSearchParams(window.location.search);
@@ -404,6 +499,40 @@ document.addEventListener('DOMContentLoaded', () => {
       if (targetTab === 'library') renderLibraryGrid();
     });
   });
+
+  // Bottom Dock Navigation Listeners
+  if (dockNavDownloader) {
+    dockNavDownloader.addEventListener('click', () => {
+      dockNavDownloader.classList.add('on');
+      if (dockNavLibrary) dockNavLibrary.classList.remove('on');
+      const dlTab = document.getElementById('tabDownloader');
+      const libTab = document.getElementById('tabLibrary');
+      if (dlTab) { dlTab.classList.remove('hidden'); dlTab.classList.add('active'); }
+      if (libTab) { libTab.classList.add('hidden'); libTab.classList.remove('active'); }
+    });
+  }
+
+  if (dockNavLibrary) {
+    dockNavLibrary.addEventListener('click', () => {
+      dockNavLibrary.classList.add('on');
+      if (dockNavDownloader) dockNavDownloader.classList.remove('on');
+      const dlTab = document.getElementById('tabDownloader');
+      const libTab = document.getElementById('tabLibrary');
+      if (dlTab) { dlTab.classList.add('hidden'); dlTab.classList.remove('active'); }
+      if (libTab) {
+        libTab.classList.remove('hidden');
+        libTab.classList.add('active');
+        renderLibraryGrid();
+      }
+    });
+  }
+
+  if (dockNavPlus) {
+    dockNavPlus.addEventListener('click', () => {
+      if (dockNavDownloader) dockNavDownloader.click();
+      handlePasteOrAnalyze();
+    });
+  }
 
   // Quality presets -- matches the Android app's QualityPreset values exactly,
   // so both platforms request the same thing from the same Cobalt instance.
@@ -1250,10 +1379,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   function setAnalyzing(on) {
-    btnText.textContent = on ? 'Analyzing…' : (urlInput.value.trim().length > 0 ? 'Download' : 'Paste Link');
-    btnSpinner.classList.toggle('hidden', !on);
-    analyzeBtn.disabled = on;
+    if (fbtn) fbtn.textContent = on ? '...' : (urlInput.value.trim().length > 0 ? 'GO' : 'PASTE');
+    if (btnText) btnText.textContent = on ? 'Analyzing…' : (urlInput.value.trim().length > 0 ? 'Download' : 'Paste Link');
+    if (btnSpinner) btnSpinner.classList.toggle('hidden', !on);
+    if (analyzeBtn) analyzeBtn.disabled = on;
+
     if (on) {
+      if (window.HKUI) window.HKUI.status('READING LINK...', false);
+      setTimeout(() => {
+        if (fbtn && fbtn.textContent === '...' && window.HKUI) {
+          window.HKUI.status('FINDING BEST QUALITY...', false);
+        }
+      }, 1100);
       setAmbientState('state-analyzing');
     } else {
       refreshAmbientFromActivity();
@@ -1261,96 +1398,59 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 4. Format Popup Modal
+    let currentResolvedData = null;
+
   function openFormatModal(data) {
-    modalTitle.textContent = data.title || 'Media Video';
-    const platform = (data.type || 'direct').toUpperCase();
+    currentResolvedData = data;
+    if (window.HKUI) window.HKUI.status('VIDEO FOUND', true);
+    if (fbx) fbx.classList.remove('flash');
+    if (fbtn) fbtn.textContent = 'DONE';
 
-    // Determine Quality Tag (4K, HD, or SD) based on max file size or resolution
-    let maxBytes = 0;
-    data.formats.forEach(f => {
-      const sz = f.sizeBytes || f.size || 0;
-      if (sz > maxBytes) maxBytes = sz;
+    // Map resolutions into human-readable quality badges
+    const qualities = [];
+    data.formats.forEach((f, idx) => {
+      let qLabel = f.note || 'Video';
+      if (f.ext === 'mp3' || f.isAudio) qLabel = 'MP3 Audio';
+      else if (qLabel.includes('1080') || f.quality === '1080') qLabel = '1080p FHD';
+      else if (qLabel.includes('720') || f.quality === '720') qLabel = '720p HD';
+      else if (qLabel.includes('480') || f.quality === '480') qLabel = '480p';
+      else if (qLabel.includes('360') || f.quality === '360') qLabel = '360p';
+      else if (qLabel.includes('4K') || f.quality === '2160') qLabel = '4K UHD';
+      qualities.push(qLabel);
     });
-    let qualityTag = 'HD';
-    if (maxBytes > 80 * 1024 * 1024) qualityTag = '4K';
-    else if (maxBytes < 5 * 1024 * 1024 && maxBytes > 0) qualityTag = 'SD';
 
-    modalTypeBadge.textContent = `${qualityTag} • ${platform}`;
+    const primaryFormat = data.formats[0] || {};
+    const primarySizeMB = primaryFormat.sizeBytes ? (primaryFormat.sizeBytes / 1048576).toFixed(1) : (primaryFormat.size ? (primaryFormat.size / 1048576).toFixed(1) : '5.3');
 
-    if (data.thumbnail) {
-      modalThumb.src = data.thumbnail;
-      modalThumb.classList.remove('hidden');
-      modalThumbFallback.classList.add('hidden');
-    } else {
-      modalThumb.classList.add('hidden');
-      modalThumbFallback.classList.remove('hidden');
+    if (window.HKUI) {
+      window.HKUI.showPreview({
+        title: data.title || 'Video',
+        sizeMB: primarySizeMB,
+        thumbnail: data.thumbnail || '',
+        formats: data.formats,
+        qualities: qualities,
+        selected: 0
+      });
     }
 
-    formatList.innerHTML = '';
-    data.formats.forEach(f => {
-      const cleanTitle = (data.title || 'download').replace(/[\\/:*?"<>|]/g, '').trim() || 'download';
-      const filename   = `${cleanTitle}.${f.ext || 'mp4'}`;
+    // Connect preview DOWNLOAD button
+    if (dbtn) {
+      dbtn.onclick = () => {
+        dbtn.classList.add('tap');
+        setTimeout(() => dbtn.classList.remove('tap'), 220);
+        const selIdx = (window.HKUI && window.HKUI.selectedFormatIndex) ? window.HKUI.selectedFormatIndex : 0;
+        const selFormat = data.formats[selIdx] || data.formats[0];
+        const cleanTitle = (data.title || 'download').replace(/[\\/:*?"<>|]/g, '').trim() || 'download';
+        const filename = `${cleanTitle}.${selFormat.ext || 'mp4'}`;
+        const ytVidId = data.videoId || (data.url || urlInput.value || '').match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1] || '';
 
-      // Preserve descriptive note, only sanitize TikTok generic notes if needed
-      let cleanNote = f.note || 'Video Download';
-      if ((data.type || '').toLowerCase() === 'tiktok') {
-        if (cleanNote.toLowerCase().includes('hd')) {
-          cleanNote = '🎬 Video (HD No watermark)';
-        } else if (cleanNote.toLowerCase().includes('no watermark')) {
-          cleanNote = '🎬 Video (No watermark)';
-        } else if (cleanNote.toLowerCase().includes('watermark')) {
-          cleanNote = '🎬 Video (Watermarked)';
-        } else if (cleanNote.toLowerCase().includes('audio')) {
-          cleanNote = '🎵 Audio Track (MP3)';
-        }
-      }
-
-      const isAudioItem = f.ext === 'mp3' || f.ext === 'm4a' || f.isAudio;
-      const thumbMarkup = data.thumbnail
-        ? `<img src="${data.thumbnail}" class="option-thumb" alt="thumb">`
-        : `<div class="option-thumb-fallback">${isAudioItem ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>` : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>`}</div>`;
-
-      const sizeText = f.sizeBytes ? fmtBytes(f.sizeBytes) : (f.size ? fmtBytes(f.size) : '');
-
-      const isYt = (data.type || '').toLowerCase() === 'youtube' || (f.directUrl || '').includes('googlevideo') || (f.directUrl || '').includes('youtube');
-      const ytVidId = f.videoId || data.videoId || (data.url || urlInput.value || '').match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1] || '';
-      const safeDirectHref = isYt && ytVidId
-        ? `/api/download?type=youtube&id=${encodeURIComponent(ytVidId)}&url=${encodeURIComponent(f.directUrl || f.token || '')}&filename=${encodeURIComponent(filename)}`
-        : (f.directUrl || f.token);
-
-      const item = document.createElement('div');
-      item.className = 'format-item-card';
-      item.innerHTML = `
-        <div class="option-left">
-          ${thumbMarkup}
-          <div class="option-details">
-            <div class="option-name">${cleanNote}</div>
-            ${sizeText ? `<div class="option-size">${sizeText} ${f.sizeBytes > 100 * 1024 * 1024 || (f.note && (f.note.includes('4K') || f.note.includes('1440p'))) ? '<span style="font-size:10px;font-weight:700;padding:2px 6px;background:rgba(34,211,238,0.15);color:#22d3ee;border:1px solid rgba(34,211,238,0.3);border-radius:4px;margin-left:6px;">⚡ Direct CDN (>100MB)</span>' : ''}</div>` : ''}
-          </div>
-        </div>
-        <div class="option-actions">
-          <button class="btn-fast-dl">Download</button>
-          <a href="${safeDirectHref}" download="${encodeURIComponent(filename)}" class="btn-dl-item" target="_blank" rel="noreferrer noopener" referrerpolicy="no-referrer">Direct Link</a>
-        </div>
-      `;
-
-      item.querySelector('.btn-fast-dl').addEventListener('click', () => {
-        startDownload(f.token || f.directUrl, filename, data.title, data.thumbnail, f.sizeBytes, { ...f, type: data.type, videoId: ytVidId });
-        formatModal.classList.add('hidden');
-        urlInput.value = '';
-        updateButtonText();
-      });
-
-      item.querySelector('.btn-dl-item').addEventListener('click', () => {
-        formatModal.classList.add('hidden');
-        urlInput.value = '';
-        updateButtonText();
-      });
-
-      formatList.appendChild(item);
-    });
-
-    formatModal.classList.remove('hidden');
+        startDownload(selFormat.token || selFormat.directUrl, filename, data.title, data.thumbnail, selFormat.sizeBytes || selFormat.size, {
+          ...selFormat,
+          type: data.type,
+          videoId: ytVidId
+        });
+      };
+    }
   }
 
   closeModalBtn.addEventListener('click', () => formatModal.classList.add('hidden'));
@@ -1733,6 +1833,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 8. Download Execution Engine with Task-Based Ad Wait-Time Station
   async function startDownload(tokenOrUrl, filename, title, thumbnail, knownSize, formatObj) {
+    let isCompleted = false;
+    const qNote = formatObj?.note || (formatObj?.ext ? formatObj.ext.toUpperCase() : '1080p HD');
+    const totalSizeMB = knownSize ? (knownSize / 1048576) : 5.3;
+
+    // Open Futuristic Progress Sheet
+    if (window.HKUI) {
+      window.HKUI.openSheet({
+        title: title || filename,
+        quality: qNote,
+        totalMB: totalSizeMB,
+        thumbnail: thumbnail
+      });
+    }
     // 🛡️ Abuse Prevention: Daily Fair-Use Quota Check
     if (!checkDailyDownloadQuota()) {
       showToast('Daily Limit Reached (30/30)', 'You have reached today\'s fair-use limit. Quotas reset at 00:00 UTC.', true);
@@ -1794,7 +1907,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    const qNote = formatObj?.note || (formatObj?.ext ? formatObj.ext.toUpperCase() : 'MP4');
     if (taskQualityBadge) taskQualityBadge.textContent = qNote;
     if (taskSpeedEtaBadge) taskSpeedEtaBadge.textContent = 'Preparing stream…';
     if (taskProgressPct) {
@@ -1824,6 +1936,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const cancelDownload = () => {
+      if (isCompleted) return; // Bug Fix: Never mark a completed download as cancelled!
       controller.abort();
       hideActiveDownloadToast();
       if (taskDownloadModal) taskDownloadModal.classList.add('hidden');
@@ -1919,9 +2032,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const currentSpeed = speedSampler.speed || (received / Math.max(0.1, (Date.now() - startTime) / 1000));
         const pct          = totalSize ? Math.round((received / totalSize) * 100) : null;
-        const eta          = totalSize && currentSpeed > 0 ? Math.round((totalSize - received) / currentSpeed) : null;
+        const etaVal       = totalSize && currentSpeed > 0 ? Math.round((totalSize - received) / currentSpeed) : null;
+
+        // Drive Futuristic Progress Sheet
+        if (window.HKUI) {
+          window.HKUI.progress({
+            percent: pct != null ? pct : Math.min(95, (received / (totalSize || 5242880)) * 100),
+            doneMB: received / 1048576,
+            speedMB: currentSpeed / 1048576,
+            etaSec: etaVal
+          });
+        }
 
         // Update list card
+        const eta = etaVal;
         bar.style.width      = pct != null ? `${pct}%` : '50%';
         percent.textContent  = pct != null ? `${pct}%` : '…';
         meta.textContent     = `${fmtBytes(received)}${totalSize ? ' / ' + fmtBytes(totalSize) : ''}    ${fmtSpeed(currentSpeed)}${eta ? '    ' + fmtEta(eta) : ''}`;
