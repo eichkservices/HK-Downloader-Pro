@@ -174,24 +174,26 @@
       </div>
 
       <!-- Clean Live Global Downloads Counter -->
-      <div class="stats-clean-bar">
-        <div class="counter-badge-wrap">
-          <span class="counter-pulse-dot"></span>
-          <span class="counter-title">Videos Downloaded</span>
-        </div>
-        <div class="counter-val-wrap">
-          <b id="statGlobalDownloads" class="counter-val" data-n="14892">14,892</b>
-          <span class="counter-sub">Saved</span>
+            <!-- Live Downloads Cyber Metric Box -->
+      <div class="stats" style="grid-template-columns: 1fr; margin: 14px 0 16px;">
+        <div class="st" style="display:flex; align-items:center; justify-content:space-between; padding:12px 18px; border-radius:18px; background:linear-gradient(160deg,rgba(255,255,255,.08),rgba(255,255,255,.02)); border:1px solid rgba(34,211,238,.35); box-shadow:0 0 20px rgba(34,211,238,.12); backdrop-filter:blur(10px);">
+          <div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="counter-pulse-dot" style="width:8px;height:8px;border-radius:50%;background:#2ee6a0;box-shadow:0 0 10px #2ee6a0;display:inline-block;"></span>
+              <span style="font:700 12px 'Chakra Petch',sans-serif;letter-spacing:.08em;color:var(--cy);text-transform:uppercase;">TOTAL DOWNLOADS</span>
+            </div>
+            <small style="font-size:11px;color:var(--mut);display:block;margin-top:3px;">Videos Processed Globally</small>
+          </div>
+          <b id="statGlobalDownloads" style="font:700 24px 'Chakra Petch',sans-serif;color:#fff;letter-spacing:.04em;text-shadow:0 0 14px rgba(34,211,238,.6);" data-n="14892">14,892</b>
         </div>
       </div>
 
       <!-- Downloader Tab Content -->
       <div id="tabDownloader" class="tab-page active">
-        <div class="lbl">RECENT</div>
-        <div id="downloadsList" class="recent-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
-          <div id="emptyState" class="empty-state" style="padding: 24px 16px; text-align: center; color: var(--mut); font-size: 13px; background: rgba(255,255,255,0.02); border-radius: 16px; border: 1px dashed rgba(255,255,255,0.1);">
-            <p style="margin:0;">No downloads yet. Paste any Instagram link above!</p>
-          </div>
+        <!-- Recent Active Downloads (Hidden by default when there is no history) -->
+        <div id="recentWrap" style="display:none; margin-bottom:16px;">
+          <div class="lbl">RECENT</div>
+          <div id="downloadsList" class="recent-list" style="display:flex;flex-direction:column;gap:10px;"></div>
         </div>
 
         <!-- Platform Specific SEO Guide Section -->
@@ -277,13 +279,14 @@
       </div>
 
       <!-- Legal Compliance & Policies Footer -->
-      <footer class="legal-footer" style="margin-top:24px; padding-bottom:80px; text-align:center; font-size:11px; color:var(--mut); display:flex; flex-wrap:wrap; justify-content:center; gap:8px;">
+            <!-- Legal Compliance & Policies Footer (Neatly positioned at bottom above dock) -->
+      <footer class="legal-footer" style="margin-top:auto; padding-top:24px; padding-bottom:78px; text-align:center; font-size:11px; color:var(--mut); display:flex; flex-wrap:wrap; justify-content:center; gap:6px 10px;">
         <a href="/platforms" style="color:var(--mut);text-decoration:none;">Supported Platforms</a> • 
         <a href="/home" style="color:var(--mut);text-decoration:none;">Features & Guides</a> • 
-        <a href="#" id="btnPolicyModal" style="color:var(--cy);text-decoration:none;">🛡️ Fair Use & Big Files Policy</a> • 
-        <a href="/privacy.html" style="color:var(--mut);text-decoration:none;">Privacy Policy</a> • 
-        <a href="/terms.html" style="color:var(--mut);text-decoration:none;">Terms of Service</a> • 
-        <a href="/dmca.html" style="color:var(--mut);text-decoration:none;">DMCA & Contact</a>
+        <a href="#" id="btnPolicyModal" style="color:var(--cy);text-decoration:none;">Fair Use & Big Files</a> • 
+        <a href="privacy.html" style="color:var(--mut);text-decoration:none;">Privacy</a> • 
+        <a href="terms.html" style="color:var(--mut);text-decoration:none;">Terms</a> • 
+        <a href="dmca.html" style="color:var(--mut);text-decoration:none;">DMCA & Contact</a>
       </footer>
     </div>
 

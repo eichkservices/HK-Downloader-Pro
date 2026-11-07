@@ -492,6 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   fetchGlobalDownloadsCount();
+  checkRecentEmpty();
 
   async function handlePasteOrAnalyze() {
     if (!urlInput) return;
@@ -1964,13 +1965,26 @@ document.addEventListener('DOMContentLoaded', () => {
   closeDeleteModalBtn.addEventListener('click', () => deleteModal.classList.add('hidden'));
   deleteModal.addEventListener('click', e => { if (e.target === deleteModal) deleteModal.classList.add('hidden'); });
 
+  function checkRecentEmpty() {
+    const recentWrap = document.getElementById('recentWrap');
+    if (recentWrap && downloadsList) {
+      if (downloadsList.querySelectorAll('.dl-card').length === 0) {
+        recentWrap.style.display = 'none';
+      } else {
+        recentWrap.style.display = 'block';
+      }
+    }
+  }
+
   btnDelTaskOnly.addEventListener('click', () => {
     if (pendingDeleteCard) pendingDeleteCard.remove();
+    checkRecentEmpty();
     deleteModal.classList.add('hidden');
   });
 
   btnDelTaskAndFile.addEventListener('click', () => {
     if (pendingDeleteCard) pendingDeleteCard.remove();
+    checkRecentEmpty();
     if (pendingDeleteLibItem) {
       const idx = libraryItems.indexOf(pendingDeleteLibItem);
       if (idx > -1) libraryItems.splice(idx, 1);
@@ -2476,6 +2490,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function addDownloadCard(title, filename, thumbnail) {
+    const recentWrap = document.getElementById('recentWrap');
+    if (recentWrap) recentWrap.style.display = 'block';
     if (emptyState) emptyState.style.display = 'none';
 
     const cardElem = document.createElement('div');
@@ -2579,11 +2595,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  clearHistoryBtn.addEventListener('click', () => {
-    downloadsList.innerHTML = '';
-    downloadsList.appendChild(emptyState);
-    if (emptyState) emptyState.style.display = 'flex';
-  });
+  if (clearHistoryBtn) {
+    clearHistoryBtn.addEventListener('click', () => {
+      downloadsList.innerHTML = '';
+      checkRecentEmpty();
+    });
+  }
 
   function fmtBytes(b) {
     if (!b) return '0 B';
