@@ -163,19 +163,26 @@
         <button type="button" class="dbtn" id="dbtn">DOWNLOAD</button>
       </div>
 
-      <!-- Sponsor Banner Ad (320x50) -->
-      <div id="adSlotTop" class="sponsor-station" style="margin: 14px 0 16px; padding: 6px 8px;">
-        <small><span>Sponsored</span><span>Free High-Speed Downloads</span></small>
-        <div class="sponsor-frame-320">
-          <iframe id="mainAdFrame" src="/ad-320x50" width="320" height="50" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:320px;height:50px;max-width:100%;display:block;"></iframe>
+            <!-- Sponsor Banner Ad (320x50) -->
+      <div id="adSlotTop" class="sponsor-station" style="margin: 14px auto 16px;">
+        <div class="ad-slot-wrap">
+          <span class="ad-tag-corner">Ad</span>
+          <div class="sponsor-frame-320">
+            <iframe id="mainAdFrame" src="/ad-320x50" width="320" height="50" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:320px;height:50px;max-width:100%;display:block;"></iframe>
+          </div>
         </div>
       </div>
 
-      <!-- Live Stats Row -->
-      <div class="stats">
-        <div class="st"><b id="statToday" data-n="14" data-u="">14</b><small>Today</small></div>
-        <div class="st"><b id="statSpeed" data-n="4.6" data-u=" MB/s">4.6 MB/s</b><small>Speed</small></div>
-        <div class="st"><b id="statSaved" data-n="2.1" data-u=" GB">2.1 GB</b><small>Saved</small></div>
+      <!-- Clean Live Global Downloads Counter -->
+      <div class="stats-clean-bar">
+        <div class="counter-badge-wrap">
+          <span class="counter-pulse-dot"></span>
+          <span class="counter-title">Videos Downloaded</span>
+        </div>
+        <div class="counter-val-wrap">
+          <b id="statGlobalDownloads" class="counter-val" data-n="14892">14,892</b>
+          <span class="counter-sub">Saved</span>
+        </div>
       </div>
 
       <!-- Downloader Tab Content -->
@@ -300,22 +307,47 @@
             <div class="tg" id="sheetTags"><span>1080p HD</span><span>High Speed</span></div>
           </div>
         </div>
-        <div class="pr"><b id="pp">0%</b><span id="sz">0.0 / 0.0 MB</span></div>
-        <div class="trk"><div class="fl" id="fl"></div></div>
+                <div class="pr"><b id="pp">0%</b><span id="sz">0.0 / 0.0 MB</span></div>
+        
+        <!-- Progress Bar with Cancel Button right next to it -->
+        <div class="pbar-action-row">
+          <div class="trk" style="flex:1; margin:0;"><div class="fl" id="fl"></div></div>
+          <button type="button" class="btn-sheet-cancel" id="btnCancelSheet" title="Cancel Download">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            <span>Cancel</span>
+          </button>
+        </div>
+
         <div class="mt">
           <div><i>Speed</i><span id="sp">0.0 MB/s</span></div>
           <div><i>Time left</i><span id="eta">--</span></div>
           <div><i>Status</i><span id="stt">Live</span></div>
         </div>
-      </div>
-      <!-- Sponsored Ad Slot (During Download - 300x250) -->
-      <div class="sponsor-station" style="margin-top: 14px; padding: 8px;">
-        <small><span>Sponsored</span><span>Supports free downloads</span></small>
-        <div id="sheetAdContainer" class="sponsor-frame-300">
-          <iframe id="sheetAdFrame" src="/ad-300x250" width="300" height="250" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:300px;height:250px;max-width:100%;display:block;"></iframe>
+
+        <!-- Play, Share, and Save Actions (Shown when download is ready/completed) -->
+        <div class="sheet-actions-row" id="sheetActionsRow" style="display:none;">
+          <button type="button" class="btn-sheet-act play" id="btnSheetPlay">
+            <span>▶</span> Play Video
+          </button>
+          <button type="button" class="btn-sheet-act share" id="btnSheetShare">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+            <span>Share</span>
+          </button>
+          <button type="button" class="btn-sheet-act save" id="btnSheetSave">
+            <span>💾</span> Save
+          </button>
         </div>
       </div>
-      <div class="cx" id="btnCancelSheet" role="button">Cancel download</div>
+
+      <!-- Sponsored Ad Slot (During Download - 300x250 tight wrapper with corner tag) -->
+      <div class="sponsor-station" style="margin-top: 14px;">
+        <div class="ad-slot-wrap">
+          <span class="ad-tag-corner">Ad</span>
+          <div id="sheetAdContainer" class="sponsor-frame-300">
+            <iframe id="sheetAdFrame" src="/ad-300x250" width="300" height="250" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:300px;height:250px;max-width:100%;display:block;"></iframe>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Complete Screen Modal (Circular Neon Halo Ring at 100%) -->

@@ -74,6 +74,7 @@
     /* Step 3: download starts -> bottom sheet slides up */
     openSheet: function (info) {             // {title, quality, totalMB, thumbnail}
       this.totalMB = info.totalMB || 0;
+      this.activeInfo = info;
       if ($('sttl')) $('sttl').textContent = 'Downloading media';
       if ($('stt')) $('stt').textContent = 'Live';
       if ($('sheetMediaTitle')) $('sheetMediaTitle').textContent = info.title || 'Media file';
@@ -87,6 +88,13 @@
       if ($('sheetTags')) {
         $('sheetTags').innerHTML = '<span>' + (info.quality || 'HD MP4') + '</span><span>High Speed</span>';
       }
+      if ($('fl')) {
+        $('fl').style.width = '0%';
+        $('fl').style.background = 'linear-gradient(90deg,var(--org),#ffb347,var(--cy))';
+      }
+      if ($('btnCancelSheet')) $('btnCancelSheet').style.display = 'inline-flex';
+      if ($('sheetActionsRow')) $('sheetActionsRow').style.display = 'none';
+
       this.progress({ percent: 0, doneMB: 0, speedMB: 0, etaSec: null });
       var saf = $('sheetAdFrame');
       if (saf) saf.src = '/ad-300x250?r=' + Date.now();
@@ -101,38 +109,100 @@
       if ($('eta')) $('eta').textContent = p.etaSec == null ? '--' : Math.max(1, Math.round(p.etaSec)) + 's';
     },
     complete: function (info) {
-      if ($('sttl')) $('sttl').textContent = 'Download complete';
-      if ($('stt')) $('stt').textContent = 'Saved';
-      if ($('sp')) $('sp').textContent = 'Done';
+      this.completedInfo = info;
+      if ($('sttl')) $('sttl').textContent = '✓ Download Complete!';
+      if ($('stt')) $('stt').textContent = 'Ready';
+      if ($('sp')) $('sp').textContent = 'Saved';
       if ($('eta')) $('eta').textContent = '0s';
-      if ($('fl')) $('fl').style.width = '100%';
+      if ($('fl')) {
+        $('fl').style.width = '100%';
+        $('fl').style.background = 'linear-gradient(90deg,#2ee6a0,#22d3ee)';
+      }
       if ($('pp')) $('pp').textContent = '100%';
+      if ($('btnCancelSheet')) $('btnCancelSheet').style.display = 'none';
+      if ($('sheetActionsRow')) $('sheetActionsRow').style.display = 'flex';
 
-      // Complete screen modal with 100% circular glowing ring
-      var comp = $('completeView');
-      if (comp) {
-        if ($('compPercent')) $('compPercent').textContent = '100%';
-        if ($('compSavedText') && info) $('compSavedText').textContent = (info.sizeMB ? info.sizeMB.toFixed(1) : (this.totalMB || 5.3).toFixed(1)) + ' MB saved';
-        if ($('compTitle') && info) $('compTitle').textContent = info.title || 'Downloaded media';
-        if ($('compThumb') && info) {
-          if (info.thumbnail) $('compThumb').innerHTML = '<img src="' + info.thumbnail + '" alt="thumb">';
-          else $('compThumb').innerHTML = '&#9654;';
-        }
-        if ($('compTags') && info) {
-          $('compTags').innerHTML = '<span>' + (info.quality || '1080p HD') + '</span><span>No watermark</span><span>' + (info.ext ? info.ext.toUpperCase() : 'MP4') + '</span>';
-        }
-        var caf = $('compAdFrame');
-        if (caf) caf.src = '/ad-320x50?r=' + Date.now();
-        comp.classList.remove('hidden');
+      // Increment public download counter +1
+      if (w.incrementDownloadsCounter) {
+        w.incrementDownloadsCounter();
       }
     },
     fail: function (msg) {
       if ($('sttl')) $('sttl').textContent = msg || 'Download failed';
       if ($('stt')) $('stt').textContent = 'Failed';
+      if ($('btnCancelSheet')) $('btnCancelSheet').style.display = 'none';
     },
     closeSheet: function () {
       var r = root();
       if (r) r.classList.remove('open');
+    },
+    initSheetControls: function () {
+      var self = this;
+      var btnMin = $('btnMinimizeSheet');
+      if (btnMin && !btnMin._wired) {
+        btnMin._wired = true;
+        btnMin.addEventListener('click', function (e) {
+          e.stopPropagation();
+          self.closeSheet();
+          if (w.onSheetMinimized) w.onSheetMinimized();
+        });
+      }
+      var btnClose = $('btnCloseSheet');
+      if (btnClose && !btnClose._wired) {
+        btnClose._wired = true;
+        btnClose.addEventListener('click', function (e) {
+          e.stopPropagation();
+          if (w.cancelCurrentDownload && $('stt') && $('stt').textContent === 'Live') {
+            w.cancelCurrentDownload();
+          } else {
+            self.closeSheet();
+          }
+        });
+      }
+      var btnCancel = $('btnCancelSheet');
+      if (btnCancel && !btnCancel._wired) {
+        btnCancel._wired = true;
+        btnCancel.addEventListener('click', function (e) {
+          e.stopPropagation();
+          if (w.cancelCurrentDownload) {
+            w.cancelCurrentDownload();
+          } else {
+            self.closeSheet();
+          }
+        });
+      }
+      var btnPlay = $('btnSheetPlay');
+      if (btnPlay && !btnPlay._wired) {
+        btnPlay._wired = true;
+        btnPlay.addEventListener('click', function (e) {
+          e.stopPropagation();
+          if (w.onSheetPlay) w.onSheetPlay(self.completedInfo);
+        });
+      }
+      var btnShare = $('btnSheetShare');
+      if (btnShare && !btnShare._wired) {
+        btnShare._wired = true;
+        btnShare.addEventListener('click', function (e) {
+          e.stopPropagation();
+          if (w.onSheetShare) w.onSheetShare(self.completedInfo);
+        });
+      }
+      var btnSave = $('btnSheetSave');
+      if (btnSave && !btnSave._wired) {
+        btnSave._wired = true;
+        btnSave.addEventListener('click', function (e) {
+          e.stopPropagation();
+          if (w.onSheetSave) w.onSheetSave(self.completedInfo);
+        });
+      }
+      var scrim = $('scrim');
+      if (scrim && !scrim._wired) {
+        scrim._wired = true;
+        scrim.addEventListener('click', function () {
+          self.closeSheet();
+          if (w.onSheetMinimized) w.onSheetMinimized();
+        });
+      }
     },
     /* Helpers */
     countUp: countUp,
@@ -142,5 +212,12 @@
       });
     }
   };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { HKUI.initSheetControls(); });
+  } else {
+    HKUI.initSheetControls();
+  }
+
   w.HKUI = HKUI;
 })(window);

@@ -115,13 +115,36 @@ h1 span{background:linear-gradient(90deg,var(--org),#ffd27a);-webkit-background-
 @keyframes mv{to{background-position:28px 0}}
 .mt{display:flex;gap:8px;margin-top:12px}.mt div{flex:1;text-align:center;font:500 12px 'Chakra Petch';padding:8px 0;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)}
 .mt div i{display:block;font-style:normal;font:400 11px 'Outfit';color:var(--mut);margin-bottom:2px}
-.sponsor-station,.adslot{margin-top:14px;padding:8px;border-radius:18px;background:rgba(255,255,255,.03);border:1px dashed rgba(255,255,255,.18);text-align:center}
-.sponsor-station small,.adslot small{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);margin-bottom:6px;font-family:'Outfit',system-ui,sans-serif}
-.sponsor-station.native{min-height:90px;width:100%;box-sizing:border-box}
+.sponsor-station,.adslot{margin:12px auto;text-align:center;display:flex;justify-content:center;position:relative}
+.ad-slot-wrap{position:relative;display:inline-flex;border-radius:10px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.08)}
+.ad-tag-corner{position:absolute;top:2px;right:4px;z-index:10;font:700 8.5px 'Chakra Petch',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.7);background:rgba(0,0,0,.6);padding:1px 5px;border-radius:4px;pointer-events:none;backdrop-filter:blur(4px);line-height:1.2}
+.sponsor-station.native{min-height:90px;width:100%;box-sizing:border-box;margin:20px auto 10px;display:block}
 .sponsor-station.native #container-0dc5280b04ec0aeab29bb231530dbf13{display:block;width:100%;overflow:hidden;border-radius:12px}
-.sponsor-frame-300{width:300px;height:250px;min-height:250px;border-radius:12px;overflow:hidden;margin:0 auto;display:flex;align-items:center;justify-content:center}
+.sponsor-frame-300{width:300px;height:250px;min-height:250px;border-radius:10px;overflow:hidden;margin:0 auto;display:flex;align-items:center;justify-content:center}
 .sponsor-frame-320{width:320px;height:50px;min-height:50px;border-radius:8px;overflow:hidden;margin:0 auto;display:flex;align-items:center;justify-content:center}
-.cx{text-align:center;margin-top:14px;font-size:14px;color:#ff6b7a}
+
+/* Clean Futuristic Downloads Counter Bar */
+.stats-clean-bar{margin:16px 0 20px;display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-radius:16px;background:linear-gradient(135deg,rgba(255,255,255,.04),rgba(255,255,255,.01));border:1px solid rgba(34,211,238,.2);backdrop-filter:blur(10px);box-shadow:0 6px 20px rgba(0,0,0,.3)}
+.counter-badge-wrap{display:flex;align-items:center;gap:10px}
+.counter-pulse-dot{width:8px;height:8px;border-radius:50%;background:#2ee6a0;box-shadow:0 0 10px #2ee6a0;animation:pl 1.4s infinite}
+.counter-title{font:600 11.5px 'Chakra Petch',sans-serif;letter-spacing:.08em;color:var(--mut);text-transform:uppercase}
+.counter-val-wrap{display:flex;align-items:baseline;gap:6px}
+.counter-val{font:700 22px 'Chakra Petch',sans-serif;color:#fff;letter-spacing:.04em;text-shadow:0 0 14px rgba(34,211,238,.45)}
+.counter-sub{font:500 11px 'Outfit',sans-serif;color:var(--cy)}
+
+/* Progress Bar Row with Cancel Button Beside It */
+.pbar-action-row{display:flex;align-items:center;gap:10px;margin:10px 0 14px}
+.btn-sheet-cancel{display:inline-flex;align-items:center;justify-content:center;gap:4px;height:30px;padding:0 12px;border-radius:9px;font:700 11.5px 'Chakra Petch',sans-serif;letter-spacing:.04em;color:#ff6b7a;background:rgba(255,107,122,.12);border:1px solid rgba(255,107,122,.35);cursor:pointer;transition:all .2s ease;white-space:nowrap;user-select:none;flex-shrink:0}
+.btn-sheet-cancel:hover{background:rgba(255,107,122,.25);border-color:#ff6b7a;color:#fff}
+.btn-sheet-cancel:active{transform:scale(.95)}
+
+/* Play, Share, and Save Action Buttons inside Download Sheet */
+.sheet-actions-row{display:flex;gap:8px;margin-top:14px}
+.btn-sheet-act{flex:1;height:42px;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:12px;font:700 13px 'Chakra Petch',sans-serif;letter-spacing:.02em;cursor:pointer;border:1px solid transparent;transition:all .2s cubic-bezier(.16,1,.3,1);user-select:none}
+.btn-sheet-act:active{transform:scale(.96)}
+.btn-sheet-act.play{background:linear-gradient(135deg,#22d3ee,#06b6d4);color:#040711;box-shadow:0 0 16px rgba(34,211,238,.5)}
+.btn-sheet-act.share{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18);color:#fff}
+.btn-sheet-act.save{background:rgba(46,230,160,.14);border-color:rgba(46,230,160,.4);color:#2ee6a0}
 
 .sheet{transform:translateY(105%);animation:none!important;transition:transform .9s cubic-bezier(.2,.8,.2,1)}
 .open .sheet{transform:none}

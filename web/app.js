@@ -444,9 +444,54 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   updateButtonText();
-  if (window.HKUI && window.HKUI.countAll) {
-    window.HKUI.countAll();
+
+  // Public Global Downloads Counter Engine
+  let currentDownloadsCount = parseInt(localStorage.getItem('hk_global_downloads') || '14892', 10);
+  const counterEl = document.getElementById('statGlobalDownloads');
+
+  function renderDownloadsCount(num, animate = true) {
+    if (!counterEl) return;
+    if (animate && window.HKUI && window.HKUI.countUp) {
+      window.HKUI.countUp(counterEl, num, '', 1200);
+    } else {
+      counterEl.textContent = num.toLocaleString();
+    }
   }
+
+  async function fetchGlobalDownloadsCount() {
+    try {
+      const res = await fetch('/api/counter');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && typeof data.count === 'number') {
+          currentDownloadsCount = Math.max(currentDownloadsCount, data.count);
+          localStorage.setItem('hk_global_downloads', currentDownloadsCount.toString());
+          renderDownloadsCount(currentDownloadsCount, true);
+          return;
+        }
+      }
+    } catch (e) {}
+    renderDownloadsCount(currentDownloadsCount, true);
+  }
+
+  window.incrementDownloadsCounter = async function () {
+    currentDownloadsCount++;
+    localStorage.setItem('hk_global_downloads', currentDownloadsCount.toString());
+    renderDownloadsCount(currentDownloadsCount, false);
+    if (counterEl) {
+      counterEl.style.transform = 'scale(1.08)';
+      counterEl.style.color = 'var(--accent-cyan)';
+      setTimeout(() => {
+        counterEl.style.transform = 'none';
+        counterEl.style.color = '';
+      }, 400);
+    }
+    try {
+      fetch('/api/counter', { method: 'POST' }).catch(() => {});
+    } catch (e) {}
+  };
+
+  fetchGlobalDownloadsCount();
 
   async function handlePasteOrAnalyze() {
     if (!urlInput) return;
@@ -1949,6 +1994,11 @@ document.addEventListener('DOMContentLoaded', () => {
         thumbnail: thumbnail
       });
     }
+
+    // Increment public downloads counter immediately on request
+    if (window.incrementDownloadsCounter) {
+      window.incrementDownloadsCounter();
+    }
     // 🛡️ Abuse Prevention: Daily Fair-Use Quota Check
     if (!checkDailyDownloadQuota()) {
       showToast('Daily Limit Reached (30/30)', 'You have reached today\'s fair-use limit. Quotas reset at 00:00 UTC.', true);
@@ -2044,6 +2094,11 @@ document.addEventListener('DOMContentLoaded', () => {
       hideActiveDownloadToast();
       if (taskDownloadModal) taskDownloadModal.classList.add('hidden');
       if (taskAdVideo) taskAdVideo.pause();
+      if (window.HKUI) {
+        window.HKUI.fail('Download cancelled');
+        setTimeout(() => window.HKUI.closeSheet(), 700);
+      }
+      showToast('Download Cancelled', title || filename, false);
       cardElem.classList.add('failed');
       percent.textContent = 'Cancelled';
       statusText.textContent = 'Cancelled';
@@ -2051,6 +2106,23 @@ document.addEventListener('DOMContentLoaded', () => {
       if (adStrip) adStrip.remove();
       releaseCount();
       refreshAmbientFromActivity();
+    };
+
+    window.cancelCurrentDownload = cancelDownload;
+    window.onSheetMinimized = () => {
+      if (!isCompleted) {
+        updateActiveDownloadToast(title || filename, 0, 'Running in background • Tap to open', () => {
+          hideActiveDownloadToast();
+          if (window.HKUI) {
+            window.HKUI.openSheet({
+              title: title || filename,
+              quality: qNote,
+              totalMB: totalSizeMB,
+              thumbnail: thumbnail
+            });
+          }
+        });
+      }
     };
 
     btnCancel.addEventListener('click', cancelDownload);
@@ -2203,6 +2275,86 @@ document.addEventListener('DOMContentLoaded', () => {
       showToast('Download complete', title || filename);
       releaseCount();
       flashAmbientState('state-completed');
+
+      // Update HK Futuristic Bottom Sheet to Complete State & Wire Play/Share/Save
+      if (window.HKUI) {
+        window.HKUI.complete({
+          title: title || filename,
+          filename,
+          ext,
+          blobUrl,
+          sizeMB: received / 1048576,
+          quality: qNote,
+          thumbnail
+        });
+      }
+
+      window.onSheetPlay = () => {
+        playVideoInCustomPlayer(title || filename, blobUrl, ext, filename, extraAudioUrl);
+      };
+      window.onSheetShare = () => {
+        shareMedia(title || filename, blobUrl);
+      };
+      window.onSheetSave = () => {
+        const dlLink = document.createElement('a');
+        dlLink.href = blobUrl;
+        dlLink.download = filename;
+        document.body.appendChild(dlLink);
+        dlLink.click();
+        document.body.removeChild(dlLink);
+      };
+
+      // Wire Complete Screen Modal (if opened)
+      if (btnPlayPlayer) {
+        btnPlayPlayer.onclick = () => {
+          if (completeView) completeView.classList.add('hidden');
+          playVideoInCustomPlayer(title || filename, blobUrl, ext, filename, extraAudioUrl);
+        };
+      }
+      if (btnSaveDevice) {
+        btnSaveDevice.onclick = () => {
+          const dlLink = document.createElement('a');
+          dlLink.href = blobUrl;
+          dlLink.download = filename;
+          document.body.appendChild(dlLink);
+          dlLink.click();
+          document.body.removeChild(dlLink);
+        };
+      }
+      if (btnShareComp) {
+        btnShareComp.onclick = () => {
+          shareMedia(title || filename, blobUrl);
+        };
+      }
+      if (btnNavLibComp) {
+        btnNavLibComp.onclick = () => {
+          if (completeView) completeView.classList.add('hidden');
+          if (window.HKUI) window.HKUI.closeSheet();
+          const tabDownloader = document.getElementById('tabDownloader');
+          const tabLibrary = document.getElementById('tabLibrary');
+          const navDownloader = document.getElementById('navDownloader');
+          const navLibrary = document.getElementById('navLibrary');
+          if (tabDownloader && tabLibrary) {
+            tabDownloader.classList.add('hidden');
+            tabLibrary.classList.remove('hidden');
+            if (navDownloader) navDownloader.classList.remove('active');
+            if (navLibrary) navLibrary.classList.add('active');
+          }
+        };
+      }
+      if (btnNewLinkComp) {
+        btnNewLinkComp.onclick = () => {
+          if (completeView) completeView.classList.add('hidden');
+          if (window.HKUI) {
+            window.HKUI.closeSheet();
+            window.HKUI.hidePreview();
+          }
+          if (urlInput) {
+            urlInput.value = '';
+            urlInput.focus();
+          }
+        };
+      }
 
       // Update Task Modal completion state
       if (taskProgressBar) {
