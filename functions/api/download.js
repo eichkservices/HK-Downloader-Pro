@@ -341,14 +341,6 @@ export async function onRequestGet(context) {
     const contentLength = upstream.headers.get('content-length');
     const parsedLength = contentLength ? parseInt(contentLength, 10) : 0;
 
-    // Bigger Files Policy (> 100 MB):
-    // Streaming multi-hundred MB files through Cloudflare worker memory exhausts edge limits and triggers
-    // connection aborts. Redirect directly (HTTP 302) to the upstream CDN so the client browser handles
-    // the stream natively with full bandwidth, resume support, and zero memory exhaustion.
-    if (parsedLength > 100 * 1024 * 1024) {
-      return Response.redirect(targetUrl, 302);
-    }
-
     const contentRange = upstream.headers.get('content-range');
     const acceptRanges = upstream.headers.get('accept-ranges');
 

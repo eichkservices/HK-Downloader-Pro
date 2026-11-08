@@ -322,18 +322,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // Custom Branded Media Player Modal
   const playerModal        = document.getElementById('playerModal');
   const playerTitle        = document.getElementById('playerTitle');
-  const videoWrap          = document.getElementById('videoWrap');
-  const videoPlayer        = document.getElementById('videoPlayer');
+  const videoWrap          = document.getElementById('videoWrap') || document.querySelector('.video-container');
+  const videoPlayer        = document.getElementById('videoPlayer') || document.getElementById('customVideo');
   const closePlayerBtn     = document.getElementById('closePlayerBtn');
 
-  const btnPlayPause       = document.getElementById('btnPlayPause');
-  const playerSeek         = document.getElementById('playerSeek');
+  const btnPlayPause       = document.getElementById('btnPlayPause') || document.getElementById('mxPlayPause');
+  const playerSeek         = document.getElementById('playerSeek') || document.getElementById('mxSeekBar');
   const playerProgress     = document.getElementById('playerProgress');
-  const playerTime         = document.getElementById('playerTime');
+  const playerTime         = document.getElementById('playerTime') || document.getElementById('mxCurrentTime');
   const btnAspectToggle    = document.getElementById('btnAspectToggle');
   const btnOpenWithPlayer  = document.getElementById('btnOpenWithPlayer');
   const btnSharePlayer     = document.getElementById('btnSharePlayer');
-  const btnFullscreen      = document.getElementById('btnFullscreen');
+  const btnFullscreen      = document.getElementById('btnFullscreen') || document.getElementById('mxFullscreen');
 
   // Delete Options Modal
   const deleteModal        = document.getElementById('deleteModal');
@@ -1602,8 +1602,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  closeModalBtn.addEventListener('click', () => formatModal.classList.add('hidden'));
-  formatModal.addEventListener('click', e => { if (e.target === formatModal) formatModal.classList.add('hidden'); });
+  if (closeModalBtn && formatModal) closeModalBtn.addEventListener('click', () => formatModal.classList.add('hidden'));
+  if (formatModal) formatModal.addEventListener('click', e => { if (e.target === formatModal) formatModal.classList.add('hidden'); });
 
   // 5. Custom Branded MX Player Engine (Speed, Lock, Double-Tap Seek, Exit Fullscreen)
   const mxControls = document.getElementById('mxControls');
@@ -1703,231 +1703,250 @@ document.addEventListener('DOMContentLoaded', () => {
     resetControlsTimeout();
   }
 
-  videoPlayer.addEventListener('error', () => {
-    console.warn('videoPlayer error event triggered, showing fallback overlay');
-    if (playerErrorOverlay) {
-      playerErrorOverlay.classList.remove('hidden');
-    }
-  });
-
-  if (btnErrOpenExternal) {
-    btnErrOpenExternal.addEventListener('click', () => {
-      openWithMedia(currentActiveBlobUrl);
-    });
-  }
-
-  if (btnErrSaveDirect) {
-    btnErrSaveDirect.addEventListener('click', () => {
-      if (!currentActiveBlobUrl) return;
-      const a = document.createElement('a');
-      a.href = currentActiveBlobUrl;
-      a.download = currentActiveFilename || 'media.mp4';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    });
-  }
-
-  // Aspect Ratio Fit Auto Switcher (Contain, Cover, Stretch)
-  videoPlayer.addEventListener('loadedmetadata', () => {
-    const w = videoPlayer.videoWidth;
-    const h = videoPlayer.videoHeight;
-    if (w && h) {
-      const isVertical = h > w;
-      videoWrap.className = 'mx-video-wrapper fit-contain';
-      btnAspectToggle.textContent = isVertical ? 'Fit (9:16)' : 'Fit (16:9)';
-    }
-  });
-
-  const aspectModes = ['fit-contain', 'fit-cover', 'fit-stretch'];
-  let currentAspectIdx = 0;
-  btnAspectToggle.addEventListener('click', () => {
-    currentAspectIdx = (currentAspectIdx + 1) % aspectModes.length;
-    const mode = aspectModes[currentAspectIdx];
-    videoWrap.className = `mx-video-wrapper ${mode}`;
-    const labels = { 'fit-contain': 'Fit Auto', 'fit-cover': 'Fill Screen', 'fit-stretch': 'Stretch' };
-    btnAspectToggle.textContent = labels[mode];
-  });
-
-  // Playback Speed Switcher (0.5x, 0.75x, 1.0x, 1.25x, 1.5x, 2.0x)
-  const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
-  let currentSpeedIdx = 2;
-  btnSpeed.addEventListener('click', () => {
-    currentSpeedIdx = (currentSpeedIdx + 1) % speeds.length;
-    const speed = speeds[currentSpeedIdx];
-    videoPlayer.playbackRate = speed;
-    btnSpeed.textContent = `${speed}x`;
-  });
-
-  // Mute / Unmute
-  const volumeIcon = document.getElementById('volumeIcon');
-  const mutedIcon  = document.getElementById('mutedIcon');
-  btnMute.addEventListener('click', () => {
-    videoPlayer.muted = !videoPlayer.muted;
-    if (volumeIcon && mutedIcon) {
-      volumeIcon.classList.toggle('hidden', videoPlayer.muted);
-      mutedIcon.classList.toggle('hidden', !videoPlayer.muted);
-    }
-  });
-
-  // Lock Screen Touch Toggle
-  const lockIcon   = document.getElementById('lockIcon');
-  const unlockIcon = document.getElementById('unlockIcon');
-  btnLock.addEventListener('click', () => {
-    isLocked = !isLocked;
-    if (lockIcon && unlockIcon) {
-      lockIcon.classList.toggle('hidden', !isLocked);
-      unlockIcon.classList.toggle('hidden', isLocked);
-    }
-    mxControls.classList.toggle('locked', isLocked);
-  });
-
-  const playSvg  = document.getElementById('playSvg');
-  const pauseSvg = document.getElementById('pauseSvg');
-  const fsEnterSvg = document.getElementById('fsEnterSvg');
-  const fsExitSvg  = document.getElementById('fsExitSvg');
-
-  // Play / Pause Toggle
-  btnPlayPause.addEventListener('click', () => {
-    if (isLocked) return;
-    if (videoPlayer.paused) {
-      videoPlayer.play();
-      if (playSvg && pauseSvg) {
-        playSvg.classList.add('hidden');
-        pauseSvg.classList.remove('hidden');
+  if (videoPlayer) {
+    videoPlayer.addEventListener('error', () => {
+      console.warn('videoPlayer error event triggered, showing fallback overlay');
+      if (playerErrorOverlay) {
+        playerErrorOverlay.classList.remove('hidden');
       }
-    } else {
+    });
+
+    if (btnErrOpenExternal) {
+      btnErrOpenExternal.addEventListener('click', () => {
+        openWithMedia(currentActiveBlobUrl);
+      });
+    }
+
+    if (btnErrSaveDirect) {
+      btnErrSaveDirect.addEventListener('click', () => {
+        if (!currentActiveBlobUrl) return;
+        const a = document.createElement('a');
+        a.href = currentActiveBlobUrl;
+        a.download = currentActiveFilename || 'media.mp4';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      });
+    }
+
+    // Aspect Ratio Fit Auto Switcher (Contain, Cover, Stretch)
+    videoPlayer.addEventListener('loadedmetadata', () => {
+      const w = videoPlayer.videoWidth;
+      const h = videoPlayer.videoHeight;
+      if (w && h && videoWrap) {
+        const isVertical = h > w;
+        videoWrap.className = 'mx-video-wrapper fit-contain';
+        if (btnAspectToggle) btnAspectToggle.textContent = isVertical ? 'Fit (9:16)' : 'Fit (16:9)';
+      }
+    });
+
+    const aspectModes = ['fit-contain', 'fit-cover', 'fit-stretch'];
+    let currentAspectIdx = 0;
+    if (btnAspectToggle) {
+      btnAspectToggle.addEventListener('click', () => {
+        currentAspectIdx = (currentAspectIdx + 1) % aspectModes.length;
+        const mode = aspectModes[currentAspectIdx];
+        if (videoWrap) videoWrap.className = `mx-video-wrapper ${mode}`;
+        const labels = { 'fit-contain': 'Fit Auto', 'fit-cover': 'Fill Screen', 'fit-stretch': 'Stretch' };
+        btnAspectToggle.textContent = labels[mode];
+      });
+    }
+
+    // Playback Speed Switcher (0.5x, 0.75x, 1.0x, 1.25x, 1.5x, 2.0x)
+    const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+    let currentSpeedIdx = 2;
+    if (btnSpeed) {
+      btnSpeed.addEventListener('click', () => {
+        currentSpeedIdx = (currentSpeedIdx + 1) % speeds.length;
+        const speed = speeds[currentSpeedIdx];
+        videoPlayer.playbackRate = speed;
+        btnSpeed.textContent = `${speed}x`;
+      });
+    }
+
+    // Mute / Unmute
+    const volumeIcon = document.getElementById('volumeIcon');
+    const mutedIcon  = document.getElementById('mutedIcon');
+    if (btnMute) {
+      btnMute.addEventListener('click', () => {
+        videoPlayer.muted = !videoPlayer.muted;
+        if (volumeIcon && mutedIcon) {
+          volumeIcon.classList.toggle('hidden', videoPlayer.muted);
+          mutedIcon.classList.toggle('hidden', !videoPlayer.muted);
+        }
+      });
+    }
+
+    // Lock Screen Touch Toggle
+    const lockIcon   = document.getElementById('lockIcon');
+    const unlockIcon = document.getElementById('unlockIcon');
+    if (btnLock) {
+      btnLock.addEventListener('click', () => {
+        isLocked = !isLocked;
+        if (lockIcon && unlockIcon) {
+          lockIcon.classList.toggle('hidden', !isLocked);
+          unlockIcon.classList.toggle('hidden', isLocked);
+        }
+        if (mxControls) mxControls.classList.toggle('locked', isLocked);
+      });
+    }
+
+    const playSvg  = document.getElementById('playSvg');
+    const pauseSvg = document.getElementById('pauseSvg');
+    const fsEnterSvg = document.getElementById('fsEnterSvg');
+    const fsExitSvg  = document.getElementById('fsExitSvg');
+
+    // Play / Pause Toggle
+    if (btnPlayPause) {
+      btnPlayPause.addEventListener('click', () => {
+        if (isLocked) return;
+        if (videoPlayer.paused) {
+          videoPlayer.play();
+          if (playSvg && pauseSvg) {
+            playSvg.classList.add('hidden');
+            pauseSvg.classList.remove('hidden');
+          }
+        } else {
+          videoPlayer.pause();
+          if (playSvg && pauseSvg) {
+            playSvg.classList.remove('hidden');
+            pauseSvg.classList.add('hidden');
+          }
+        }
+      });
+    }
+
+    // Rewind & Forward (-10s / +10s)
+    if (btnRewind) {
+      btnRewind.addEventListener('click', () => { if (!isLocked) videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 10); });
+    }
+    if (btnForward) {
+      btnForward.addEventListener('click', () => { if (!isLocked) videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 10); });
+    }
+
+    // Double Tap Touch Zones
+    const REWIND_ICON = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 19 2 12 11 5 11 19"></polygon><polygon points="22 19 13 12 22 5 22 19"></polygon></svg>';
+    const FORWARD_ICON = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 19 22 12 13 5 13 19"></polygon><polygon points="2 19 11 12 2 5 2 19"></polygon></svg>';
+
+    function showSeekFeedback(zone, iconSvg, label) {
+      if (!zone) return;
+      const ripple = document.createElement('div');
+      ripple.className = 'seek-ripple';
+      zone.appendChild(ripple);
+      setTimeout(() => ripple.remove(), 600);
+
+      const flash = document.createElement('div');
+      flash.className = 'seek-flash';
+      flash.innerHTML = iconSvg + `<span>${label}</span>`;
+      zone.appendChild(flash);
+      setTimeout(() => flash.remove(), 700);
+    }
+
+    if (touchLeft) touchLeft.addEventListener('dblclick', () => {
+      videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 10);
+      showSeekFeedback(touchLeft, REWIND_ICON, '10 seconds');
+    });
+    if (touchRight) touchRight.addEventListener('dblclick', () => {
+      videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 10);
+      showSeekFeedback(touchRight, FORWARD_ICON, '10 seconds');
+    });
+
+    // Auto-Hide Controls Overlay
+    if (videoWrap) {
+      videoWrap.addEventListener('mousemove', showControlsTemporarily);
+      videoWrap.addEventListener('touchstart', showControlsTemporarily);
+    }
+
+    function showControlsTemporarily() {
+      if (mxControls) mxControls.classList.remove('fade-out');
+      resetControlsTimeout();
+    }
+
+    function resetControlsTimeout() {
+      clearTimeout(controlsTimeout);
+      controlsTimeout = setTimeout(() => {
+        if (!videoPlayer.paused && !isLocked && mxControls) {
+          mxControls.classList.add('fade-out');
+        }
+      }, 3500);
+    }
+
+    videoPlayer.addEventListener('timeupdate', () => {
+      if (!isNaN(videoPlayer.duration)) {
+        const pct = (videoPlayer.currentTime / videoPlayer.duration) * 100;
+        if (playerSeek) playerSeek.value = pct;
+        if (playerProgress) playerProgress.style.width = `${pct}%`;
+        if (playerTime) playerTime.textContent = `${fmtTime(videoPlayer.currentTime)} / ${fmtTime(videoPlayer.duration)}`;
+      }
+    });
+
+    // Buffered-range indicator on the seekbar
+    videoPlayer.addEventListener('progress', () => {
+      if (!bufferedFill || !videoPlayer.duration || isNaN(videoPlayer.duration)) return;
+      const buffered = videoPlayer.buffered;
+      if (buffered.length > 0) {
+        const end = buffered.end(buffered.length - 1);
+        bufferedFill.style.width = `${(end / videoPlayer.duration) * 100}%`;
+      }
+    });
+
+    // Buffering spinner
+    if (bufferSpinner) {
+      videoPlayer.addEventListener('waiting', () => bufferSpinner.classList.remove('hidden'));
+      videoPlayer.addEventListener('playing', () => bufferSpinner.classList.add('hidden'));
+      videoPlayer.addEventListener('canplay', () => bufferSpinner.classList.add('hidden'));
+      videoPlayer.addEventListener('seeking', () => bufferSpinner.classList.remove('hidden'));
+      videoPlayer.addEventListener('seeked', () => bufferSpinner.classList.add('hidden'));
+    }
+
+    if (playerSeek) {
+      playerSeek.addEventListener('input', () => {
+        if (!isNaN(videoPlayer.duration)) {
+          const seekTo = (playerSeek.value / 100) * videoPlayer.duration;
+          videoPlayer.currentTime = seekTo;
+        }
+      });
+    }
+
+    // Fullscreen & Exit Fullscreen Toggle
+    if (btnFullscreen) {
+      btnFullscreen.addEventListener('click', () => {
+        const isFS = document.fullscreenElement || document.webkitFullscreenElement;
+        if (isFS) {
+          if (document.exitFullscreen) document.exitFullscreen();
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        } else {
+          if (videoWrap && videoWrap.requestFullscreen) videoWrap.requestFullscreen();
+          else if (videoWrap && videoWrap.webkitRequestFullscreen) videoWrap.webkitRequestFullscreen();
+          else if (videoPlayer.requestFullscreen) videoPlayer.requestFullscreen();
+        }
+      });
+    }
+
+    document.addEventListener('fullscreenchange', handleFSChange);
+    document.addEventListener('webkitfullscreenchange', handleFSChange);
+
+    function handleFSChange() {
+      const isFS = document.fullscreenElement || document.webkitFullscreenElement;
+      if (fsEnterSvg && fsExitSvg) {
+        fsEnterSvg.classList.toggle('hidden', isFS);
+        fsExitSvg.classList.toggle('hidden', !isFS);
+      }
+    }
+
+    if (btnSharePlayer) btnSharePlayer.addEventListener('click', () => shareMedia(currentActiveTitle, currentActiveBlobUrl));
+    if (btnOpenWithPlayer) btnOpenWithPlayer.addEventListener('click', () => openWithMedia(currentActiveBlobUrl));
+
+    if (closePlayerBtn) closePlayerBtn.addEventListener('click', closeCustomPlayer);
+    if (playerModal) playerModal.addEventListener('click', e => { if (e.target === playerModal) closeCustomPlayer(); });
+
+    function closeCustomPlayer() {
       videoPlayer.pause();
-      if (playSvg && pauseSvg) {
-        playSvg.classList.remove('hidden');
-        pauseSvg.classList.add('hidden');
-      }
+      videoPlayer.src = '';
+      if (playerErrorOverlay) playerErrorOverlay.classList.add('hidden');
+      if (audioView) audioView.classList.add('hidden');
+      if (playerModal) playerModal.classList.add('hidden');
     }
-  });
-
-  // Rewind & Forward (-10s / +10s)
-  btnRewind.addEventListener('click', () => { if (!isLocked) videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 10); });
-  btnForward.addEventListener('click', () => { if (!isLocked) videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 10); });
-
-  // Double Tap Touch Zones -- with real visual feedback (ripple + icon flash),
-  // not a silent seek. This is the pattern every mainstream mobile video
-  // player uses so a tap has an obvious, satisfying response.
-  const REWIND_ICON = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 19 2 12 11 5 11 19"></polygon><polygon points="22 19 13 12 22 5 22 19"></polygon></svg>';
-  const FORWARD_ICON = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 19 22 12 13 5 13 19"></polygon><polygon points="2 19 11 12 2 5 2 19"></polygon></svg>';
-
-  function showSeekFeedback(zone, iconSvg, label) {
-    const ripple = document.createElement('div');
-    ripple.className = 'seek-ripple';
-    zone.appendChild(ripple);
-    setTimeout(() => ripple.remove(), 600);
-
-    const flash = document.createElement('div');
-    flash.className = 'seek-flash';
-    flash.innerHTML = iconSvg + `<span>${label}</span>`;
-    zone.appendChild(flash);
-    setTimeout(() => flash.remove(), 700);
-  }
-
-  if (touchLeft) touchLeft.addEventListener('dblclick', () => {
-    videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 10);
-    showSeekFeedback(touchLeft, REWIND_ICON, '10 seconds');
-  });
-  if (touchRight) touchRight.addEventListener('dblclick', () => {
-    videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 10);
-    showSeekFeedback(touchRight, FORWARD_ICON, '10 seconds');
-  });
-
-  // Auto-Hide Controls Overlay
-  videoWrap.addEventListener('mousemove', showControlsTemporarily);
-  videoWrap.addEventListener('touchstart', showControlsTemporarily);
-
-  function showControlsTemporarily() {
-    mxControls.classList.remove('fade-out');
-    resetControlsTimeout();
-  }
-
-  function resetControlsTimeout() {
-    clearTimeout(controlsTimeout);
-    controlsTimeout = setTimeout(() => {
-      if (!videoPlayer.paused && !isLocked) {
-        mxControls.classList.add('fade-out');
-      }
-    }, 3500);
-  }
-
-  videoPlayer.addEventListener('timeupdate', () => {
-    if (!isNaN(videoPlayer.duration)) {
-      const pct = (videoPlayer.currentTime / videoPlayer.duration) * 100;
-      playerSeek.value = pct;
-      playerProgress.style.width = `${pct}%`;
-      playerTime.textContent = `${fmtTime(videoPlayer.currentTime)} / ${fmtTime(videoPlayer.duration)}`;
-    }
-  });
-
-  // Buffered-range indicator on the seekbar -- shows how much has actually
-  // downloaded/decoded ahead of playback, not just current position.
-  videoPlayer.addEventListener('progress', () => {
-    if (!bufferedFill || !videoPlayer.duration || isNaN(videoPlayer.duration)) return;
-    const buffered = videoPlayer.buffered;
-    if (buffered.length > 0) {
-      const end = buffered.end(buffered.length - 1);
-      bufferedFill.style.width = `${(end / videoPlayer.duration) * 100}%`;
-    }
-  });
-
-  // Buffering spinner -- real loading feedback instead of a frozen frame
-  // while the video is fetching data or seeking.
-  if (bufferSpinner) {
-    videoPlayer.addEventListener('waiting', () => bufferSpinner.classList.remove('hidden'));
-    videoPlayer.addEventListener('playing', () => bufferSpinner.classList.add('hidden'));
-    videoPlayer.addEventListener('canplay', () => bufferSpinner.classList.add('hidden'));
-    videoPlayer.addEventListener('seeking', () => bufferSpinner.classList.remove('hidden'));
-    videoPlayer.addEventListener('seeked', () => bufferSpinner.classList.add('hidden'));
-  }
-
-  playerSeek.addEventListener('input', () => {
-    if (!isNaN(videoPlayer.duration)) {
-      const seekTo = (playerSeek.value / 100) * videoPlayer.duration;
-      videoPlayer.currentTime = seekTo;
-    }
-  });
-
-  // Fullscreen & Exit Fullscreen Toggle (Cross-Browser Supported)
-  btnFullscreen.addEventListener('click', () => {
-    const isFS = document.fullscreenElement || document.webkitFullscreenElement;
-    if (isFS) {
-      if (document.exitFullscreen) document.exitFullscreen();
-      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-    } else {
-      if (videoWrap.requestFullscreen) videoWrap.requestFullscreen();
-      else if (videoWrap.webkitRequestFullscreen) videoWrap.webkitRequestFullscreen();
-      else if (videoPlayer.requestFullscreen) videoPlayer.requestFullscreen();
-    }
-  });
-
-  document.addEventListener('fullscreenchange', handleFSChange);
-  document.addEventListener('webkitfullscreenchange', handleFSChange);
-
-  function handleFSChange() {
-    const isFS = document.fullscreenElement || document.webkitFullscreenElement;
-    if (fsEnterSvg && fsExitSvg) {
-      fsEnterSvg.classList.toggle('hidden', isFS);
-      fsExitSvg.classList.toggle('hidden', !isFS);
-    }
-  }
-
-  btnSharePlayer.addEventListener('click', () => shareMedia(currentActiveTitle, currentActiveBlobUrl));
-  btnOpenWithPlayer.addEventListener('click', () => openWithMedia(currentActiveBlobUrl));
-
-  closePlayerBtn.addEventListener('click', closeCustomPlayer);
-  playerModal.addEventListener('click', e => { if (e.target === playerModal) closeCustomPlayer(); });
-
-  function closeCustomPlayer() {
-    videoPlayer.pause();
-    videoPlayer.src = '';
-    if (playerErrorOverlay) playerErrorOverlay.classList.add('hidden');
-    if (audioView) audioView.classList.add('hidden');
-    playerModal.classList.add('hidden');
   }
 
   // 6. Share & Open-With Helper Functions
@@ -1962,8 +1981,8 @@ document.addEventListener('DOMContentLoaded', () => {
     deleteModal.classList.remove('hidden');
   }
 
-  closeDeleteModalBtn.addEventListener('click', () => deleteModal.classList.add('hidden'));
-  deleteModal.addEventListener('click', e => { if (e.target === deleteModal) deleteModal.classList.add('hidden'); });
+  if (closeDeleteModalBtn && deleteModal) closeDeleteModalBtn.addEventListener('click', () => deleteModal.classList.add('hidden'));
+  if (deleteModal) deleteModal.addEventListener('click', e => { if (e.target === deleteModal) deleteModal.classList.add('hidden'); });
 
   function checkRecentEmpty() {
     const recentWrap = document.getElementById('recentWrap');
@@ -1976,22 +1995,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  btnDelTaskOnly.addEventListener('click', () => {
-    if (pendingDeleteCard) pendingDeleteCard.remove();
-    checkRecentEmpty();
-    deleteModal.classList.add('hidden');
-  });
+  if (btnDelTaskOnly) {
+    btnDelTaskOnly.addEventListener('click', () => {
+      if (pendingDeleteCard) pendingDeleteCard.remove();
+      checkRecentEmpty();
+      if (deleteModal) deleteModal.classList.add('hidden');
+    });
+  }
 
-  btnDelTaskAndFile.addEventListener('click', () => {
-    if (pendingDeleteCard) pendingDeleteCard.remove();
-    checkRecentEmpty();
-    if (pendingDeleteLibItem) {
-      const idx = libraryItems.indexOf(pendingDeleteLibItem);
-      if (idx > -1) libraryItems.splice(idx, 1);
-      renderLibraryGrid();
-    }
-    deleteModal.classList.add('hidden');
-  });
+  if (btnDelTaskAndFile) {
+    btnDelTaskAndFile.addEventListener('click', () => {
+      if (pendingDeleteCard) pendingDeleteCard.remove();
+      checkRecentEmpty();
+      if (pendingDeleteLibItem) {
+        const idx = libraryItems.indexOf(pendingDeleteLibItem);
+        if (idx > -1) libraryItems.splice(idx, 1);
+        renderLibraryGrid();
+      }
+      if (deleteModal) deleteModal.classList.add('hidden');
+    });
+  }
 
   // 8. Download Execution Engine with Task-Based Ad Wait-Time Station
   async function startDownload(tokenOrUrl, filename, title, thumbnail, knownSize, formatObj) {
@@ -2020,34 +2043,6 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // ⚡ Bigger Files Policy (> 100 MB):
-    // Streaming multi-hundred MB files into JS memory crashes mobile browsers and triggers proxy timeouts.
-    // We direct-stream via the browser's native download manager with full ISP bandwidth and resume support.
-    const isBigMedia = Boolean(
-      (knownSize && knownSize > 100 * 1024 * 1024) ||
-      (formatObj?.sizeBytes && formatObj.sizeBytes > 100 * 1024 * 1024) ||
-      (formatObj?.size && formatObj.size > 100 * 1024 * 1024) ||
-      (formatObj?.note && (formatObj.note.includes('4K') || formatObj.note.includes('1440p') || formatObj.note.includes('2160p')))
-    );
-
-    if (isBigMedia) {
-      showToast('Big File Policy (>100MB)', 'Starting direct high-speed browser stream to prevent memory limits.', false);
-      const isYt = (formatObj?.type || '').toLowerCase() === 'youtube' || (tokenOrUrl || '').includes('googlevideo') || (tokenOrUrl || '').includes('youtube');
-      const ytVidId = formatObj?.videoId || (tokenOrUrl || '').match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1] || '';
-      const directHref = isYt && ytVidId
-        ? `/api/download?type=youtube&id=${encodeURIComponent(ytVidId)}&url=${encodeURIComponent(tokenOrUrl)}&filename=${encodeURIComponent(filename)}`
-        : tokenOrUrl;
-
-      const a = document.createElement('a');
-      a.href = directHref;
-      a.download = filename || 'video.mp4';
-      a.target = '_blank';
-      a.rel = 'noreferrer noopener';
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => a.remove(), 1000);
-      return;
-    }
     const card = addDownloadCard(title, filename, thumbnail);
     const { cardElem, bar, percent, meta, statusText, btnCancel, actionsContainer, adStrip } = card;
 
