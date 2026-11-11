@@ -237,8 +237,8 @@ async function resolveFacebookDirect(link) {
   const cleanSd = sdMatch ? sdMatch[1].replace(/\\/g, '') : null;
 
   const formats = [];
-  if (cleanHd) formats.push({ directUrl: cleanHd, note: '🎬 HD (1080p MP4)', ext: 'mp4' });
-  if (cleanSd) formats.push({ directUrl: cleanSd, note: '🎬 SD (480p MP4)', ext: 'mp4' });
+  if (cleanHd) formats.push({ directUrl: cleanHd, note: '🎬 HD 1080p (MP4)', ext: 'mp4', height: 1080, quality: '1080p' });
+  if (cleanSd) formats.push({ directUrl: cleanSd, note: '🎬 SD 480p (MP4)', ext: 'mp4', height: 480, quality: '480p' });
 
   if (formats.length === 0) throw new Error('No direct streams found in Facebook page');
 
@@ -361,27 +361,66 @@ function capVideoFormats(formats) {
 }
 
 async function resolveTikwm(link) {
-  const resp = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(link)}`, {
-    signal: AbortSignal.timeout(6000)
+  const resp = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(link)}&hd=1`, {
+    signal: AbortSignal.timeout(8000)
   });
   const data = await resp.json();
   if (data?.code !== 0 || !data.data) throw new Error('tikwm returned no usable data');
   const v = data.data;
   const formats = [];
+  const fixUrl = u => (!u ? '' : (u.startsWith('http') ? u : `https://www.tikwm.com${u.startsWith('/') ? '' : '/'}${u}`));
 
-  // 1. HD No Watermark (best quality if available)
-  if (v.hdplay) formats.push({ directUrl: v.hdplay, note: '🎬 HD 1080p (No watermark)', ext: 'mp4', hasAudio: true });
-  // 2. Standard No Watermark
-  if (v.play) formats.push({ directUrl: v.play, note: '🎬 Video (No watermark)', ext: 'mp4', hasAudio: true });
+  // 1. HD 1080p No Watermark (highest quality unwatermarked)
+  if (v.hdplay) {
+    formats.push({
+      directUrl: fixUrl(v.hdplay),
+      note: '🎬 1080p FHD (No watermark)',
+      ext: 'mp4',
+      height: 1080,
+      quality: '1080p',
+      sizeBytes: v.hd_size || null,
+      hasAudio: true
+    });
+  }
+  // 2. Standard 720p No Watermark
+  if (v.play) {
+    formats.push({
+      directUrl: fixUrl(v.play),
+      note: '🎬 720p HD (No watermark)',
+      ext: 'mp4',
+      height: 720,
+      quality: '720p',
+      sizeBytes: v.size || null,
+      hasAudio: true
+    });
+  }
   // 3. Watermarked
-  if (v.wmplay) formats.push({ directUrl: v.wmplay, note: '🎬 Video (Watermarked)', ext: 'mp4', hasAudio: true });
+  if (v.wmplay) {
+    formats.push({
+      directUrl: fixUrl(v.wmplay),
+      note: '🎬 480p SD (Watermarked)',
+      ext: 'mp4',
+      height: 480,
+      quality: '480p',
+      sizeBytes: v.wm_size || null,
+      hasAudio: true
+    });
+  }
   // 4. Music / Audio
-  if (v.music) formats.push({ directUrl: v.music, note: '🎵 Audio Track (MP3)', ext: 'mp3', isAudio: true });
+  if (v.music) {
+    formats.push({
+      directUrl: fixUrl(v.music),
+      note: '🎵 MP3 Audio Track',
+      ext: 'mp3',
+      isAudio: true,
+      quality: 'MP3'
+    });
+  }
   // 5. TikTok Photo Slideshow album (if present)
   if (Array.isArray(v.images) && v.images.length > 0) {
     v.images.forEach((imgUrl, i) => {
       formats.push({
-        directUrl: imgUrl,
+        directUrl: fixUrl(imgUrl),
         note: `📸 Slide Photo #${i + 1} (JPG)`,
         ext: 'jpg'
       });

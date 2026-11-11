@@ -103,7 +103,7 @@ async function fetchYoutubeWatchSession(vidId) {
   return { visitorData, cookieHeader: [...new Set(cookiePairs)].join('; '), sts };
 }
 
-async function resolveYoutubeFreshStream(videoId, targetItag = null) {
+async function resolveYoutubeFreshStream(videoId, targetItag = null, targetQuality = null) {
   const session = await fetchYoutubeWatchSession(videoId);
   const visionUa = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15';
 
@@ -195,6 +195,7 @@ async function resolveYoutubeFreshStream(videoId, targetItag = null) {
       const rawFormats = data?.streamingData?.formats || [];
       const adaptive = data?.streamingData?.adaptiveFormats || [];
 
+      // 1. If exact itag requested, match it first
       if (targetItag) {
         const itagNum = parseInt(targetItag, 10);
         for (const af of adaptive) {
@@ -205,14 +206,49 @@ async function resolveYoutubeFreshStream(videoId, targetItag = null) {
         }
       }
 
+      // 2. If targetQuality is audio, pick best audio stream
+      const qStr = String(targetQuality || '').toLowerCase();
+      if (qStr === 'audio' || qStr.includes('mp3') || qStr.includes('m4a')) {
+        const audioOnly = adaptive.filter(af => (af.mimeType || '').startsWith('audio/') && af.url);
+        audioOnly.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+        if (audioOnly.length > 0) return audioOnly[0].url;
+      }
+
+      // 3. If targetQuality specifies a height (e.g. 1080, 720, 480, 360)
+      const qHeightMatch = qStr.match(/\d{3,4}/);
+      const targetHeight = qHeightMatch ? parseInt(qHeightMatch[0], 10) : null;
+      if (targetHeight) {
+        const matchingVideos = adaptive.filter(af => af.url && af.height === targetHeight);
+        if (matchingVideos.length > 0) {
+          matchingVideos.sort((a, b) => {
+            const aIsAvc = (a.mimeType || '').includes('avc1') ? 1 : 0;
+            const bIsAvc = (b.mimeType || '').includes('avc1') ? 1 : 0;
+            if (bIsAvc !== aIsAvc) return bIsAvc - aIsAvc;
+            return (b.bitrate || 0) - (a.bitrate || 0);
+          });
+          return matchingVideos[0].url;
+        }
+        for (const f of rawFormats) {
+          if (f.url && f.height === targetHeight) return f.url;
+        }
+      }
+
+      // 4. Default / Fallback: Pick highest resolution adaptive video stream (preferring AVC1 / MP4)
+      const videoAdaptive = adaptive.filter(af => af.url && af.height);
+      if (videoAdaptive.length > 0) {
+        videoAdaptive.sort((a, b) => {
+          if ((b.height || 0) !== (a.height || 0)) return (b.height || 0) - (a.height || 0);
+          const aIsAvc = (a.mimeType || '').includes('avc1') ? 1 : 0;
+          const bIsAvc = (b.mimeType || '').includes('avc1') ? 1 : 0;
+          if (bIsAvc !== aIsAvc) return bIsAvc - aIsAvc;
+          return (b.bitrate || 0) - (a.bitrate || 0);
+        });
+        return videoAdaptive[0].url;
+      }
+
+      // 5. Fall back to progressive rawFormats if no adaptive stream found
       for (const f of rawFormats) {
         if (f.url) return f.url;
-      }
-      for (const af of adaptive) {
-        if (af.url && (af.mimeType || '').includes('avc1')) return af.url;
-      }
-      for (const af of adaptive) {
-        if (af.url) return af.url;
       }
     } catch (e) {}
   }
@@ -250,11 +286,12 @@ export async function onRequestGet(context) {
     if (m) resolvedYtId = m[1];
   }
   const targetItag = targetUrl ? (targetUrl.match(/[?&]itag=(\d+)/)?.[1] || null) : null;
+  const targetQuality = urlObj.searchParams.get('quality') || '';
 
   // If no direct targetUrl provided, resolve freshly on this Cloudflare node
   if ((!targetUrl || !targetUrl.startsWith('http')) && resolvedYtId) {
     try {
-      const freshUrl = await resolveYoutubeFreshStream(resolvedYtId, targetItag);
+      const freshUrl = await resolveYoutubeFreshStream(resolvedYtId, targetItag, targetQuality);
       if (freshUrl) {
         targetUrl = freshUrl;
       }
@@ -274,6 +311,8 @@ export async function onRequestGet(context) {
       if (!targetUrl.includes('c=IOS') && !targetUrl.includes('c=ANDROID')) {
         referer = 'https://www.youtube.com/';
       }
+    } else if (targetUrl.includes('tiktok') || targetUrl.includes('tiktokcdn') || targetUrl.includes('byteoversea') || targetUrl.includes('ibytedtos') || targetUrl.includes('tikwm')) {
+      referer = 'https://www.tiktok.com/';
     } else if (targetUrl.includes('instagram')) {
       referer = 'https://www.instagram.com/';
     } else if (targetUrl.includes('facebook') || targetUrl.includes('fbcdn')) {
@@ -314,7 +353,7 @@ export async function onRequestGet(context) {
 
     // If googlevideo returned 403 due to IP mismatch, attempt on-demand re-resolution
     if ((!upstream || upstream.status === 403) && resolvedYtId) {
-      const freshUrl = await resolveYoutubeFreshStream(resolvedYtId, targetItag);
+      const freshUrl = await resolveYoutubeFreshStream(resolvedYtId, targetItag, targetQuality);
       if (freshUrl && freshUrl !== targetUrl) {
         targetUrl = freshUrl;
         for (const ua of uasToTry) {

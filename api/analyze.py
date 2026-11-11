@@ -112,7 +112,7 @@ def extract_dropbox(url):
 
 def extract_tiktok(url):
     try:
-        api_url = f"https://www.tikwm.com/api/?url={urllib.parse.quote(url)}"
+        api_url = f"https://www.tikwm.com/api/?url={urllib.parse.quote(url)}&hd=1"
         req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
         with urllib.request.urlopen(req, timeout=8) as resp:
             data = json.loads(resp.read().decode('utf-8'))

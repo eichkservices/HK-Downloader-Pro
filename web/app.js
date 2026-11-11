@@ -1478,14 +1478,21 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (f.note) {
           const match = f.note.match(/(\d{3,4})p/i);
           if (match) res = parseInt(match[1], 10);
-          else if (f.note.includes('4K') || f.note.includes('2160')) res = 2160;
-          else if (f.note.includes('1440')) res = 1440;
-          else if (f.note.includes('1080')) res = 1080;
-          else if (f.note.includes('720')) res = 720;
-          else if (f.note.includes('480')) res = 480;
-          else if (f.note.includes('360')) res = 360;
-          else if (f.note.includes('320')) res = 320;
-          else if (f.note.includes('240')) res = 240;
+          else if (/4K|2160/i.test(f.note)) res = 2160;
+          else if (/1440/i.test(f.note)) res = 1440;
+          else if (/1080|FHD/i.test(f.note)) res = 1080;
+          else if (/720|HD/i.test(f.note)) res = 720;
+          else if (/480|SD/i.test(f.note)) res = 480;
+          else if (/360/i.test(f.note)) res = 360;
+          else if (/320/i.test(f.note)) res = 320;
+          else if (/240/i.test(f.note)) res = 240;
+        }
+
+        if (res === 0 && f.note) {
+          if (/original|best|fhd|1080/i.test(f.note)) res = 1080;
+          else if (/hd|720/i.test(f.note)) res = 720;
+          else if (/sd|480/i.test(f.note)) res = 480;
+          else if (/no watermark/i.test(f.note)) res = 1080;
         }
 
         videoFormats.push({ format: f, res: res });
@@ -1524,7 +1531,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (v.res >= 1080) {
             label = 'HD 1080p';
           } else if (v.res >= 720) {
-            label = '720p';
+            label = '720p HD';
           } else if (v.res >= 480) {
             label = '480p';
           } else if (v.res >= 360) {
@@ -2164,7 +2171,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (isYtStream) {
         const vidId = formatObj?.videoId || (mainUrl || '').match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1] || '';
-        downloadEndpoint = `/api/download?type=youtube&id=${encodeURIComponent(vidId)}&url=${encodeURIComponent(mainUrl)}&filename=${encodeURIComponent(filename)}`;
+        const qualityParam = formatObj?.height || formatObj?.quality || '';
+        downloadEndpoint = `/api/download?type=youtube&id=${encodeURIComponent(vidId)}&url=${encodeURIComponent(mainUrl)}&filename=${encodeURIComponent(filename)}&quality=${encodeURIComponent(qualityParam)}`;
         if (extraAudioUrl && extraAudioUrl.startsWith('http')) {
           extraAudioUrl = `/api/download?type=youtube&id=${encodeURIComponent(vidId)}&url=${encodeURIComponent(extraAudioUrl)}&filename=audio.m4a`;
         }

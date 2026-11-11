@@ -228,6 +228,8 @@ class handler(BaseHTTPRequestHandler):
         if 'googlevideo' in target_url or 'youtube' in target_url:
             if 'c=IOS' not in target_url and 'c=ANDROID' not in target_url:
                 referer = 'https://www.youtube.com/'
+        elif any(k in target_url for k in ['tiktok', 'tiktokcdn', 'byteoversea', 'ibytedtos', 'tikwm']):
+            referer = 'https://www.tiktok.com/'
         elif 'instagram' in target_url:
             referer = 'https://www.instagram.com/'
         elif 'facebook' in target_url or 'fbcdn' in target_url:
