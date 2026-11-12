@@ -109,6 +109,22 @@ async function resolveYoutubeFreshStream(videoId, targetItag = null, targetQuali
 
   const clients = [
     {
+      name: 'IOS',
+      version: '20.03.02',
+      clientNameId: '5',
+      ua: 'com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)',
+      context: {
+        clientName: 'IOS',
+        clientVersion: '20.03.02',
+        deviceMake: 'Apple',
+        deviceModel: 'iPhone16,2',
+        osName: 'iPhone',
+        osVersion: '18.2.1.22C161',
+        gl: 'US',
+        hl: 'en'
+      }
+    },
+    {
       name: 'VISIONOS',
       version: '1.02',
       clientNameId: '101',
@@ -137,22 +153,6 @@ async function resolveYoutubeFreshStream(videoId, targetItag = null, targetQuali
         androidSdkVersion: 34,
         osName: 'Android',
         osVersion: '14',
-        gl: 'US',
-        hl: 'en'
-      }
-    },
-    {
-      name: 'IOS',
-      version: '20.03.02',
-      clientNameId: '5',
-      ua: 'com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)',
-      context: {
-        clientName: 'IOS',
-        clientVersion: '20.03.02',
-        deviceMake: 'Apple',
-        deviceModel: 'iPhone16,2',
-        osName: 'iPhone',
-        osVersion: '18.2.1.22C161',
         gl: 'US',
         hl: 'en'
       }

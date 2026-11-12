@@ -279,7 +279,7 @@ async function resolveInstagramDirect(link) {
   try {
     const embedResp = await fetch(`https://www.instagram.com/p/${shortcode}/embed/captioned/`, {
       headers,
-      signal: AbortSignal.timeout(6000)
+      signal: AbortSignal.timeout(4500)
     });
     if (embedResp.ok) {
       const html = await embedResp.text();
@@ -360,9 +360,32 @@ function capVideoFormats(formats) {
   return [...videos.slice(0, 5), ...audios.slice(0, 1)];
 }
 
+async function resolveTikTokFinalUrl(link) {
+  if (link.includes('vm.tiktok.com') || link.includes('vt.tiktok.com')) {
+    try {
+      const resp = await fetch(link, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36'
+        },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(3500)
+      });
+      if (resp.url && resp.url !== link && !resp.url.includes('vm.tiktok.com') && !resp.url.includes('vt.tiktok.com')) {
+        return resp.url;
+      }
+    } catch (e) {}
+  }
+  return link;
+}
+
 async function resolveTikwm(link) {
-  const resp = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(link)}&hd=1`, {
-    signal: AbortSignal.timeout(8000)
+  const targetLink = await resolveTikTokFinalUrl(link);
+  const resp = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(targetLink)}&hd=1`, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
+      'Accept': 'application/json, text/plain, */*'
+    },
+    signal: AbortSignal.timeout(6000)
   });
   const data = await resp.json();
   if (data?.code !== 0 || !data.data) throw new Error('tikwm returned no usable data');
@@ -701,6 +724,22 @@ async function resolveYoutubeDirect(link) {
 
   const clients = [
     {
+      name: 'IOS',
+      version: '20.03.02',
+      clientNameId: '5',
+      ua: 'com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)',
+      context: {
+        clientName: 'IOS',
+        clientVersion: '20.03.02',
+        deviceMake: 'Apple',
+        deviceModel: 'iPhone16,2',
+        osName: 'iPhone',
+        osVersion: '18.2.1.22C161',
+        gl: 'US',
+        hl: 'en'
+      }
+    },
+    {
       name: 'VISIONOS',
       version: '1.02',
       clientNameId: '101',
@@ -729,22 +768,6 @@ async function resolveYoutubeDirect(link) {
         androidSdkVersion: 34,
         osName: 'Android',
         osVersion: '14',
-        gl: 'US',
-        hl: 'en'
-      }
-    },
-    {
-      name: 'IOS',
-      version: '20.03.02',
-      clientNameId: '5',
-      ua: 'com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)',
-      context: {
-        clientName: 'IOS',
-        clientVersion: '20.03.02',
-        deviceMake: 'Apple',
-        deviceModel: 'iPhone16,2',
-        osName: 'iPhone',
-        osVersion: '18.2.1.22C161',
         gl: 'US',
         hl: 'en'
       }
@@ -1160,6 +1183,7 @@ function isAnalyzeRateLimited(ip) {
 
 export async function onRequestPost(context) {
   const { request, env } = context;
+  try {
 
   // Enforce IP Rate Limiting (Abuse Prevention against scraper bots)
   const clientIp = request.headers.get('CF-Connecting-IP') || request.headers.get('x-real-ip') || 'unknown';
@@ -1263,7 +1287,7 @@ export async function onRequestPost(context) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ inputUrl, preset }),
-          signal: AbortSignal.timeout(12000)
+          signal: AbortSignal.timeout(4000)
         });
         if (resp.ok) {
           const data = await resp.json();
@@ -1404,7 +1428,7 @@ export async function onRequestPost(context) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inputUrl, preset }),
-        signal: AbortSignal.timeout(10000)
+        signal: AbortSignal.timeout(4000)
       });
       if (resp.ok) {
         const data = await resp.json();
@@ -1495,10 +1519,33 @@ export async function onRequestPost(context) {
     });
   }
 
+  let cleanMsg = failures.find(f => f.includes('not a bot') || f.includes('LOGIN_REQUIRED') || f.includes('Sign in'))
+    ? 'This video requires platform sign-in or bot verification on the web. Please try another link or download with the HK Downloader Android App.'
+    : `This link could not be resolved. Please verify the URL and try again.`;
+
   return new Response(JSON.stringify({
-    error: `Couldn't resolve this link (tried: ${failures.join('; ')})`
+    error: cleanMsg,
+    code: 'UNRESOLVABLE',
+    failures
   }), {
-    status: 502,
-    headers: { 'Content-Type': 'application/json' }
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    }
   });
+  } catch (fatalErr) {
+    return new Response(JSON.stringify({
+      error: fatalErr.message || 'Internal link resolver error',
+      code: 'FATAL_EXCEPTION'
+    }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  }
 }

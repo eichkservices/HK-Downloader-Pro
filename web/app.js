@@ -628,6 +628,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const link = cleanUrl(rawLink);
     if (urlInput) urlInput.value = link;
     setAnalyzing(true);
+    let resolvedSuccessfully = false;
+    let serverErrMsg = '';
+
     try {
       const type = identifyLinkType(link);
       
@@ -639,14 +642,19 @@ document.addEventListener('DOMContentLoaded', () => {
           body: JSON.stringify({ inputUrl: link, preset: selectedPreset })
         });
         const contentType = resp.headers.get('content-type') || '';
-        if (resp.ok && contentType.includes('application/json')) {
+        if (contentType.includes('application/json')) {
           const data = await resp.json();
-          if (data.formats && data.formats.length > 0) {
+          if (data && data.formats && Array.isArray(data.formats) && data.formats.length > 0) {
             openFormatModal(data);
+            resolvedSuccessfully = true;
             return;
+          } else if (data && data.error) {
+            serverErrMsg = data.error;
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn('/api/analyze network failure:', e);
+      }
 
       // 2. Direct Vercel Cloud Backend Fallback (CORS-enabled)
       try {
@@ -657,27 +665,35 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (vercelResp.ok) {
           const vData = await vercelResp.json();
-          if (vData.formats && vData.formats.length > 0) {
+          if (vData && vData.formats && Array.isArray(vData.formats) && vData.formats.length > 0) {
             openFormatModal(vData);
+            resolvedSuccessfully = true;
             return;
+          } else if (vData && vData.error) {
+            serverErrMsg = vData.error;
           }
         }
-      } catch (ve) {}
+      } catch (ve) {
+        console.warn('Vercel fallback network failure:', ve);
+      }
 
       // 3. Client-side Fallback (for direct links or custom cobalt)
       try {
         const clientData = await resolveClientSide(link, selectedPreset);
-        if (clientData && clientData.formats && clientData.formats.length > 0) {
+        if (clientData && clientData.formats && Array.isArray(clientData.formats) && clientData.formats.length > 0) {
           openFormatModal(clientData);
+          resolvedSuccessfully = true;
           return;
         }
       } catch (clientErr) {
         console.warn('Client-side resolver fallback failed:', clientErr);
       }
 
-      showToast('Download Unavailable', 'This link is restricted on web by the platform. Please use the HK Downloader Android App or retry.');
+      const displayError = serverErrMsg || 'This link could not be parsed or is restricted by the platform. Please check the URL and retry.';
+      showToast('Download Unavailable', displayError, true);
     } catch (err) {
-      showToast('Analysis Error', err.message || 'Unable to resolve link');
+      console.error('Fatal analyzeUrl error:', err);
+      showToast('Analysis Error', err.message || 'Unable to resolve link', true);
     } finally {
       setAnalyzing(false);
     }
@@ -1464,7 +1480,9 @@ document.addEventListener('DOMContentLoaded', () => {
       let bestAudioFormat = null;
 
       rawFormats.forEach(f => {
-        const isAud = f.ext === 'mp3' || f.isAudio || (f.note && f.note.toLowerCase().includes('audio')) || (f.type && f.type === 'audio');
+        if (!f) return;
+        const isAud = f.isAudio === true || f.ext === 'mp3' || f.type === 'audio' ||
+          (f.note && !/video|mp4|webm|fhd|hd|sd|\d{3,4}p/i.test(f.note) && /audio|mp3|m4a|sound|music/i.test(f.note));
         if (isAud) {
           if (!bestAudioFormat) bestAudioFormat = f;
           return;
