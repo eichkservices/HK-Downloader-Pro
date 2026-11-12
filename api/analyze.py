@@ -557,33 +557,15 @@ def extract_youtube_direct(url):
             LAST_DIRECT_ERR = f"No 11-char video_id in {url}"
             return None
 
-        visitor_data, cookie_header, sts = fetch_youtube_watch_session(video_id)
         vision_ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15'
 
         clients = [
-            {
-                'name': 'VISIONOS',
-                'version': '1.02',
-                'clientNameId': '101',
-                'ua': vision_ua,
-                'context': {
-                    'clientName': 'VISIONOS',
-                    'clientVersion': '1.02',
-                    'deviceMake': 'Apple',
-                    'deviceModel': 'RealityDevice17,1',
-                    'userAgent': vision_ua,
-                    'osName': 'visionOS',
-                    'osVersion': '26.5.23O471',
-                    'hl': 'en',
-                    'timeZone': 'UTC',
-                    'utcOffsetMinutes': 0
-                }
-            },
             {
                 'name': 'ANDROID',
                 'version': '20.10.38',
                 'clientNameId': '3',
                 'ua': 'com.google.android.youtube/20.10.38 (Linux; U; Android 14; en_US) gzip',
+                'is_native': True,
                 'context': {
                     'clientName': 'ANDROID',
                     'clientVersion': '20.10.38',
@@ -599,6 +581,7 @@ def extract_youtube_direct(url):
                 'version': '20.03.02',
                 'clientNameId': '5',
                 'ua': 'com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)',
+                'is_native': True,
                 'context': {
                     'clientName': 'IOS',
                     'clientVersion': '20.03.02',
@@ -609,37 +592,67 @@ def extract_youtube_direct(url):
                     'gl': 'US',
                     'hl': 'en'
                 }
+            },
+            {
+                'name': 'VISIONOS',
+                'version': '1.02',
+                'clientNameId': '101',
+                'ua': vision_ua,
+                'is_native': False,
+                'context': {
+                    'clientName': 'VISIONOS',
+                    'clientVersion': '1.02',
+                    'deviceMake': 'Apple',
+                    'deviceModel': 'RealityDevice17,1',
+                    'userAgent': vision_ua,
+                    'osName': 'visionOS',
+                    'osVersion': '26.5.23O471',
+                    'hl': 'en',
+                    'timeZone': 'UTC',
+                    'utcOffsetMinutes': 0
+                }
             }
         ]
 
         thumb = f'https://img.youtube.com/vi/{video_id}/hqdefault.jpg'
         formats = []
         title = 'YouTube Video'
+        lazy_session = None
 
         for c in clients:
             try:
                 headers = {
                     'Content-Type': 'application/json',
-                    'X-YouTube-Client-Name': c['clientNameId'],
+                    'X-YouTube-Client-Name': str(c['clientNameId']),
                     'X-YouTube-Client-Version': c['version'],
-                    'Origin': 'https://www.youtube.com',
                     'User-Agent': c['ua'],
-                    'Cookie': cookie_header
+                    'Accept': '*/*',
+                    'Accept-Language': 'en-US,en;q=0.9'
                 }
-                if visitor_data:
-                    headers['X-Goog-Visitor-Id'] = visitor_data
                 payload = {
                     'videoId': video_id,
                     'context': {'client': c['context']},
-                    'playbackContext': {
-                        'contentPlaybackContext': {
-                            'html5Preference': 'HTML5_PREF_WANTS',
-                            'signatureTimestamp': sts
-                        }
-                    },
                     'contentCheckOk': True,
                     'racyCheckOk': True
                 }
+
+                if not c.get('is_native'):
+                    if not lazy_session:
+                        lazy_session = fetch_youtube_watch_session(video_id)
+                    v_data, c_hdr, s_ts = lazy_session
+                    headers['Origin'] = 'https://www.youtube.com'
+                    if c_hdr:
+                        headers['Cookie'] = c_hdr
+                    if v_data:
+                        headers['X-Goog-Visitor-Id'] = v_data
+                    if s_ts:
+                        payload['playbackContext'] = {
+                            'contentPlaybackContext': {
+                                'html5Preference': 'HTML5_PREF_WANTS',
+                                'signatureTimestamp': s_ts
+                            }
+                        }
+
                 req = urllib.request.Request(
                     'https://www.youtube.com/youtubei/v1/player?prettyPrint=false',
                     data=json.dumps(payload).encode('utf-8'),

@@ -104,15 +104,31 @@ async function fetchYoutubeWatchSession(vidId) {
 }
 
 async function resolveYoutubeFreshStream(videoId, targetItag = null, targetQuality = null) {
-  const session = await fetchYoutubeWatchSession(videoId);
   const visionUa = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15';
 
   const clients = [
+    {
+      name: 'ANDROID',
+      version: '20.10.38',
+      clientNameId: '3',
+      ua: 'com.google.android.youtube/20.10.38 (Linux; U; Android 14; en_US) gzip',
+      isNative: true,
+      context: {
+        clientName: 'ANDROID',
+        clientVersion: '20.10.38',
+        androidSdkVersion: 34,
+        osName: 'Android',
+        osVersion: '14',
+        gl: 'US',
+        hl: 'en'
+      }
+    },
     {
       name: 'IOS',
       version: '20.03.02',
       clientNameId: '5',
       ua: 'com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)',
+      isNative: true,
       context: {
         clientName: 'IOS',
         clientVersion: '20.03.02',
@@ -129,6 +145,7 @@ async function resolveYoutubeFreshStream(videoId, targetItag = null, targetQuali
       version: '1.02',
       clientNameId: '101',
       ua: visionUa,
+      isNative: false,
       context: {
         clientName: 'VISIONOS',
         clientVersion: '1.02',
@@ -141,23 +158,10 @@ async function resolveYoutubeFreshStream(videoId, targetItag = null, targetQuali
         timeZone: 'UTC',
         utcOffsetMinutes: 0
       }
-    },
-    {
-      name: 'ANDROID',
-      version: '20.10.38',
-      clientNameId: '3',
-      ua: 'com.google.android.youtube/20.10.38 (Linux; U; Android 14; en_US) gzip',
-      context: {
-        clientName: 'ANDROID',
-        clientVersion: '20.10.38',
-        androidSdkVersion: 34,
-        osName: 'Android',
-        osVersion: '14',
-        gl: 'US',
-        hl: 'en'
-      }
     }
   ];
+
+  let lazySession = null;
 
   for (const c of clients) {
     try {
@@ -165,52 +169,67 @@ async function resolveYoutubeFreshStream(videoId, targetItag = null, targetQuali
         'Content-Type': 'application/json',
         'X-YouTube-Client-Name': c.clientNameId,
         'X-YouTube-Client-Version': c.version,
-        'Origin': 'https://www.youtube.com',
         'User-Agent': c.ua,
-        'Cookie': session.cookieHeader
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9'
       };
-      if (session.visitorData) {
-        headers['X-Goog-Visitor-Id'] = session.visitorData;
-      }
+
       const payload = {
         videoId: videoId,
         context: { client: c.context },
-        playbackContext: {
-          contentPlaybackContext: {
-            html5Preference: 'HTML5_PREF_WANTS',
-            signatureTimestamp: session.sts
-          }
-        },
         contentCheckOk: true,
         racyCheckOk: true
       };
+
+      if (!c.isNative) {
+        if (!lazySession) {
+          lazySession = await fetchYoutubeWatchSession(videoId);
+        }
+        headers['Origin'] = 'https://www.youtube.com';
+        if (lazySession?.cookieHeader) headers['Cookie'] = lazySession.cookieHeader;
+        if (lazySession?.visitorData) headers['X-Goog-Visitor-Id'] = lazySession.visitorData;
+        if (lazySession?.sts) {
+          payload.playbackContext = {
+            contentPlaybackContext: {
+              html5Preference: 'HTML5_PREF_WANTS',
+              signatureTimestamp: lazySession.sts
+            }
+          };
+        }
+      }
+
       const resp = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(6000)
+        signal: AbortSignal.timeout(5000)
       });
       if (!resp.ok) continue;
       const data = await resp.json();
       const rawFormats = data?.streamingData?.formats || [];
       const adaptive = data?.streamingData?.adaptiveFormats || [];
 
+      // Always have progressive stream (itag 18 / 22) ready as guaranteed-working fallback
+      const progressiveStream = rawFormats.find(f => f.url);
+
       // 1. If exact itag requested, match it first
       if (targetItag) {
         const itagNum = parseInt(targetItag, 10);
-        for (const af of adaptive) {
-          if (af.itag === itagNum && af.url) return af.url;
-        }
         for (const f of rawFormats) {
           if (f.itag === itagNum && f.url) return f.url;
         }
+        for (const af of adaptive) {
+          if (af.itag === itagNum && af.url) return af.url;
+        }
       }
 
-      // 2. If targetQuality is audio, pick best audio stream
+      // 2. If targetQuality is audio, pick best audio stream (or progressive stream as fallback)
       const qStr = String(targetQuality || '').toLowerCase();
       if (qStr === 'audio' || qStr.includes('mp3') || qStr.includes('m4a')) {
         const audioOnly = adaptive.filter(af => (af.mimeType || '').startsWith('audio/') && af.url);
         audioOnly.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+        if (audioOnly.length > 0 && !c.isNative) return audioOnly[0].url;
+        if (progressiveStream) return progressiveStream.url;
         if (audioOnly.length > 0) return audioOnly[0].url;
       }
 
@@ -218,6 +237,10 @@ async function resolveYoutubeFreshStream(videoId, targetItag = null, targetQuali
       const qHeightMatch = qStr.match(/\d{3,4}/);
       const targetHeight = qHeightMatch ? parseInt(qHeightMatch[0], 10) : null;
       if (targetHeight) {
+        // For 720p or 360p, prefer progressive muxed stream if available
+        for (const f of rawFormats) {
+          if (f.url && f.height === targetHeight) return f.url;
+        }
         const matchingVideos = adaptive.filter(af => af.url && af.height === targetHeight);
         if (matchingVideos.length > 0) {
           matchingVideos.sort((a, b) => {
@@ -228,27 +251,16 @@ async function resolveYoutubeFreshStream(videoId, targetItag = null, targetQuali
           });
           return matchingVideos[0].url;
         }
-        for (const f of rawFormats) {
-          if (f.url && f.height === targetHeight) return f.url;
-        }
       }
 
-      // 4. Default / Fallback: Pick highest resolution adaptive video stream (preferring AVC1 / MP4)
+      // 4. Default: Progressive stream if available (reliable, no 403, contains audio)
+      if (progressiveStream) return progressiveStream.url;
+
+      // 5. Fallback: Highest resolution adaptive video stream
       const videoAdaptive = adaptive.filter(af => af.url && af.height);
       if (videoAdaptive.length > 0) {
-        videoAdaptive.sort((a, b) => {
-          if ((b.height || 0) !== (a.height || 0)) return (b.height || 0) - (a.height || 0);
-          const aIsAvc = (a.mimeType || '').includes('avc1') ? 1 : 0;
-          const bIsAvc = (b.mimeType || '').includes('avc1') ? 1 : 0;
-          if (bIsAvc !== aIsAvc) return bIsAvc - aIsAvc;
-          return (b.bitrate || 0) - (a.bitrate || 0);
-        });
+        videoAdaptive.sort((a, b) => (b.height || 0) - (a.height || 0));
         return videoAdaptive[0].url;
-      }
-
-      // 5. Fall back to progressive rawFormats if no adaptive stream found
-      for (const f of rawFormats) {
-        if (f.url) return f.url;
       }
     } catch (e) {}
   }
@@ -353,8 +365,8 @@ export async function onRequestGet(context) {
 
     // If googlevideo returned 403 due to IP mismatch, attempt on-demand re-resolution
     if ((!upstream || upstream.status === 403) && resolvedYtId) {
-      const freshUrl = await resolveYoutubeFreshStream(resolvedYtId, targetItag, targetQuality);
-      if (freshUrl && freshUrl !== targetUrl) {
+      let freshUrl = await resolveYoutubeFreshStream(resolvedYtId, targetItag, targetQuality);
+      if (freshUrl) {
         targetUrl = freshUrl;
         for (const ua of uasToTry) {
           const upstreamHeaders = { 'User-Agent': ua };
@@ -364,6 +376,23 @@ export async function onRequestGet(context) {
             upstream = await fetch(targetUrl, { headers: upstreamHeaders });
             if (upstream.ok || upstream.status === 206) break;
           } catch (e) {}
+        }
+      }
+
+      // If still 403, fall back to guaranteed progressive format (itag 18 / 22)
+      if ((!upstream || upstream.status === 403) && resolvedYtId) {
+        const progUrl = await resolveYoutubeFreshStream(resolvedYtId, '18');
+        if (progUrl && progUrl !== targetUrl) {
+          targetUrl = progUrl;
+          for (const ua of uasToTry) {
+            const upstreamHeaders = { 'User-Agent': ua };
+            if (referer) upstreamHeaders['Referer'] = referer;
+            if (rangeHeader) upstreamHeaders['Range'] = rangeHeader;
+            try {
+              upstream = await fetch(targetUrl, { headers: upstreamHeaders });
+              if (upstream.ok || upstream.status === 206) break;
+            } catch (e) {}
+          }
         }
       }
     }

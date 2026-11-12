@@ -719,15 +719,31 @@ async function resolveYoutubeDirect(link) {
   const vidId = link.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1];
   if (!vidId) throw new Error('Invalid YouTube URL');
 
-  const session = await fetchYoutubeWatchSession(vidId);
   const visionUa = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15';
 
   const clients = [
+    {
+      name: 'ANDROID',
+      version: '20.10.38',
+      clientNameId: '3',
+      ua: 'com.google.android.youtube/20.10.38 (Linux; U; Android 14; en_US) gzip',
+      isNative: true,
+      context: {
+        clientName: 'ANDROID',
+        clientVersion: '20.10.38',
+        androidSdkVersion: 34,
+        osName: 'Android',
+        osVersion: '14',
+        gl: 'US',
+        hl: 'en'
+      }
+    },
     {
       name: 'IOS',
       version: '20.03.02',
       clientNameId: '5',
       ua: 'com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)',
+      isNative: true,
       context: {
         clientName: 'IOS',
         clientVersion: '20.03.02',
@@ -744,6 +760,7 @@ async function resolveYoutubeDirect(link) {
       version: '1.02',
       clientNameId: '101',
       ua: visionUa,
+      isNative: false,
       context: {
         clientName: 'VISIONOS',
         clientVersion: '1.02',
@@ -756,21 +773,6 @@ async function resolveYoutubeDirect(link) {
         timeZone: 'UTC',
         utcOffsetMinutes: 0
       }
-    },
-    {
-      name: 'ANDROID',
-      version: '20.10.38',
-      clientNameId: '3',
-      ua: 'com.google.android.youtube/20.10.38 (Linux; U; Android 14; en_US) gzip',
-      context: {
-        clientName: 'ANDROID',
-        clientVersion: '20.10.38',
-        androidSdkVersion: 34,
-        osName: 'Android',
-        osVersion: '14',
-        gl: 'US',
-        hl: 'en'
-      }
     }
   ];
 
@@ -778,6 +780,7 @@ async function resolveYoutubeDirect(link) {
   let title = 'YouTube Video';
   let thumbnail = `https://i.ytimg.com/vi/${vidId}/maxresdefault.jpg`;
   const formats = [];
+  let lazySession = null;
 
   for (const c of clients) {
     try {
@@ -785,31 +788,40 @@ async function resolveYoutubeDirect(link) {
         'Content-Type': 'application/json',
         'X-YouTube-Client-Name': c.clientNameId,
         'X-YouTube-Client-Version': c.version,
-        'Origin': 'https://www.youtube.com',
         'User-Agent': c.ua,
-        'Cookie': session.cookieHeader
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9'
       };
-      if (session.visitorData) {
-        headers['X-Goog-Visitor-Id'] = session.visitorData;
-      }
+
       const payload = {
         videoId: vidId,
         context: { client: c.context },
-        playbackContext: {
-          contentPlaybackContext: {
-            html5Preference: 'HTML5_PREF_WANTS',
-            signatureTimestamp: session.sts
-          }
-        },
         contentCheckOk: true,
         racyCheckOk: true
       };
+
+      if (!c.isNative) {
+        if (!lazySession) {
+          lazySession = await fetchYoutubeWatchSession(vidId);
+        }
+        headers['Origin'] = 'https://www.youtube.com';
+        if (lazySession?.cookieHeader) headers['Cookie'] = lazySession.cookieHeader;
+        if (lazySession?.visitorData) headers['X-Goog-Visitor-Id'] = lazySession.visitorData;
+        if (lazySession?.sts) {
+          payload.playbackContext = {
+            contentPlaybackContext: {
+              html5Preference: 'HTML5_PREF_WANTS',
+              signatureTimestamp: lazySession.sts
+            }
+          };
+        }
+      }
 
       const resp = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(6000)
+        signal: AbortSignal.timeout(4500)
       });
       if (!resp.ok) continue;
       const data = await resp.json();

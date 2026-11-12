@@ -2459,13 +2459,17 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       hideActiveDownloadToast();
       if (err.name !== 'AbortError') {
-        // Fallback: If browser fetch encounters CORS or memory error, trigger native browser download!
-        if (tokenOrUrl && tokenOrUrl.startsWith('http')) {
+        // Fallback: If browser fetch encounters CORS or network error, trigger native browser download!
+        if (tokenOrUrl && (tokenOrUrl.startsWith('http') || downloadEndpoint)) {
           statusText.textContent = 'Downloading...';
           meta.textContent = 'Saving via browser download...';
+          if (window.HKUI) {
+            window.HKUI.status('STARTING BROWSER DOWNLOAD…', true);
+          }
 
+          const dlHref = (downloadEndpoint && downloadEndpoint.startsWith('/api/download')) ? downloadEndpoint : (isYtStream ? downloadEndpoint : tokenOrUrl);
           const a = document.createElement('a');
-          a.href = (downloadEndpoint && downloadEndpoint.startsWith('/api/download')) ? downloadEndpoint : tokenOrUrl;
+          a.href = dlHref;
           a.download = filename || 'video.mp4';
           a.target = '_blank';
           a.rel = 'noreferrer noopener';
@@ -2487,12 +2491,28 @@ document.addEventListener('DOMContentLoaded', () => {
             releaseCount();
             flashAmbientState('state-completed');
 
+            if (window.HKUI) {
+              window.HKUI.complete({
+                title: title || filename,
+                filename,
+                ext: formatObj?.ext || 'mp4',
+                sizeMB: totalSizeMB,
+                quality: qNote,
+                thumbnail
+              });
+            }
+
             if (taskProgressBar) taskProgressBar.style.width = '100%';
             if (taskProgressPct) taskProgressPct.textContent = '100%';
             if (taskStatusHeading) taskStatusHeading.textContent = 'Download Started!';
             if (taskCompleteActions) taskCompleteActions.classList.remove('hidden');
           }, 1200);
           return;
+        }
+
+        if (window.HKUI) {
+          window.HKUI.fail(err.message || 'Download failed');
+          setTimeout(() => window.HKUI.closeSheet(), 3000);
         }
 
         cardElem.classList.add('failed');
