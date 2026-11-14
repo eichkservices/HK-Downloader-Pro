@@ -608,6 +608,41 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   window.triggerPostDownloadInstallPopup = triggerPostDownloadInstallPopup;
 
+  // Smart Ad Slot Visibility: Automatically hide empty slots and orphan labels if ads fail or are blocked
+  function monitorAdSlots() {
+    const topSlot = document.getElementById('adSlotTop');
+    const nativeSlot = document.getElementById('adSlotNative');
+
+    if (topSlot) {
+      const topFrame = document.getElementById('mainAdFrame');
+      if (topFrame) {
+        setTimeout(() => {
+          try {
+            const doc = topFrame.contentDocument || topFrame.contentWindow?.document;
+            if (doc && (!doc.body || doc.body.children.length === 0 || doc.body.innerHTML.trim() === '')) {
+              topSlot.style.display = 'none';
+            }
+          } catch (e) {
+            // Cross-origin ad content successfully loaded
+          }
+        }, 3500);
+      }
+    }
+
+    if (nativeSlot) {
+      const nativeContainer = document.getElementById('container-0dc5280b04ec0aeab29bb231530dbf13');
+      if (nativeContainer) {
+        setTimeout(() => {
+          if (!nativeContainer.children || nativeContainer.children.length === 0 || nativeContainer.offsetHeight < 10) {
+            nativeSlot.style.display = 'none';
+          }
+        }, 3500);
+      }
+    }
+  }
+  monitorAdSlots();
+
+
 
   // 1. Dynamic Button Text Toggle (Paste Link ↔ Download)
   if (urlInput) {
