@@ -116,12 +116,13 @@ h1 span{background:linear-gradient(90deg,var(--org),#ffd27a);-webkit-background-
 .mt{display:flex;gap:8px;margin-top:12px}.mt div{flex:1;text-align:center;font:500 12px 'Chakra Petch';padding:8px 0;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)}
 .mt div i{display:block;font-style:normal;font:400 11px 'Outfit';color:var(--mut);margin-bottom:2px}
 .sponsor-station,.adslot{margin:12px auto;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;border:none !important;background:transparent !important;box-shadow:none !important;padding:0 !important}
+.sponsor-station iframe, .sponsor-frame-320 iframe, .sponsor-frame-300 iframe {background:transparent !important; color-scheme:dark;}
 .ad-slot-wrap{position:relative;display:flex;flex-direction:column;align-items:center;border-radius:10px;overflow:visible;box-shadow:none;border:none}
 .ad-tag-corner{align-self:flex-end;font:700 9px 'Chakra Petch',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.45);background:transparent;padding:0 2px 3px 0;pointer-events:none;line-height:1.2;margin:0 auto 2px;width:320px;max-width:100%;text-align:right;box-sizing:border-box}
 .sponsor-station.native{min-height:90px;width:100%;box-sizing:border-box;margin:18px auto 14px;display:block;border:none !important;background:transparent !important;padding:0 !important}
-.sponsor-station.native #container-0dc5280b04ec0aeab29bb231530dbf13{display:block;width:100%;overflow:hidden;border-radius:12px;border:none}
-.sponsor-frame-300{width:300px;height:250px;min-height:250px;border-radius:10px;overflow:hidden;margin:0 auto;display:flex;align-items:center;justify-content:center;border:none}
-.sponsor-frame-320{width:320px;height:50px;min-height:50px;border-radius:8px;overflow:hidden;margin:0 auto;display:flex;align-items:center;justify-content:center;border:none}
+.sponsor-station.native #container-0dc5280b04ec0aeab29bb231530dbf13{display:block;width:100%;overflow:hidden;border-radius:12px;border:none;min-height:50px;}
+.sponsor-frame-300{width:300px;height:250px;min-height:250px;border-radius:10px;overflow:hidden;margin:0 auto;display:flex;align-items:center;justify-content:center;border:none;background:transparent !important;}
+.sponsor-frame-320{width:320px;height:50px;min-height:50px;border-radius:8px;overflow:hidden;margin:0 auto;display:flex;align-items:center;justify-content:center;border:none;background:transparent !important;}
 
 /* Clean Futuristic Downloads Counter Bar */
 .stats-clean-bar{margin:16px 0 20px;display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-radius:16px;background:linear-gradient(135deg,rgba(255,255,255,.04),rgba(255,255,255,.01));border:1px solid rgba(34,211,238,.2);backdrop-filter:blur(10px);box-shadow:0 6px 20px rgba(0,0,0,.3)}
