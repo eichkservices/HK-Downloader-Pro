@@ -92,7 +92,7 @@
   <link rel="apple-touch-icon" href="logo-192.png">
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css?v=3.0.0">
-  <link rel="stylesheet" href="hk-theme.css?v=3.0.6">
+  <link rel="stylesheet" href="hk-theme.css?v=3.0.7">
 </head>
 <body>
   <div id="toastContainer"></div>
@@ -479,14 +479,62 @@
     </div>
   </div>
 
+  <!-- Post-Download Quick Access Install Shortcut Modal -->
+  <div id="postDlInstallModal" class="post-dl-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="postDlTitle">
+    <div class="post-dl-modal-card">
+      <button class="post-dl-close" id="btnClosePostDlModal" aria-label="Close dialog">&times;</button>
+      
+      <div class="post-dl-badge">
+        <span class="post-dl-pulse-dot"></span>
+        <span>1-Click Quick Access</span>
+      </div>
+
+      <div class="post-dl-icon-wrap">
+        <img src="logo.png" alt="HK Downloader Pro" class="post-dl-app-icon" onerror="this.src='/logo.png'">
+      </div>
+
+      <h3 id="postDlTitle" class="post-dl-title">Install HK Downloader</h3>
+      <p class="post-dl-subtitle">Add 1-click home screen shortcut to open in your default browser anytime</p>
+
+      <div class="post-dl-benefits">
+        <div class="post-dl-benefit-item">
+          <span class="post-dl-check">⚡</span>
+          <div>
+            <div class="post-dl-benefit-heading">Instant 1-Click Launch</div>
+            <div class="post-dl-benefit-sub">Opens directly in default browser, no search or typing needed</div>
+          </div>
+        </div>
+        <div class="post-dl-benefit-item">
+          <span class="post-dl-check">🚀</span>
+          <div>
+            <div class="post-dl-benefit-heading">Zero Storage Used (&lt; 1 MB)</div>
+            <div class="post-dl-benefit-sub">Fast web shortcut, no bulky app store installation</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="postDlActionBlock">
+        <button id="btnPostDlInstall" class="btn-post-dl-primary">
+          <span style="font-size:16px;">⚡</span>
+          <span>Add Shortcut to Home Screen (1 Click)</span>
+        </button>
+        <button id="btnPostDlLateral" class="btn-post-dl-later">
+          Maybe Later
+        </button>
+      </div>
+
+      <div id="postDlManualGuide" class="post-dl-guide hidden"></div>
+    </div>
+  </div>
+
   <div class="version-corner-tag" title="HK Downloader Pro Web Engine v3.0.0">
     <span class="pulse-dot"></span> Web v3.0.0
   </div>
 
   <!-- Scripts: i18n, HKUI Controller, and Main App Engine -->
   <script src="i18n.js?v=3.0.0"></script>
-  <script src="hk-ui.js?v=3.0.5"></script>
-  <script src="app.js?v=3.0.9"></script>
+  <script src="hk-ui.js?v=3.0.6"></script>
+  <script src="app.js?v=3.1.0"></script>
 </body>
 </html>
 

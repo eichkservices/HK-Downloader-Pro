@@ -362,7 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let pendingDeleteLibItem = null;
 
   // Unified Install App Modal & PWA Installer
-  let deferredPrompt;
+  let deferredPrompt = null;
   const btnHeaderInstall  = document.getElementById('btnHeaderInstall');
   const installModal      = document.getElementById('installModal');
   const closeInstallModal = document.getElementById('closeInstallModal');
@@ -372,6 +372,15 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
+    window.deferredInstallPrompt = e;
+  });
+
+  window.addEventListener('appinstalled', () => {
+    localStorage.setItem('hk_pwa_installed', 'true');
+    deferredPrompt = null;
+    window.deferredInstallPrompt = null;
+    const modal = document.getElementById('postDlInstallModal');
+    if (modal) modal.classList.add('hidden');
   });
 
   if (btnHeaderInstall && installModal) {
@@ -404,13 +413,16 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnModalPwa) {
     btnModalPwa.addEventListener('click', async () => {
       if (installModal) installModal.classList.add('hidden');
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
+      const promptToUse = deferredPrompt || window.deferredInstallPrompt;
+      if (promptToUse) {
+        promptToUse.prompt();
+        const { outcome } = await promptToUse.userChoice;
         if (outcome === 'accepted') {
+          localStorage.setItem('hk_pwa_installed', 'true');
           showToast('✓ HK Downloader Pro added to your Home Screen!', 'success');
         }
         deferredPrompt = null;
+        window.deferredInstallPrompt = null;
       } else {
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         if (isIOS) {
@@ -421,6 +433,181 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // --- Post-Download Install App / Shortcut Popup Engine ---
+  let postDlPopupTimer = null;
+
+  function ensurePostDownloadInstallModal() {
+    let modal = document.getElementById('postDlInstallModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'postDlInstallModal';
+      modal.className = 'post-dl-modal-overlay hidden';
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-modal', 'true');
+      modal.setAttribute('aria-labelledby', 'postDlTitle');
+      modal.innerHTML = `
+        <div class="post-dl-modal-card">
+          <button class="post-dl-close" id="btnClosePostDlModal" aria-label="Close dialog">&times;</button>
+          
+          <div class="post-dl-badge">
+            <span class="post-dl-pulse-dot"></span>
+            <span>1-Click Quick Access</span>
+          </div>
+
+          <div class="post-dl-icon-wrap">
+            <img src="/logo.png" alt="HK Downloader Pro" class="post-dl-app-icon" onerror="this.src='logo.png'">
+          </div>
+
+          <h3 id="postDlTitle" class="post-dl-title">Install HK Downloader</h3>
+          <p class="post-dl-subtitle">Add 1-click home screen shortcut to open in your default browser anytime</p>
+
+          <div class="post-dl-benefits">
+            <div class="post-dl-benefit-item">
+              <span class="post-dl-check">⚡</span>
+              <div>
+                <div class="post-dl-benefit-heading">Instant 1-Click Launch</div>
+                <div class="post-dl-benefit-sub">Opens directly in default browser, no search or typing needed</div>
+              </div>
+            </div>
+            <div class="post-dl-benefit-item">
+              <span class="post-dl-check">🚀</span>
+              <div>
+                <div class="post-dl-benefit-heading">Zero Storage Used (&lt; 1 MB)</div>
+                <div class="post-dl-benefit-sub">Fast web shortcut, no bulky app store installation</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="postDlActionBlock">
+            <button id="btnPostDlInstall" class="btn-post-dl-primary">
+              <span style="font-size:16px;">⚡</span>
+              <span>Add Shortcut to Home Screen (1 Click)</span>
+            </button>
+            <button id="btnPostDlLateral" class="btn-post-dl-later">
+              Maybe Later
+            </button>
+          </div>
+
+          <div id="postDlManualGuide" class="post-dl-guide hidden"></div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+    wirePostDownloadModalEvents(modal);
+    return modal;
+  }
+
+  function wirePostDownloadModalEvents(modal) {
+    if (!modal || modal._wired) return;
+    modal._wired = true;
+
+    const btnClose = modal.querySelector('#btnClosePostDlModal');
+    const btnLater = modal.querySelector('#btnPostDlLateral');
+    const btnInstall = modal.querySelector('#btnPostDlInstall');
+    const actionBlock = modal.querySelector('#postDlActionBlock');
+    const guideEl = modal.querySelector('#postDlManualGuide');
+
+    function hideModal(recordDismiss = true) {
+      modal.classList.add('hidden');
+      if (recordDismiss) {
+        sessionStorage.setItem('hk_post_dl_install_dismissed', 'true');
+      }
+      if (actionBlock) actionBlock.classList.remove('hidden');
+      if (guideEl) {
+        guideEl.classList.add('hidden');
+        guideEl.innerHTML = '';
+      }
+    }
+
+    if (btnClose) btnClose.addEventListener('click', () => hideModal(true));
+    if (btnLater) btnLater.addEventListener('click', () => hideModal(true));
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) hideModal(true);
+    });
+
+    if (btnInstall) {
+      btnInstall.addEventListener('click', async () => {
+        const promptToUse = deferredPrompt || window.deferredInstallPrompt;
+        if (promptToUse) {
+          try {
+            promptToUse.prompt();
+            const { outcome } = await promptToUse.userChoice;
+            if (outcome === 'accepted') {
+              localStorage.setItem('hk_pwa_installed', 'true');
+              showToast('✓ Shortcut added to Home Screen! Open anytime.', 'success', 5000);
+            }
+            deferredPrompt = null;
+            window.deferredInstallPrompt = null;
+          } catch (err) {
+            console.warn('Install prompt error:', err);
+          }
+          hideModal(false);
+        } else {
+          // If deferredPrompt is unavailable (iOS Safari, Firefox, or unprompted browser)
+          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+          if (guideEl && actionBlock) {
+            actionBlock.classList.add('hidden');
+            if (isIOS) {
+              guideEl.innerHTML = `
+                <div style="background:rgba(34,211,238,0.06);border:1px solid rgba(34,211,238,0.3);border-radius:14px;padding:14px;text-align:left;">
+                  <div style="font-weight:700;color:#fff;font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+                    <span>📲</span> Add to Home Screen in 2 Taps:
+                  </div>
+                  <ol style="margin:0 0 12px 18px;padding:0;font-size:12px;color:#cbd5e1;line-height:1.6;">
+                    <li>Tap Safari's <strong style="color:#22d3ee;">Share</strong> button <span style="padding:1px 5px;background:rgba(255,255,255,0.12);border-radius:4px;">⎋</span> at the bottom.</li>
+                    <li>Scroll down & tap <strong style="color:#ff7a1a;">'Add to Home Screen'</strong> <span style="padding:1px 5px;background:rgba(255,255,255,0.12);border-radius:4px;">⊞</span>.</li>
+                    <li>Tap <strong style="color:#2ee6a0;">'Add'</strong> in the top-right corner.</li>
+                  </ol>
+                  <button id="btnPostDlGuideDone" style="width:100%;padding:10px;border-radius:10px;background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.15);cursor:pointer;font-weight:600;font-size:12px;">Got It</button>
+                </div>
+              `;
+            } else {
+              guideEl.innerHTML = `
+                <div style="background:rgba(34,211,238,0.06);border:1px solid rgba(34,211,238,0.3);border-radius:14px;padding:14px;text-align:left;">
+                  <div style="font-weight:700;color:#fff;font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+                    <span>📲</span> Add Shortcut in Browser:
+                  </div>
+                  <p style="margin:0 0 12px;font-size:12px;color:#cbd5e1;line-height:1.6;">
+                    Tap your browser menu <strong style="color:#22d3ee;">⋮</strong> (top-right or bottom bar), then select <strong style="color:#ff7a1a;">'Add to Home screen'</strong> or <strong style="color:#ff7a1a;">'Install App'</strong>.
+                  </p>
+                  <button id="btnPostDlGuideDone" style="width:100%;padding:10px;border-radius:10px;background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.15);cursor:pointer;font-weight:600;font-size:12px;">Got It</button>
+                </div>
+              `;
+            }
+            guideEl.classList.remove('hidden');
+            const btnDone = guideEl.querySelector('#btnPostDlGuideDone');
+            if (btnDone) {
+              btnDone.addEventListener('click', () => hideModal(true));
+            }
+          } else {
+            showToast('📲 Tap browser menu (⋮) -> "Add to Home screen"', 'info', 5000);
+            hideModal(true);
+          }
+        }
+      });
+    }
+  }
+
+  function triggerPostDownloadInstallPopup(delayMs = 1200) {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                         window.navigator.standalone === true || 
+                         localStorage.getItem('hk_pwa_installed') === 'true';
+    if (isStandalone) return;
+    if (sessionStorage.getItem('hk_post_dl_install_dismissed') === 'true') return;
+
+    if (postDlPopupTimer) clearTimeout(postDlPopupTimer);
+    postDlPopupTimer = setTimeout(() => {
+      postDlPopupTimer = null;
+      if (sessionStorage.getItem('hk_post_dl_install_dismissed') === 'true') return;
+      const modal = ensurePostDownloadInstallModal();
+      if (modal) {
+        modal.classList.remove('hidden');
+      }
+    }, delayMs);
+  }
+  window.triggerPostDownloadInstallPopup = triggerPostDownloadInstallPopup;
+
 
   // 1. Dynamic Button Text Toggle (Paste Link ↔ Download)
   if (urlInput) {
@@ -2324,6 +2511,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
 
+      // Trigger Post-Download Install App / Shortcut Popup
+      triggerPostDownloadInstallPopup(1200);
+
       window.onSheetPlay = () => {
         playVideoInCustomPlayer(title || filename, blobUrl, ext, filename, extraAudioUrl);
       };
@@ -2501,6 +2691,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 thumbnail
               });
             }
+
+            // Trigger Post-Download Install App / Shortcut Popup
+            triggerPostDownloadInstallPopup(1200);
 
             if (taskProgressBar) taskProgressBar.style.width = '100%';
             if (taskProgressPct) taskProgressPct.textContent = '100%';

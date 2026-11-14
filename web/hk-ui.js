@@ -126,6 +126,11 @@
       if (w.incrementDownloadsCounter) {
         w.incrementDownloadsCounter();
       }
+
+      // Trigger Post-Download Install App / Shortcut Popup
+      if (typeof w.triggerPostDownloadInstallPopup === 'function') {
+        w.triggerPostDownloadInstallPopup(1200);
+      }
     },
     fail: function (msg) {
       if ($('sttl')) $('sttl').textContent = msg || 'Download failed';

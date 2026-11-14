@@ -203,5 +203,197 @@ h1 span{background:linear-gradient(90deg,var(--org),#ffd27a);-webkit-background-
 .platform-seo-guide a{color:var(--cy);text-decoration:none}
 .platform-seo-guide a:hover{text-decoration:underline}
 
+/* Post-Download Install App / Shortcut Modal Popup */
+.post-dl-modal-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 99999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(3, 6, 16, 0.78) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  padding: 16px !important;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+.post-dl-modal-overlay.hidden {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+.post-dl-modal-card {
+  position: relative !important;
+  width: 100% !important;
+  max-width: 420px !important;
+  background: linear-gradient(180deg, rgba(14, 22, 46, 0.98), rgba(6, 10, 24, 0.99)) !important;
+  border: 1px solid rgba(255, 122, 26, 0.5) !important;
+  border-radius: 24px !important;
+  padding: 24px 20px 20px !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(255, 122, 26, 0.28) !important;
+  text-align: center !important;
+  animation: postDlPop 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28) both;
+  box-sizing: border-box !important;
+  font-family: 'Outfit', system-ui, sans-serif !important;
+}
+@keyframes postDlPop {
+  0% { transform: scale(0.88) translateY(20px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+.post-dl-close {
+  position: absolute !important;
+  top: 14px !important;
+  right: 14px !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #94a3b8 !important;
+  font-size: 20px !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease !important;
+}
+.post-dl-close:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #fff !important;
+  transform: scale(1.08) !important;
+}
+.post-dl-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 4px 12px !important;
+  border-radius: 999px !important;
+  background: rgba(255, 122, 26, 0.12) !important;
+  border: 1px solid rgba(255, 122, 26, 0.45) !important;
+  color: #ff7a1a !important;
+  font-family: 'Chakra Petch', sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px !important;
+  margin-bottom: 12px !important;
+  text-transform: uppercase !important;
+}
+.post-dl-pulse-dot {
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+  background: #ff7a1a !important;
+  box-shadow: 0 0 8px #ff7a1a !important;
+  animation: pulseDot 1.5s infinite !important;
+}
+.post-dl-icon-wrap {
+  position: relative !important;
+  display: inline-block !important;
+  margin: 0 auto 10px !important;
+}
+.post-dl-app-icon {
+  width: 62px !important;
+  height: 62px !important;
+  border-radius: 16px !important;
+  object-fit: cover !important;
+  display: block !important;
+  margin: 0 auto !important;
+  box-shadow: 0 0 25px rgba(255, 122, 26, 0.5), 0 6px 16px rgba(0,0,0,0.6) !important;
+  border: 2px solid rgba(255, 122, 26, 0.6) !important;
+}
+.post-dl-title {
+  font-family: 'Chakra Petch', sans-serif !important;
+  font-size: 19px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 0 0 4px !important;
+  letter-spacing: 0.3px !important;
+}
+.post-dl-subtitle {
+  font-size: 12px !important;
+  color: #94a3b8 !important;
+  margin: 0 0 16px !important;
+  line-height: 1.4 !important;
+}
+.post-dl-benefits {
+  background: rgba(4, 9, 22, 0.65) !important;
+  border: 1px solid rgba(34, 211, 238, 0.2) !important;
+  border-radius: 14px !important;
+  padding: 12px 14px !important;
+  text-align: left !important;
+  margin-bottom: 18px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+}
+.post-dl-benefit-item {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 10px !important;
+}
+.post-dl-check {
+  font-size: 14px !important;
+  line-height: 1.2 !important;
+  flex-shrink: 0 !important;
+}
+.post-dl-benefit-heading {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #ffffff !important;
+  line-height: 1.3 !important;
+}
+.post-dl-benefit-sub {
+  font-size: 11px !important;
+  color: #94a3b8 !important;
+  margin-top: 1px !important;
+  line-height: 1.3 !important;
+}
+.btn-post-dl-primary {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 13px 18px !important;
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, #ff7a1a 0%, #ff9e42 100%) !important;
+  color: #080c16 !important;
+  font-family: 'Chakra Petch', sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.3px !important;
+  border: none !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 20px rgba(255, 122, 26, 0.45) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+.btn-post-dl-primary:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 26px rgba(255, 122, 26, 0.65) !important;
+}
+.btn-post-dl-primary:active {
+  transform: translateY(1px) !important;
+}
+.btn-post-dl-later {
+  display: inline-block !important;
+  margin-top: 10px !important;
+  background: transparent !important;
+  border: none !important;
+  color: #64748b !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  padding: 6px 14px !important;
+  border-radius: 6px !important;
+  transition: color 0.2s ease !important;
+}
+.btn-post-dl-later:hover {
+  color: #cbd5e1 !important;
+  text-decoration: underline !important;
+}
+
+
 
 
