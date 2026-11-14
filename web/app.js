@@ -614,19 +614,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const nativeSlot = document.getElementById('adSlotNative');
 
     if (topSlot) {
-      const topFrame = document.getElementById('mainAdFrame');
-      if (topFrame) {
-        setTimeout(() => {
-          try {
-            const doc = topFrame.contentDocument || topFrame.contentWindow?.document;
-            if (doc && (!doc.body || doc.body.children.length === 0 || doc.body.innerHTML.trim() === '')) {
-              topSlot.style.display = 'none';
-            }
-          } catch (e) {
-            // Cross-origin ad content successfully loaded
-          }
-        }, 3500);
-      }
+      setTimeout(() => {
+        const ifr = topSlot.querySelector('iframe');
+        if (!ifr || ifr.offsetHeight === 0) {
+          topSlot.style.display = 'none';
+        }
+      }, 4500);
     }
 
     if (nativeSlot) {
@@ -636,7 +629,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (!nativeContainer.children || nativeContainer.children.length === 0 || nativeContainer.offsetHeight < 10) {
             nativeSlot.style.display = 'none';
           }
-        }, 3500);
+        }, 4500);
       }
     }
   }
