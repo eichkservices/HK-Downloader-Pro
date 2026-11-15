@@ -395,6 +395,38 @@ export async function onRequestGet(context) {
           }
         }
       }
+
+      // If still failing, query Vercel yt-dlp backend for fresh stream URL
+      if ((!upstream || (!upstream.ok && upstream.status !== 206)) && resolvedYtId) {
+        try {
+          const ytdlpUrl = (context.env?.YTDLP_API_URL || 'https://hk-downloader-pro.vercel.app').replace(/\/+$/, '');
+          const analyzeReq = await fetch(`${ytdlpUrl}/api/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              inputUrl: `https://www.youtube.com/watch?v=${resolvedYtId}`,
+              preset: { videoQuality: targetQuality || '720' }
+            }),
+            signal: AbortSignal.timeout(8500)
+          });
+          if (analyzeReq.ok) {
+            const data = await analyzeReq.json();
+            const chosenFormat = (data.formats || []).find(f => f.directUrl && !f.isAudio) || (data.formats || [])[0];
+            if (chosenFormat && chosenFormat.directUrl && chosenFormat.directUrl !== targetUrl) {
+              targetUrl = chosenFormat.directUrl;
+              for (const ua of uasToTry) {
+                const upstreamHeaders = { 'User-Agent': ua };
+                if (referer) upstreamHeaders['Referer'] = referer;
+                if (rangeHeader) upstreamHeaders['Range'] = rangeHeader;
+                try {
+                  upstream = await fetch(targetUrl, { headers: upstreamHeaders });
+                  if (upstream.ok || upstream.status === 206) break;
+                } catch (e) {}
+              }
+            }
+          }
+        } catch (e) {}
+      }
     }
 
     if (!upstream.ok && upstream.status !== 206) {

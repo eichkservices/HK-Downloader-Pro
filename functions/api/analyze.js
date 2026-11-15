@@ -1339,6 +1339,14 @@ export async function onRequestPost(context) {
     } catch (e) {}
   }
 
+  let targetFbUrl = inputUrl;
+  if (type === 'facebook') {
+    const fbIdMatch = inputUrl.match(/(?:[?&]v=|\/videos\/|\/reel\/|\/reels\/|\/share\/r\/|\/share\/v\/)([0-9]+)/);
+    if (fbIdMatch) {
+      targetFbUrl = `https://www.facebook.com/watch/?v=${fbIdMatch[1]}`;
+    }
+  }
+
   // 1. Direct Edge & Universal Resolvers
   if (type === 'youtube') {
     // 1. Fast direct Edge Innertube resolution (sub-second response with 4K/1080p/720p/480p/360p/audio)
@@ -1360,27 +1368,18 @@ export async function onRequestPost(context) {
     // 2. Fallback to universal python backend if edge resolver was rate-limited
     if (ytdlpApiUrl) {
       try {
-        const cleanApiUrl = ytdlpApiUrl.replace(/\/+$/, '');
-        const resp = await fetch(`${cleanApiUrl}/api/analyze`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ inputUrl, preset }),
-          signal: AbortSignal.timeout(4000)
-        });
-        if (resp.ok) {
-          const data = await resp.json();
-          if (data.formats && Array.isArray(data.formats) && data.formats.length >= 2) {
-            data.formats = capVideoFormats(data.formats);
-            return new Response(JSON.stringify(data), {
-              status: 200,
-              headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type'
-              }
-            });
-          }
+        const ytBackendData = await resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, 8500);
+        if (ytBackendData && ytBackendData.formats && ytBackendData.formats.length > 0) {
+          ytBackendData.formats = capVideoFormats(ytBackendData.formats);
+          return new Response(JSON.stringify(ytBackendData), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+              'Access-Control-Allow-Headers': 'Content-Type'
+            }
+          });
         }
       } catch (e) {}
     }
@@ -1402,7 +1401,7 @@ export async function onRequestPost(context) {
   } else if (type === 'facebook') {
     // 1. Try fast edge direct extractor with navigation headers & mobile fallback
     try {
-      const fbData = await resolveFacebookDirect(inputUrl);
+      const fbData = await resolveFacebookDirect(targetFbUrl);
       if (fbData && fbData.formats && fbData.formats.length > 0) {
         return new Response(JSON.stringify(fbData), {
           status: 200,
@@ -1419,7 +1418,7 @@ export async function onRequestPost(context) {
     // 2. Fallback to Python yt-dlp backend for full resolutions (1080p, 720p, 480p, audio)
     if (ytdlpApiUrl) {
       try {
-        const fbYtData = await resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, 8000);
+        const fbYtData = await resolveYtDlpBackend(targetFbUrl, preset, ytdlpApiUrl, 8000);
         if (fbYtData && fbYtData.formats && fbYtData.formats.length > 0) {
           return new Response(JSON.stringify(fbYtData), {
             status: 200,
@@ -1566,9 +1565,9 @@ export async function onRequestPost(context) {
       ]
     : type === 'facebook'
     ? [
-        { name: 'facebook-direct', run: () => resolveFacebookDirect(inputUrl) },
-        { name: 'ytdlp-backend', run: () => resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, 8000) },
-        { name: 'cobalt', run: () => resolveCobalt(inputUrl, 'Facebook', cobaltInstanceUrl, preset) },
+        { name: 'facebook-direct', run: () => resolveFacebookDirect(targetFbUrl) },
+        { name: 'ytdlp-backend', run: () => resolveYtDlpBackend(targetFbUrl, preset, ytdlpApiUrl, 8500) },
+        { name: 'cobalt', run: () => resolveCobalt(targetFbUrl, 'Facebook', cobaltInstanceUrl, preset) },
       ]
     : type === 'pinterest'
     ? [
@@ -1578,6 +1577,7 @@ export async function onRequestPost(context) {
     : type === 'youtube'
     ? [
         { name: 'youtube-direct', run: () => resolveYoutubeDirect(inputUrl) },
+        { name: 'ytdlp-backend', run: () => resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, 8500) },
         { name: 'cobalt', run: async () => {
             const meta = await resolveYoutubeMetadata(inputUrl).catch(() => ({}));
             const result = await resolveCobalt(inputUrl, 'YouTube', cobaltInstanceUrl, preset);

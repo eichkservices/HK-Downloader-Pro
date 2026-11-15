@@ -613,25 +613,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const topSlot = document.getElementById('adSlotTop');
     const nativeSlot = document.getElementById('adSlotNative');
 
-    if (topSlot) {
-      setTimeout(() => {
+    function checkSlots() {
+      if (topSlot && topSlot.style.display !== 'none') {
         const ifr = topSlot.querySelector('iframe');
         if (!ifr || ifr.offsetHeight === 0) {
           topSlot.style.display = 'none';
+        } else {
+          try {
+            const doc = ifr.contentDocument || ifr.contentWindow?.document;
+            if (doc && (!doc.body || doc.body.children.length === 0 || doc.body.innerHTML.trim() === '')) {
+              topSlot.style.display = 'none';
+            }
+          } catch (e) {
+            // cross-origin ad successfully loaded into iframe
+          }
         }
-      }, 4500);
-    }
+      }
 
-    if (nativeSlot) {
-      const nativeContainer = document.getElementById('container-0dc5280b04ec0aeab29bb231530dbf13');
-      if (nativeContainer) {
-        setTimeout(() => {
+      if (nativeSlot && nativeSlot.style.display !== 'none') {
+        const nativeContainer = document.getElementById('container-0dc5280b04ec0aeab29bb231530dbf13');
+        if (nativeContainer) {
           if (!nativeContainer.children || nativeContainer.children.length === 0 || nativeContainer.offsetHeight < 10) {
             nativeSlot.style.display = 'none';
           }
-        }, 4500);
+        }
       }
     }
+
+    setTimeout(checkSlots, 2200);
+    setTimeout(checkSlots, 4500);
   }
   monitorAdSlots();
 
@@ -815,28 +825,30 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // 3. Form Submit / Paste Button Click (0 Popup Clipboard Paste!)
-  downloadForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const link = urlInput.value.trim();
+  if (downloadForm) {
+    downloadForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const link = urlInput ? urlInput.value.trim() : '';
 
-    if (!link) {
-      try {
-        const text = await navigator.clipboard.readText();
-        if (text) {
-          urlInput.value = text;
-          updateButtonText();
-          if (text.startsWith('http')) {
-            analyzeUrl(text);
+      if (!link) {
+        try {
+          const text = await navigator.clipboard.readText();
+          if (text) {
+            if (urlInput) urlInput.value = text;
+            updateButtonText();
+            if (text.startsWith('http')) {
+              analyzeUrl(text);
+            }
           }
+        } catch (err) {
+          if (urlInput) urlInput.focus();
         }
-      } catch (err) {
-        urlInput.focus();
+        return;
       }
-      return;
-    }
 
-    analyzeUrl(link);
-  });
+      analyzeUrl(link);
+    });
+  }
 
   // Universal Video Resolver (Works on Node Backend AND Static Cloudflare Pages!)
   async function analyzeUrl(rawLink) {
@@ -2424,8 +2436,8 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         resp = await fetch(downloadEndpoint, { signal: controller.signal });
       } catch (fetchErr) {
-        // If proxy or direct fetch encounters a CORS network error, try direct URL
-        if (downloadEndpoint !== mainUrl && mainUrl.startsWith('http')) {
+        // If proxy or direct fetch encounters a CORS network error, try direct URL ONLY if NOT googlevideo (prevent 403 IP lock)
+        if (downloadEndpoint !== mainUrl && mainUrl.startsWith('http') && !mainUrl.includes('googlevideo') && !isYtStream) {
           resp = await fetch(mainUrl, { signal: controller.signal });
         } else {
           throw fetchErr;
@@ -2433,7 +2445,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (!resp.ok) {
-        if (downloadEndpoint !== mainUrl && mainUrl.startsWith('http')) {
+        if (downloadEndpoint !== mainUrl && mainUrl.startsWith('http') && !mainUrl.includes('googlevideo') && !isYtStream) {
           try {
             resp = await fetch(mainUrl, { signal: controller.signal });
           } catch (e) {}
@@ -2685,7 +2697,11 @@ document.addEventListener('DOMContentLoaded', () => {
             window.HKUI.status('STARTING BROWSER DOWNLOAD…', true);
           }
 
-          const dlHref = (downloadEndpoint && downloadEndpoint.startsWith('/api/download')) ? downloadEndpoint : (isYtStream ? downloadEndpoint : tokenOrUrl);
+          // If isYtStream or googlevideo, NEVER open raw tokenOrUrl in browser (causes HTTP 403 Forbidden!)
+          const isGoogleVideoOrYt = isYtStream || (tokenOrUrl && tokenOrUrl.includes('googlevideo')) || (mainUrl && mainUrl.includes('googlevideo'));
+          const dlHref = isGoogleVideoOrYt
+            ? downloadEndpoint
+            : ((downloadEndpoint && downloadEndpoint.startsWith('/api/download')) ? downloadEndpoint : tokenOrUrl);
           const a = document.createElement('a');
           a.href = dlHref;
           a.download = filename || 'video.mp4';
