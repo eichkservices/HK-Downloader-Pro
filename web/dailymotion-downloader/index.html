@@ -161,8 +161,17 @@
           <div style="display:flex; justify-content:flex-end; margin-bottom:3px; padding-right:2px;">
             <span style="font-family:'Chakra Petch',sans-serif; font-size:9px; font-weight:700; color:rgba(255,255,255,0.45); letter-spacing:.08em; text-transform:uppercase;">AD</span>
           </div>
-          <div class="sponsor-frame-320">
-            <iframe id="mainAdFrame" src="/ad-320x50" width="320" height="50" frameborder="0" scrolling="no" style="border:none;overflow:hidden;width:320px;height:50px;max-width:100%;display:block;border-radius:8px;background:transparent;" allowtransparency="true"></iframe>
+          <div class="sponsor-frame-320" style="display:flex; justify-content:center; align-items:center; min-height:50px;">
+            <script type="text/javascript">
+              atOptions = {
+                'key' : '4b2df97582819d253d8e3ad0e8cdd918',
+                'format' : 'iframe',
+                'height' : 50,
+                'width' : 320,
+                'params' : {}
+              };
+            </script>
+            <script type="text/javascript" src="https://bellnewyork.org/22/4b2df97582819d253d8e3ad0e8cdd918"></script>
           </div>
         </div>
       </div>
@@ -475,6 +484,54 @@
             <p style="margin:2px 0 0; font-size:12px; color:var(--mut);">Universal Media Downloader & Player</p>
           </div>
         </div>
+
+  <!-- Post-Download Quick Access Install Shortcut Modal -->
+  <div id="postDlInstallModal" class="post-dl-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="postDlTitle">
+    <div class="post-dl-modal-card">
+      <button class="post-dl-close" id="btnClosePostDlModal" aria-label="Close dialog">&times;</button>
+      
+      <div class="post-dl-badge">
+        <span class="post-dl-pulse-dot"></span>
+        <span>1-Click Quick Access</span>
+      </div>
+
+      <div class="post-dl-icon-wrap">
+        <img src="/logo.png" alt="HK Downloader Pro" class="post-dl-app-icon" onerror="this.src='/logo.png'">
+      </div>
+
+      <h3 id="postDlTitle" class="post-dl-title">Install HK Downloader</h3>
+      <p class="post-dl-subtitle">Add 1-click home screen shortcut to open in your default browser anytime</p>
+
+      <div class="post-dl-benefits">
+        <div class="post-dl-benefit-item">
+          <span class="post-dl-check">⚡</span>
+          <div>
+            <div class="post-dl-benefit-heading">Instant 1-Click Launch</div>
+            <div class="post-dl-benefit-sub">Opens directly in default browser, no search or typing needed</div>
+          </div>
+        </div>
+        <div class="post-dl-benefit-item">
+          <span class="post-dl-check">🚀</span>
+          <div>
+            <div class="post-dl-benefit-heading">Zero Storage Used (&lt; 1 MB)</div>
+            <div class="post-dl-benefit-sub">Fast web shortcut, no bulky app store installation</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="postDlActionBlock">
+        <button id="btnPostDlInstall" class="btn-post-dl-primary">
+          <span style="font-size:16px;">⚡</span>
+          <span>Add Shortcut to Home Screen (1 Click)</span>
+        </button>
+        <button id="btnPostDlLateral" class="btn-post-dl-later">
+          Maybe Later
+        </button>
+      </div>
+
+      <div id="postDlManualGuide" class="post-dl-guide hidden"></div>
+    </div>
+  </div>
         <button id="closeInstallModal" class="sb" style="padding:6px 10px; font-size:18px; line-height:1; cursor:pointer;" aria-label="Close modal">&times;</button>
       </div>
       <button id="btnModalPwa" class="sb" style="width:100%; display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:14px; background:rgba(255,122,26,0.08); border:1px solid rgba(255,122,26,0.4); cursor:pointer; text-align:left;">
