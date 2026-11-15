@@ -197,38 +197,70 @@ async function resolveDailymotionDirect(link) {
 }
 
 async function resolveFacebookDirect(link) {
-  const resp = await fetch(link, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Upgrade-Insecure-Requests': '1'
-    }
-  });
+  const fetchPage = async (targetUrl, isMobile = false) => {
+    const ua = isMobile
+      ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1'
+      : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 
-  const body = await resp.text();
+    const resp = await fetch(targetUrl, {
+      redirect: 'follow',
+      headers: {
+        'User-Agent': ua,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1'
+      }
+    });
+    const status = resp.status;
+    const body = await resp.text();
+    return { status, body };
+  };
+
+  let { status, body } = await fetchPage(link, false);
+
+  // If desktop page was blocked or returned no stream markers, fallback to mobile endpoint
+  if (status === 400 || (!body.includes('browser_native') && !body.includes('playable_url') && !body.includes('fbcdn.net'))) {
+    const mobileLink = link.replace(/www\.facebook\.com|web\.facebook\.com/i, 'm.facebook.com');
+    try {
+      const mRes = await fetchPage(mobileLink, true);
+      if (mRes.body && mRes.body.length > 500) {
+        body = mRes.body;
+      }
+    } catch (e) {}
+  }
+
   const hdMatch = body.match(/"browser_native_hd_url"\s*:\s*"([^"]+)"/) ||
                   body.match(/"playable_url_quality_hd"\s*:\s*"([^"]+)"/) ||
-                  body.match(/hd_src\s*:\s*"([^"]+)"/);
+                  body.match(/hd_src\s*:\s*"([^"]+)"/) ||
+                  body.match(/hd_src_no_ratelimit\s*:\s*"([^"]+)"/);
 
   const sdMatch = body.match(/"browser_native_sd_url"\s*:\s*"([^"]+)"/) ||
                   body.match(/"playable_url"\s*:\s*"([^"]+)"/) ||
-                  body.match(/sd_src\s*:\s*"([^"]+)"/);
+                  body.match(/sd_src\s*:\s*"([^"]+)"/) ||
+                  body.match(/sd_src_no_ratelimit\s*:\s*"([^"]+)"/);
 
   let title = 'Facebook Video';
-  const titleMatch = body.match(/<title id="pageTitle">([^<]+)<\/title>/) ||
+  const ogTitle = body.match(/property="og:title"\s+content="([^"]+)"/) ||
+                  body.match(/content="([^"]+)"\s+property="og:title"/);
+  const titleMatch = ogTitle ||
+                     body.match(/<title id="pageTitle">([^<]+)<\/title>/) ||
                      body.match(/<title>([^<]+)<\/title>/);
   if (titleMatch) {
-    title = titleMatch[1].replace(/\\u[\dA-F]{4}/gi, m => String.fromCharCode(parseInt(m.replace(/\\u/g, ''), 16)))
+    title = titleMatch[1].replace(/&#x([0-9a-fA-F]+);/g, (_, code) => String.fromCharCode(parseInt(code, 16)))
+                         .replace(/\\u[\dA-F]{4}/gi, m => String.fromCharCode(parseInt(m.replace(/\\u/g, ''), 16)))
                          .replace(/\s*\|\s*Facebook.*$/i, '')
                          .replace(/\\/g, '')
                          .trim();
   }
 
   let thumbnail = '';
-  const thumbMatch = body.match(/"preferred_thumbnail"\s*:\s*\{\s*"image"\s*:\s*\{\s*"uri"\s*:\s*"([^"]+)"/) ||
-                     body.match(/property="og:image"\s+content="([^"]+)"/) ||
-                     body.match(/content="([^"]+)"\s+property="og:image"/);
+  const thumbMatch = body.match(/property="og:image"\s+content="([^"]+)"/) ||
+                     body.match(/content="([^"]+)"\s+property="og:image"/) ||
+                     body.match(/"preferred_thumbnail"\s*:\s*\{\s*"image"\s*:\s*\{\s*"uri"\s*:\s*"([^"]+)"/);
   if (thumbMatch) {
     thumbnail = thumbMatch[1].replace(/\\/g, '');
   }
@@ -237,8 +269,17 @@ async function resolveFacebookDirect(link) {
   const cleanSd = sdMatch ? sdMatch[1].replace(/\\/g, '') : null;
 
   const formats = [];
-  if (cleanHd) formats.push({ directUrl: cleanHd, note: '🎬 HD 1080p (MP4)', ext: 'mp4', height: 1080, quality: '1080p' });
-  if (cleanSd) formats.push({ directUrl: cleanSd, note: '🎬 SD 480p (MP4)', ext: 'mp4', height: 480, quality: '480p' });
+  if (cleanHd) {
+    formats.push({ directUrl: cleanHd, note: '🎬 1080p FHD (HD MP4)', ext: 'mp4', height: 1080, quality: '1080p', hasAudio: true });
+    formats.push({ directUrl: cleanHd, note: '🎬 720p HD (MP4)', ext: 'mp4', height: 720, quality: '720p', hasAudio: true });
+  }
+  if (cleanSd) {
+    formats.push({ directUrl: cleanSd, note: '🎬 480p SD (Standard MP4)', ext: 'mp4', height: 480, quality: '480p', hasAudio: true });
+    formats.push({ directUrl: cleanSd, note: '🎬 360p (Data Saver MP4)', ext: 'mp4', height: 360, quality: '360p', hasAudio: true });
+  }
+  if (cleanSd || cleanHd) {
+    formats.push({ directUrl: cleanSd || cleanHd, note: '🎵 Audio Only (MP3/M4A)', ext: 'mp3', isAudio: true, quality: 'audio' });
+  }
 
   if (formats.length === 0) throw new Error('No direct streams found in Facebook page');
 
@@ -1193,6 +1234,31 @@ function isAnalyzeRateLimited(ip) {
   return record.count > MAX_ANALYZES_PER_WINDOW;
 }
 
+async function resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, timeoutMs = 8000) {
+  if (!ytdlpApiUrl) throw new Error('ytdlpApiUrl not configured');
+  const cleanApiUrl = ytdlpApiUrl.replace(/\/+$/, '');
+  const resp = await fetch(`${cleanApiUrl}/api/analyze`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ inputUrl, preset }),
+    signal: AbortSignal.timeout(timeoutMs)
+  });
+  if (!resp.ok) throw new Error(`ytdlp backend returned HTTP ${resp.status}`);
+  const data = await resp.json();
+  if (!data || !Array.isArray(data.formats) || data.formats.length === 0) {
+    throw new Error('ytdlp backend returned no formats');
+  }
+  data.formats = capVideoFormats(data.formats);
+  data.formats.forEach(f => {
+    if (!f.token && f.directUrl) {
+      f.token = f.directUrl;
+    } else if (f.token && !f.token.startsWith('http')) {
+      f.token = f.directUrl || f.token;
+    }
+  });
+  return data;
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
   try {
@@ -1334,6 +1400,7 @@ export async function onRequestPost(context) {
       }
     } catch (e) {}
   } else if (type === 'facebook') {
+    // 1. Try fast edge direct extractor with navigation headers & mobile fallback
     try {
       const fbData = await resolveFacebookDirect(inputUrl);
       if (fbData && fbData.formats && fbData.formats.length > 0) {
@@ -1348,6 +1415,24 @@ export async function onRequestPost(context) {
         });
       }
     } catch (e) {}
+
+    // 2. Fallback to Python yt-dlp backend for full resolutions (1080p, 720p, 480p, audio)
+    if (ytdlpApiUrl) {
+      try {
+        const fbYtData = await resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, 8000);
+        if (fbYtData && fbYtData.formats && fbYtData.formats.length > 0) {
+          return new Response(JSON.stringify(fbYtData), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+              'Access-Control-Allow-Headers': 'Content-Type'
+            }
+          });
+        }
+      } catch (e) {}
+    }
   } else if (type === 'instagram') {
     // Instagram DASH streams often separate video & audio; try Python backend first for full stream pairing
     if (ytdlpApiUrl) {
@@ -1482,6 +1567,7 @@ export async function onRequestPost(context) {
     : type === 'facebook'
     ? [
         { name: 'facebook-direct', run: () => resolveFacebookDirect(inputUrl) },
+        { name: 'ytdlp-backend', run: () => resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, 8000) },
         { name: 'cobalt', run: () => resolveCobalt(inputUrl, 'Facebook', cobaltInstanceUrl, preset) },
       ]
     : type === 'pinterest'
