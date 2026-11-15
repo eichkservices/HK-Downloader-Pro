@@ -1597,27 +1597,46 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---- The chain itself: named resolvers in static priority order per type,
+  async function resolveVercelBackend(link, preset) {
+    const resp = await fetch('https://hk-downloader-pro.vercel.app/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inputUrl: link, preset })
+    });
+    if (!resp.ok) throw new Error(`Vercel backend returned HTTP ${resp.status}`);
+    const data = await resp.json();
+    if (!data || !Array.isArray(data.formats) || data.formats.length === 0) {
+      throw new Error(data?.error || 'Backend returned no formats');
+    }
+    return data;
+  }
+
   // tried in sequence until one succeeds, reordered by whatever won last
   // time for this specific type. Each resolver's run() receives (link, preset). ----
   const RESOLVER_CHAINS = {
     'tiktok': [
       { name: 'tikwm', run: (link) => resolveTikwm(link) },
+      { name: 'vercel-backend', run: (link, preset) => resolveVercelBackend(link, preset) },
       { name: 'cobalt', run: (link, preset) => resolveCobalt(link, 'TikTok', preset) },
     ],
     'instagram': [
       { name: 'instagram-direct', run: (link) => resolveInstagramDirect(link) },
+      { name: 'vercel-backend', run: (link, preset) => resolveVercelBackend(link, preset) },
       { name: 'cobalt', run: (link, preset) => resolveCobalt(link, 'Instagram', preset) },
     ],
     'facebook': [
       { name: 'facebook-direct', run: (link) => resolveFacebookDirect(link) },
+      { name: 'vercel-backend', run: (link, preset) => resolveVercelBackend(link, preset) },
       { name: 'cobalt', run: (link, preset) => resolveCobalt(link, 'Facebook', preset) },
     ],
     'twitter': [
       { name: 'twitter-direct', run: (link) => resolveTwitterDirect(link) },
+      { name: 'vercel-backend', run: (link, preset) => resolveVercelBackend(link, preset) },
       { name: 'cobalt', run: (link, preset) => resolveCobalt(link, 'Twitter', preset) },
     ],
     'youtube': [
       { name: 'youtube-direct', run: (link) => resolveYoutubeDirect(link) },
+      { name: 'vercel-backend', run: (link, preset) => resolveVercelBackend(link, preset) },
       { name: 'cobalt', run: async (link, preset) => {
           const meta = await resolveYoutubeMetadata(link).catch(() => ({}));
           const result = await resolveCobalt(link, 'YouTube', preset);

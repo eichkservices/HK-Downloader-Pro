@@ -1556,11 +1556,13 @@ export async function onRequestPost(context) {
   const chain = type === 'tiktok'
     ? [
         { name: 'tikwm', run: () => resolveTikwm(inputUrl) },
+        { name: 'ytdlp-backend', run: () => resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, 8500) },
         { name: 'cobalt', run: () => resolveCobalt(inputUrl, 'TikTok', cobaltInstanceUrl, preset) },
       ]
     : type === 'instagram'
     ? [
         { name: 'instagram-direct', run: () => resolveInstagramDirect(inputUrl) },
+        { name: 'ytdlp-backend', run: () => resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, 8500) },
         { name: 'cobalt', run: () => resolveCobalt(inputUrl, 'Instagram', cobaltInstanceUrl, preset) },
       ]
     : type === 'facebook'
@@ -1572,6 +1574,7 @@ export async function onRequestPost(context) {
     : type === 'pinterest'
     ? [
         { name: 'pinterest-direct', run: () => resolvePinterestDirect(inputUrl) },
+        { name: 'ytdlp-backend', run: () => resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, 8500) },
         { name: 'cobalt', run: () => resolveCobalt(inputUrl, 'Pinterest', cobaltInstanceUrl, preset) },
       ]
     : type === 'youtube'
@@ -1587,7 +1590,10 @@ export async function onRequestPost(context) {
       ]
     : type === 'direct-link'
     ? [{ name: 'direct-link', run: () => resolveDirectLink(inputUrl) }]
-    : [{ name: 'cobalt', run: () => resolveCobalt(inputUrl, type.charAt(0).toUpperCase() + type.slice(1), cobaltInstanceUrl, preset) }];
+    : [
+        { name: 'ytdlp-backend', run: () => resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, 8500) },
+        { name: 'cobalt', run: () => resolveCobalt(inputUrl, type.charAt(0).toUpperCase() + type.slice(1), cobaltInstanceUrl, preset) }
+      ];
 
   const failures = [];
   for (const resolver of chain) {
