@@ -431,6 +431,139 @@ async function resolvePinterestDirect(link) {
   return { title, thumbnail: thumb, type: 'pinterest', formats };
 }
 
+async function resolveVimeoDirect(link) {
+  const m = link.match(/vimeo\.com\/(?:video\/|channels\/[^/]+\/|groups\/[^/]+\/videos\/)?([0-9]+)/i);
+  if (!m) throw new Error('Invalid Vimeo URL');
+  const videoId = m[1];
+  const resp = await fetch(`https://player.vimeo.com/video/${videoId}/config`, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+      'Referer': 'https://vimeo.com/'
+    },
+    signal: AbortSignal.timeout(5000)
+  });
+  if (!resp.ok) throw new Error(`Vimeo config HTTP ${resp.status}`);
+  const data = await resp.json();
+  const progressive = (data?.request?.files?.progressive || []).slice().sort((a, b) => (b.height || 0) - (a.height || 0));
+  const formats = progressive.map((p, idx) => ({
+    directUrl: p.url,
+    token: p.url,
+    note: idx === 0 ? `🎬 ${p.height || 1080}p Original (MP4)` : `🎬 ${p.height || 720}p (MP4)`,
+    ext: 'mp4',
+    height: p.height || 720,
+    hasAudio: true
+  }));
+
+  if (formats.length === 0 && data?.request?.files?.hls?.cdns) {
+    const hls = data.request.files.hls;
+    const cdn = hls.default_cdn || Object.keys(hls.cdns)[0];
+    const hlsUrl = hls.cdns[cdn]?.url || hls.cdns[cdn]?.avc_url;
+    if (hlsUrl) {
+      formats.push({
+        directUrl: hlsUrl,
+        token: hlsUrl,
+        note: '🎬 HD Adaptive Video (HLS)',
+        ext: 'mp4',
+        height: 1080,
+        hasAudio: true
+      });
+    }
+  }
+
+  if (formats.length === 0) throw new Error('No Vimeo video streams found');
+
+  return {
+    title: data?.video?.title || 'Vimeo Video',
+    thumbnail: data?.video?.thumbs?.base || data?.video?.thumbs?.['640'] || '',
+    type: 'vimeo',
+    formats
+  };
+}
+
+async function resolveRedditDirect(link) {
+  const resp = await fetch(`https://rapidsave.com/info?url=${encodeURIComponent(link)}`, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36' },
+    signal: AbortSignal.timeout(6000)
+  });
+  if (!resp.ok) throw new Error(`RapidSave HTTP ${resp.status}`);
+  const page = await resp.text();
+  const tMatch = page.match(/<h2[^>]*class="[^"]*text-truncate[^"]*"[^>]*>\s*([^<]+)\s*<\/h2>/);
+  const title = tMatch ? tMatch[1].trim() : 'Reddit Video';
+  const mergedMatch = page.match(/href=['"](https:\/\/sd\.rapidsave\.com\/download\.php[^'"]+)['"]/);
+  const vMatch = page.match(/https?:\/\/v\.redd\.it\/([a-zA-Z0-9]+)/);
+  const formats = [];
+
+  if (mergedMatch) {
+    const mergedUrl = mergedMatch[1].replace(/&amp;/g, '&');
+    formats.push({
+      directUrl: mergedUrl,
+      token: mergedUrl,
+      note: '🎬 720p HD (Merged Audio + Video MP4)',
+      ext: 'mp4',
+      height: 720,
+      hasAudio: true
+    });
+  }
+  if (vMatch) {
+    const vid = vMatch[1];
+    formats.push({
+      directUrl: `https://v.redd.it/${vid}/CMAF_AUDIO_128.mp4`,
+      token: `https://v.redd.it/${vid}/CMAF_AUDIO_128.mp4`,
+      note: '🎵 Audio Track (M4A / MP3)',
+      ext: 'm4a',
+      isAudio: true
+    });
+  }
+  if (formats.length === 0) throw new Error('No Reddit video streams found');
+  return { title, thumbnail: '', type: 'reddit', formats };
+}
+
+async function resolveTwitchDirect(link) {
+  const m = link.match(/(?:clips\.twitch\.tv\/|twitch\.tv\/[^/]+\/clip\/)([a-zA-Z0-9_-]+)/i);
+  if (!m) throw new Error('Invalid Twitch Clip URL');
+  const slug = m[1];
+  const resp = await fetch('https://gql.twitch.tv/gql', {
+    method: 'POST',
+    headers: {
+      'Client-ID': 'kimne78kx3ncx6brgo4mv6wki5h1ko',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify([{
+      operationName: 'VideoAccessToken_Clip',
+      variables: { slug },
+      extensions: { persistedQuery: { version: 1, sha256Hash: '36b89d2507fce29e5ca551df756d27c1cfe079e2609642b4390aa4c35796eb11' } }
+    }]),
+    signal: AbortSignal.timeout(4500)
+  });
+  if (!resp.ok) throw new Error(`Twitch GQL HTTP ${resp.status}`);
+  const arr = await resp.json();
+  const clip = arr?.[0]?.data?.clip;
+  if (!clip || !Array.isArray(clip.videoQualities) || clip.videoQualities.length === 0) {
+    throw new Error('Twitch clip not found or unavailable');
+  }
+  const sig = clip.playbackAccessToken?.signature;
+  const tok = clip.playbackAccessToken?.value;
+  const formats = clip.videoQualities
+    .filter(q => q.sourceURL)
+    .sort((a, b) => parseInt(b.quality || 0, 10) - parseInt(a.quality || 0, 10))
+    .map((q, idx) => {
+      const url = sig && tok
+        ? `${q.sourceURL}?sig=${encodeURIComponent(sig)}&token=${encodeURIComponent(tok)}`
+        : q.sourceURL;
+      const h = parseInt(q.quality || 720, 10);
+      return {
+        directUrl: url,
+        token: url,
+        note: idx === 0 ? `🎬 ${h}p Original (MP4)` : `🎬 ${h}p (MP4)`,
+        ext: 'mp4',
+        height: h,
+        hasAudio: true
+      };
+    });
+  if (formats.length === 0) throw new Error('No Twitch clip streams found');
+  return { title: clip.title || 'Twitch Clip', thumbnail: clip.thumbnailURL || '', type: 'twitch', formats };
+}
+
 function capVideoFormats(formats) {
   if (!Array.isArray(formats)) return [];
   const videos = formats.filter(f => !f.isAudio && f.ext !== 'mp3' && f.ext !== 'm4a');
@@ -458,15 +591,23 @@ async function resolveTikTokFinalUrl(link) {
 
 async function resolveTikwm(link) {
   const targetLink = await resolveTikTokFinalUrl(link);
-  const resp = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(targetLink)}&hd=1`, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
-      'Accept': 'application/json, text/plain, */*'
-    },
-    signal: AbortSignal.timeout(6000)
-  });
-  const data = await resp.json();
-  if (data?.code !== 0 || !data.data) throw new Error('tikwm returned no usable data');
+  let data = null;
+
+  try {
+    const resp = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(targetLink)}&hd=1`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*'
+      },
+      signal: AbortSignal.timeout(3500)
+    });
+    if (resp.ok) {
+      const txt = await resp.text();
+      if (txt.trim().startsWith('{')) data = JSON.parse(txt);
+    }
+  } catch (e) {}
+
+  if (!data || data.code !== 0 || !data.data) throw new Error('tikwm returned no usable data');
   const v = data.data;
   const formats = [];
   const fixUrl = u => (!u ? '' : (u.startsWith('http') ? u : `https://www.tikwm.com${u.startsWith('/') ? '' : '/'}${u}`));
@@ -1554,8 +1695,8 @@ export async function onRequestPost(context) {
     } catch (e) {}
   }
 
-  // 2. Delegate to Python backend for complex/fallback media (Reddit, Twitter, etc.)
-  if (ytdlpApiUrl && !['youtube', 'facebook', 'instagram', 'pinterest', 'tiktok'].includes(type)) {
+  // 2. Delegate to Python backend for complex/fallback media
+  if (ytdlpApiUrl && !['youtube', 'facebook', 'instagram', 'pinterest', 'tiktok', 'twitter', 'vimeo', 'reddit', 'twitch'].includes(type)) {
     try {
       const cleanApiUrl = ytdlpApiUrl.replace(/\/+$/, '');
       const resp = await fetch(`${cleanApiUrl}/api/analyze`, {
@@ -1594,14 +1735,12 @@ export async function onRequestPost(context) {
   const chain = type === 'tiktok'
     ? [
         { name: 'tikwm', run: () => resolveTikwm(inputUrl) },
-        { name: 'ytdlp-backend', run: () => resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, 8500) },
-        { name: 'cobalt', run: () => resolveCobalt(inputUrl, 'TikTok', cobaltInstanceUrl, preset) },
+        { name: 'ytdlp-backend', run: () => resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, 12500) },
       ]
     : type === 'instagram'
     ? [
         { name: 'instagram-direct', run: () => resolveInstagramDirect(inputUrl) },
-        { name: 'ytdlp-backend', run: () => resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, 8500) },
-        { name: 'cobalt', run: () => resolveCobalt(inputUrl, 'Instagram', cobaltInstanceUrl, preset) },
+        { name: 'ytdlp-backend', run: () => resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, 12000) },
       ]
     : type === 'facebook'
     ? [
@@ -1625,6 +1764,26 @@ export async function onRequestPost(context) {
             return { ...result, title: meta.title || result.title, thumbnail: meta.thumbnail || result.thumbnail };
           }
         },
+      ]
+    : type === 'twitter'
+    ? [
+        { name: 'twitter-direct', run: () => resolveTwitterDirect(inputUrl) },
+        { name: 'ytdlp-backend', run: () => resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, 6500) },
+      ]
+    : type === 'vimeo'
+    ? [
+        { name: 'vimeo-direct', run: () => resolveVimeoDirect(inputUrl) },
+        { name: 'ytdlp-backend', run: () => resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, 6500) },
+      ]
+    : type === 'reddit'
+    ? [
+        { name: 'reddit-direct', run: () => resolveRedditDirect(inputUrl) },
+        { name: 'ytdlp-backend', run: () => resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, 6500) },
+      ]
+    : type === 'twitch'
+    ? [
+        { name: 'twitch-direct', run: () => resolveTwitchDirect(inputUrl) },
+        { name: 'ytdlp-backend', run: () => resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, 6500) },
       ]
     : type === 'direct-link'
     ? [{ name: 'direct-link', run: () => resolveDirectLink(inputUrl) }]
