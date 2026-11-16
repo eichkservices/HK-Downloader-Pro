@@ -358,8 +358,36 @@ export async function onRequestGet(context) {
       if (rangeHeader) upstreamHeaders['Range'] = rangeHeader;
 
       try {
-        upstream = await fetch(targetUrl, { headers: upstreamHeaders });
+        upstream = await fetch(targetUrl, {
+          headers: upstreamHeaders,
+          signal: AbortSignal.timeout(8000)
+        });
         if (upstream.ok || upstream.status === 206) break;
+      } catch (e) {}
+    }
+
+    // If TikTok stream returned 403/502 (e.g. cookie-bound webapp-prime URL), re-resolve via tikwm using pageUrl
+    const pageUrlParam = urlObj.searchParams.get('pageUrl') || '';
+    if ((!upstream || (!upstream.ok && upstream.status !== 206)) && pageUrlParam && pageUrlParam.includes('tiktok.com')) {
+      try {
+        const twResp = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(pageUrlParam)}&hd=1`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+            'Accept': 'application/json',
+            'Referer': 'https://www.tikwm.com/'
+          },
+          signal: AbortSignal.timeout(5000)
+        });
+        if (twResp.ok) {
+          const twData = await twResp.json();
+          const freshTtUrl = twData?.data?.hdplay || twData?.data?.play || twData?.data?.wmplay;
+          if (freshTtUrl) {
+            const fullFresh = freshTtUrl.startsWith('http') ? freshTtUrl : `https://www.tikwm.com${freshTtUrl.startsWith('/') ? '' : '/'}${freshTtUrl}`;
+            const ttHeaders = { 'User-Agent': uasToTry[0], 'Referer': 'https://www.tiktok.com/' };
+            if (rangeHeader) ttHeaders['Range'] = rangeHeader;
+            upstream = await fetch(fullFresh, { headers: ttHeaders, signal: AbortSignal.timeout(8000) });
+          }
+        }
       } catch (e) {}
     }
 
@@ -429,8 +457,8 @@ export async function onRequestGet(context) {
       }
     }
 
-    if (!upstream.ok && upstream.status !== 206) {
-      return new Response(JSON.stringify({ error: `Upstream returned status ${upstream.status}` }), {
+    if (!upstream || (!upstream.ok && upstream.status !== 206)) {
+      return new Response(JSON.stringify({ error: `Upstream returned status ${upstream ? upstream.status : 'timeout'}` }), {
         status: 502,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
       });

@@ -596,10 +596,12 @@ async function resolveTikwm(link) {
   try {
     const resp = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(targetLink)}&hd=1`, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Referer': 'https://www.tikwm.com/',
+        'Origin': 'https://www.tikwm.com'
       },
-      signal: AbortSignal.timeout(3500)
+      signal: AbortSignal.timeout(4500)
     });
     if (resp.ok) {
       const txt = await resp.text();
@@ -1428,6 +1430,7 @@ async function resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, timeoutMs = 80
   }
   data.formats = capVideoFormats(data.formats);
   data.formats.forEach(f => {
+    if (!f.url) f.url = inputUrl;
     if (!f.token && f.directUrl) {
       f.token = f.directUrl;
     } else if (f.token && !f.token.startsWith('http')) {

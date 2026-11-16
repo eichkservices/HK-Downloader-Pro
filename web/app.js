@@ -860,6 +860,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const type = identifyLinkType(link);
+
+      // 0. For TikTok, try browser-side tikwm first (CORS-enabled, residential IP, returns unwatermarked public CDN streams)
+      if (type === 'tiktok') {
+        try {
+          const ttData = await resolveTikwm(link);
+          if (ttData && Array.isArray(ttData.formats) && ttData.formats.length > 0) {
+            openFormatModal(ttData);
+            resolvedSuccessfully = true;
+            return;
+          }
+        } catch (ttErr) {
+          console.warn('Client-side tikwm failed, falling back to /api/analyze:', ttErr);
+        }
+      }
       
       // 1. Try backend POST request to /api/analyze
       try {
@@ -1004,25 +1018,43 @@ document.addEventListener('DOMContentLoaded', () => {
   // in the chain below). ----
 
   async function resolveTikwm(link) {
-    const resp = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(link)}`);
+    const resp = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(link)}&hd=1`, {
+      signal: AbortSignal.timeout(4500)
+    });
     const data = await resp.json();
     if (data?.code !== 0 || !data.data) throw new Error('tikwm returned no usable data');
     const v = data.data;
     const formats = [];
+    const fixUrl = u => (!u ? '' : (u.startsWith('http') ? u : `https://www.tikwm.com${u.startsWith('/') ? '' : '/'}${u}`));
 
     // 1. HD No Watermark (best quality if available)
-    if (v.hdplay) formats.push({ directUrl: v.hdplay, note: '🎬 HD 1080p (No watermark)', ext: 'mp4', hasAudio: true });
+    if (v.hdplay) {
+      const u = fixUrl(v.hdplay);
+      formats.push({ directUrl: u, token: u, url: link, note: '🎬 1080p FHD (No watermark)', ext: 'mp4', height: 1080, sizeBytes: v.hd_size || null, hasAudio: true });
+    }
     // 2. Standard No Watermark
-    if (v.play) formats.push({ directUrl: v.play, note: '🎬 Video (No watermark)', ext: 'mp4', hasAudio: true });
+    if (v.play) {
+      const u = fixUrl(v.play);
+      formats.push({ directUrl: u, token: u, url: link, note: '🎬 720p HD (No watermark)', ext: 'mp4', height: 720, sizeBytes: v.size || null, hasAudio: true });
+    }
     // 3. Watermarked
-    if (v.wmplay) formats.push({ directUrl: v.wmplay, note: '🎬 Video (Watermarked)', ext: 'mp4', hasAudio: true });
+    if (v.wmplay) {
+      const u = fixUrl(v.wmplay);
+      formats.push({ directUrl: u, token: u, url: link, note: '🎬 480p SD (Watermarked)', ext: 'mp4', height: 480, sizeBytes: v.wm_size || null, hasAudio: true });
+    }
     // 4. Music / Audio
-    if (v.music) formats.push({ directUrl: v.music, note: '🎵 Audio Track (MP3)', ext: 'mp3', isAudio: true });
+    if (v.music) {
+      const u = fixUrl(v.music);
+      formats.push({ directUrl: u, token: u, url: link, note: '🎵 Audio Track (MP3)', ext: 'mp3', isAudio: true });
+    }
     // 5. TikTok Photo Slideshow album (if present)
     if (Array.isArray(v.images) && v.images.length > 0) {
       v.images.forEach((imgUrl, i) => {
+        const u = fixUrl(imgUrl);
         formats.push({
-          directUrl: imgUrl,
+          directUrl: u,
+          token: u,
+          url: link,
           note: `📸 Slide Photo #${i + 1} (JPG)`,
           ext: 'jpg'
         });
@@ -1030,7 +1062,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (formats.length === 0) throw new Error('no playable formats in tikwm response');
-    return { title: v.title || 'TikTok Video', thumbnail: v.cover || '', formats, type: 'tiktok' };
+    return { title: v.title || 'TikTok Video', thumbnail: fixUrl(v.cover || ''), formats, type: 'tiktok' };
   }
 
   async function resolveInstagramDirect(link) {
@@ -2443,7 +2475,8 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (mainUrl.startsWith('http')) {
         // If cross-origin, route through Cloudflare Pages proxy to attach CORS headers
         if (!mainUrl.includes(window.location.hostname)) {
-          downloadEndpoint = `/api/download?url=${encodeURIComponent(mainUrl)}&filename=${encodeURIComponent(filename)}`;
+          const pageUrlQ = formatObj?.url ? `&pageUrl=${encodeURIComponent(formatObj.url)}` : '';
+          downloadEndpoint = `/api/download?url=${encodeURIComponent(mainUrl)}&filename=${encodeURIComponent(filename)}${pageUrlQ}`;
         } else {
           downloadEndpoint = mainUrl;
         }
