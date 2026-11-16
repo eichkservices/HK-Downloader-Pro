@@ -2842,14 +2842,14 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderLibraryGrid() {
     if (!libraryGrid) return;
     libraryGrid.innerHTML = '';
-    libraryCount.textContent = `${libraryItems.length} Files`;
+    if (libraryCount) libraryCount.textContent = `${libraryItems.length} Files`;
 
     if (libraryItems.length === 0) {
-      emptyLibrary.style.display = 'flex';
+      if (emptyLibrary) emptyLibrary.style.display = 'flex';
       return;
     }
 
-    emptyLibrary.style.display = 'none';
+    if (emptyLibrary) emptyLibrary.style.display = 'none';
     libraryItems.forEach(item => {
       const card = document.createElement('div');
       card.className = 'library-card';

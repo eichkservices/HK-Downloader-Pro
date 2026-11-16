@@ -196,6 +196,42 @@ async function resolveDailymotionDirect(link) {
   return { title, thumbnail, type: 'dailymotion', formats };
 }
 
+async function resolveFacebookShareRedirect(link) {
+  if (!/(?:\/share\/(?:v|r|p)\/|fb\.watch\/)/i.test(link)) return link;
+  try {
+    const resp = await fetch(link, {
+      method: 'GET',
+      redirect: 'manual',
+      signal: AbortSignal.timeout(4000),
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1'
+      }
+    });
+    const loc = resp.headers.get('location');
+    if (loc) {
+      const reelMatch = loc.match(/\/reel\/([0-9]+)/);
+      if (reelMatch) return `https://www.facebook.com/reel/${reelMatch[1]}`;
+      const vidMatch = loc.match(/(?:[?&]v=|\/videos\/)([0-9]+)/);
+      if (vidMatch) return `https://www.facebook.com/watch/?v=${vidMatch[1]}`;
+      const cleanLoc = loc.split('?')[0];
+      if (cleanLoc.includes('facebook.com')) return cleanLoc;
+    }
+    const html = await resp.text().catch(() => '');
+    const htmlReel = html.match(/facebook\.com(?:\\\/|\/)reel(?:\\\/|\/)([0-9]+)/);
+    if (htmlReel) return `https://www.facebook.com/reel/${htmlReel[1]}`;
+    const htmlVid = html.match(/facebook\.com(?:\\\/|\/)(?:watch\/?\?v=|videos(?:\\\/|\/))([0-9]+)/);
+    if (htmlVid) return `https://www.facebook.com/watch/?v=${htmlVid[1]}`;
+  } catch (e) {}
+  return link;
+}
+
 async function resolveFacebookDirect(link) {
   const fetchPage = async (targetUrl, isMobile = false) => {
     const ua = isMobile
@@ -204,6 +240,7 @@ async function resolveFacebookDirect(link) {
 
     const resp = await fetch(targetUrl, {
       redirect: 'follow',
+      signal: AbortSignal.timeout(4500),
       headers: {
         'User-Agent': ua,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
@@ -1341,7 +1378,8 @@ export async function onRequestPost(context) {
 
   let targetFbUrl = inputUrl;
   if (type === 'facebook') {
-    const fbIdMatch = inputUrl.match(/(?:[?&]v=|\/videos\/|\/reel\/|\/reels\/|\/share\/r\/|\/share\/v\/)([0-9]+)/);
+    targetFbUrl = await resolveFacebookShareRedirect(inputUrl);
+    const fbIdMatch = targetFbUrl.match(/(?:[?&]v=|\/videos\/|\/reel\/|\/reels\/|\/share\/r\/|\/share\/v\/)([0-9]+)/);
     if (fbIdMatch) {
       targetFbUrl = `https://www.facebook.com/watch/?v=${fbIdMatch[1]}`;
     }
@@ -1517,14 +1555,14 @@ export async function onRequestPost(context) {
   }
 
   // 2. Delegate to Python backend for complex/fallback media (Reddit, Twitter, etc.)
-  if (ytdlpApiUrl) {
+  if (ytdlpApiUrl && !['youtube', 'facebook', 'instagram', 'pinterest', 'tiktok'].includes(type)) {
     try {
       const cleanApiUrl = ytdlpApiUrl.replace(/\/+$/, '');
       const resp = await fetch(`${cleanApiUrl}/api/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inputUrl, preset }),
-        signal: AbortSignal.timeout(4000)
+        body: JSON.stringify({ inputUrl: targetFbUrl || inputUrl, preset }),
+        signal: AbortSignal.timeout(6000)
       });
       if (resp.ok) {
         const data = await resp.json();
