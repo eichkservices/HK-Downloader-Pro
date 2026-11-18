@@ -2951,31 +2951,43 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s : s}`;
   }
 
-  // Client-Side Adult / NSFW Ad Guard (filters out unwanted ad networks / creatives)
-  const ADULT_KEYWORDS = [
-    'erotic', 'adult', 'dating', 'sex', 'porn', 'xxx', '18+', 'nsfw', 'hookup', 
-    'strip', 'camgirl', 'onlyfans', 'casino', 'betting', 'gamble', 'singles'
-  ];
+  // Non-destructive Adblock / Brave Shields Fallback (never hides active Adsterra ads; only fills empty blocked containers)
+  setTimeout(() => {
+    const nativeEl = document.getElementById('container-0dc5280b04ec0aeab29bb231530dbf13');
+    if (nativeEl && nativeEl.children.length === 0 && nativeEl.offsetHeight < 15) {
+      nativeEl.innerHTML = `
+        <a href="/gta-6-guides/" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:rgba(24,22,19,0.92);border:1px solid rgba(255,107,0,0.35);border-radius:8px;text-decoration:none;color:#ede9e0;margin:8px auto;max-width:460px;">
+          <div style="text-align:left;">
+            <div style="font-size:10px;font-weight:800;color:#ff6b00;text-transform:uppercase;letter-spacing:0.06em;">Featured Gaming Hub • GTA 6</div>
+            <div style="font-size:13px;font-weight:700;color:#ede9e0;margin-top:2px;">GTA 6 Download, Buy, PC/PS5 Pro Specs &amp; 4K Trailer Hub</div>
+          </div>
+          <span style="background:#ff6b00;color:#0f0e0c;font-size:11px;font-weight:800;padding:6px 11px;border-radius:6px;white-space:nowrap;">Read Guides &rarr;</span>
+        </a>
+      `;
+    }
+  }, 3000);
 
-  function sanitizeAdNodes() {
-    const adContainers = document.querySelectorAll('.ad-slot-container, .fixed-ad-slot, .ad-fixed-container, iframe');
-    adContainers.forEach(container => {
-      try {
-        const text = (container.innerText || container.textContent || '').toLowerCase();
-        const html = (container.innerHTML || '').toLowerCase();
-        const isBad = ADULT_KEYWORDS.some(kw => text.includes(kw) || html.includes(kw));
-        if (isBad) {
-          container.style.display = 'none';
-          container.innerHTML = '';
-        }
-      } catch (e) {}
-    });
-  }
-
-  const adObserver = new MutationObserver(() => {
-    sanitizeAdNodes();
-  });
-  adObserver.observe(document.body, { childList: true, subtree: true });
-  setTimeout(sanitizeAdNodes, 2000);
-  setTimeout(sanitizeAdNodes, 5000);
+  // Inject Featured Articles & GTA 6 Hub Discovery Strip above Footer / Platform Hub
+  try {
+    const footerEl = document.querySelector('footer') || document.querySelector('.seo-platform-links');
+    if (footerEl && !document.getElementById('hkArticlesDiscoveryStrip')) {
+      const strip = document.createElement('div');
+      strip.id = 'hkArticlesDiscoveryStrip';
+      strip.style.cssText = 'max-width:520px;margin:14px auto;padding:12px 14px;background:rgba(24,22,19,0.92);border:1px solid rgba(255,107,0,0.28);border-radius:8px;text-align:left;';
+      strip.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+          <span style="font-size:10.5px;font-weight:800;color:#ff6b00;text-transform:uppercase;letter-spacing:0.06em;">&#128293; Featured Gaming &amp; Hardware Guides</span>
+          <a href="/gta-6-guides/" style="font-size:11px;color:#ff852b;text-decoration:none;font-weight:700;">View All 5 Guides &rarr;</a>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:11.5px;">
+          <a href="/gta-6-download-guide/" style="color:#ede9e0;background:#211e1a;border:1px solid #353029;padding:4px 8px;border-radius:5px;text-decoration:none;">1. Where to Download GTA 6</a>
+          <a href="/where-to-buy-gta-6/" style="color:#ede9e0;background:#211e1a;border:1px solid #353029;padding:4px 8px;border-radius:5px;text-decoration:none;">2. Where to Buy GTA 6</a>
+          <a href="/gta-6-system-requirements-specs/" style="color:#ede9e0;background:#211e1a;border:1px solid #353029;padding:4px 8px;border-radius:5px;text-decoration:none;">3. GTA 6 PC &amp; PS5 Pro Specs</a>
+          <a href="/gta-6-things-to-know-before-buying/" style="color:#ede9e0;background:#211e1a;border:1px solid #353029;padding:4px 8px;border-radius:5px;text-decoration:none;">4. 15 Things to Know</a>
+          <a href="/is-gta-6-worth-it-review/" style="color:#ede9e0;background:#211e1a;border:1px solid #353029;padding:4px 8px;border-radius:5px;text-decoration:none;">5. Is GTA 6 Worth It?</a>
+        </div>
+      `;
+      footerEl.parentNode.insertBefore(strip, footerEl);
+    }
+  } catch (e) {}
 });

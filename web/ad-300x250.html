@@ -4,7 +4,7 @@
   <meta name="robots" content="noindex, nofollow">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <base target="_blank">
+  <base target="_top">
   <style>
     html, body {
       margin: 0;
@@ -17,10 +17,80 @@
       align-items: center;
       overflow: hidden;
       color-scheme: dark;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .house-ad-300 {
+      display: none;
+      width: 298px;
+      height: 248px;
+      background: #181613;
+      border: 1px solid #3d352b;
+      border-radius: 8px;
+      overflow: hidden;
+      box-sizing: border-box;
+      flex-direction: column;
+      justify-content: space-between;
+      text-decoration: none;
+      color: #ede9e0;
+    }
+    .house-ad-300.active { display: flex; }
+    .house-ad-img {
+      width: 100%;
+      height: 138px;
+      object-fit: cover;
+      display: block;
+      background: #0f0e0c;
+    }
+    .house-ad-body {
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .house-ad-tag {
+      font-size: 9.5px;
+      font-weight: 800;
+      color: #ff6b00;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .house-ad-head {
+      font-size: 13px;
+      font-weight: 700;
+      color: #ede9e0;
+      line-height: 1.25;
+    }
+    .house-ad-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 4px;
+      font-size: 11px;
+      color: #22c55e;
+      font-weight: 700;
+    }
+    .house-ad-btn {
+      background: #ff6b00;
+      color: #0f0e0c;
+      font-size: 10.5px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 4px;
     }
   </style>
 </head>
 <body>
+  <a id="houseFallback300" class="house-ad-300" href="/gta-6-system-requirements-specs/">
+    <img class="house-ad-img" src="https://i.ytimg.com/vi/QdBZY2fkU-0/hqdefault.jpg" alt="GTA 6 Hardware &amp; Specs Guide">
+    <div class="house-ad-body">
+      <div class="house-ad-tag">Featured Gaming Guide • 2026</div>
+      <div class="house-ad-head">Can Your PC or Console Run GTA 6 at 60 FPS?</div>
+      <div class="house-ad-foot">
+        <span>PS5 Pro • RTX 40/50 Series</span>
+        <span class="house-ad-btn">Check Specs &rarr;</span>
+      </div>
+    </div>
+  </a>
   <script type="text/javascript">
     atOptions = {
       'key' : 'd7f3167ed3f54a1c22e2784563d62361',
@@ -29,7 +99,14 @@
       'width' : 300,
       'params' : {}
     };
+    function showFallback300() {
+      if (!document.querySelector('iframe')) {
+        var el = document.getElementById('houseFallback300');
+        if (el) el.classList.add('active');
+      }
+    }
+    setTimeout(showFallback300, 2200);
   </script>
-  <script type="text/javascript" src="https://bellnewyork.org/22/d7f3167ed3f54a1c22e2784563d62361"></script>
+  <script type="text/javascript" src="https://bellnewyork.org/22/d7f3167ed3f54a1c22e2784563d62361" onerror="showFallback300()"></script>
 </body>
 </html>

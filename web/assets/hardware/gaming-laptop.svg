@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">
+    <rect width="240" height="240" fill="#141311"/>
+    <rect x="12" y="12" width="216" height="216" rx="10" fill="#1b1916" stroke="#353029"/>
+    <rect x="42" y="48" width="156" height="100" rx="6" fill="#0f0e0c" stroke="#ff6b00" stroke-width="2"/>
+    <polygon points="24,154 216,154 202,178 38,178" fill="#2e2a24" stroke="#524a3e"/>
+    <text x="120" y="102" text-anchor="middle" fill="#ff6b00" font-family="monospace" font-size="13" font-weight="bold">240Hz OLED • RTX 4080</text>
+    <text x="120" y="212" text-anchor="middle" fill="#ede9e0" font-family="monospace" font-size="11" font-weight="bold">ROG STRIX / LEGION PRO 7i</text>
+  </svg>
