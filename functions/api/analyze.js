@@ -323,22 +323,72 @@ async function resolveFacebookDirect(link) {
   return { title, thumbnail, type: 'facebook', formats };
 }
 
-async function resolveInstagramDirect(link) {
+async function resolveInstagramDirect(link, igSessionId = '') {
   const shortcodeMatch = link.match(/(?:reel|reels|p|tv)\/([a-zA-Z0-9_-]+)/);
   if (!shortcodeMatch) throw new Error('Invalid Instagram URL');
   const shortcode = shortcodeMatch[1];
 
-  // Try direct Instagram oEmbed and API endpoint
   const headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     'Accept-Language': 'en-US,en;q=0.9',
     'Sec-Fetch-Mode': 'navigate'
   };
+  if (igSessionId) {
+    headers['Cookie'] = `sessionid=${igSessionId};`;
+  }
 
   let title = 'Instagram Video';
   let thumbnail = '';
   const formats = [];
+
+  // 0. If INSTAGRAM_SESSION_ID is set in Cloudflare Pages (100% free), query Instagram JSON endpoint directly on the edge
+  if (igSessionId) {
+    try {
+      const gqlParams = new URLSearchParams({
+        variables: JSON.stringify({ shortcode, fetch_tagged_user_count: null, hoisted_comment_id: null, hoisted_reply_id: null }),
+        doc_id: '8845758582119845'
+      });
+      const gqlResp = await fetch('https://www.instagram.com/graphql/query', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Cookie': `sessionid=${igSessionId};`,
+          'X-IG-App-ID': '936619743392459',
+          'X-Requested-With': 'XMLHttpRequest',
+          'User-Agent': headers['User-Agent']
+        },
+        body: gqlParams.toString(),
+        signal: AbortSignal.timeout(4500)
+      });
+      if (gqlResp.ok) {
+        const gqlData = await gqlResp.json();
+        const media = gqlData?.data?.xdt_shortcode_media || gqlData?.data?.shortcode_media;
+        if (media?.video_url) {
+          title = media?.edge_media_to_caption?.edges?.[0]?.node?.text?.slice(0, 90) || title;
+          thumbnail = media?.display_url || thumbnail;
+          formats.push({
+            directUrl: media.video_url,
+            token: media.video_url,
+            url: link,
+            note: '🎬 1080p HD Video (MP4)',
+            ext: 'mp4',
+            height: 1080,
+            hasAudio: true
+          });
+          formats.push({
+            directUrl: media.video_url,
+            token: media.video_url,
+            url: link,
+            note: '🎵 Audio Track (MP3)',
+            ext: 'mp3',
+            isAudio: true
+          });
+          return { title, thumbnail, type: 'instagram', formats };
+        }
+      }
+    } catch (e) {}
+  }
 
   // 1. Fetch metadata via oEmbed
   try {
@@ -1661,42 +1711,21 @@ export async function onRequestPost(context) {
       } catch (e) {}
     }
   } else if (type === 'instagram') {
-    // Instagram DASH streams often separate video & audio; try Python backend first for full stream pairing
-    if (ytdlpApiUrl) {
-      try {
-        const cleanApiUrl = ytdlpApiUrl.replace(/\/+$/, '');
-        const resp = await fetch(`${cleanApiUrl}/api/analyze`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ inputUrl, preset }),
-          signal: AbortSignal.timeout(6000)
-        });
-        if (resp.ok) {
-          const data = await resp.json();
-          if (data.formats && Array.isArray(data.formats)) {
-            // Guarantee 100% that Instagram downloads have audio (filter out silent DASH video tracks)
-            data.formats = data.formats.filter(f => f.hasAudio || f.isAudio || f.ext === 'mp3' || f.ext === 'm4a');
-            data.formats = capVideoFormats(data.formats);
-            data.formats.forEach(f => {
-              if (!f.token && f.directUrl) {
-                f.token = f.directUrl;
-              } else if (f.token && !f.token.startsWith('http')) {
-                f.token = f.directUrl || f.token;
-              }
-            });
+    // 1. Try fast Cloudflare Edge Instagram resolver first (supports cookieless embed + optional free INSTAGRAM_SESSION_ID)
+    try {
+      const igData = await resolveInstagramDirect(inputUrl, env?.INSTAGRAM_SESSION_ID || '');
+      if (igData && igData.formats && igData.formats.length > 0) {
+        return new Response(JSON.stringify(igData), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type'
           }
-          return new Response(JSON.stringify(data), {
-            status: 200,
-            headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
-              'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-              'Access-Control-Allow-Headers': 'Content-Type'
-            }
-          });
-        }
-      } catch (e) {}
-    }
+        });
+      }
+    } catch (e) {}
     try {
       const igData = await resolveInstagramDirect(inputUrl);
       if (igData && igData.formats && igData.formats.length > 0) {
@@ -1788,8 +1817,8 @@ export async function onRequestPost(context) {
       ]
     : type === 'instagram'
     ? [
-        { name: 'instagram-direct', run: () => resolveInstagramDirect(inputUrl) },
-        { name: 'ytdlp-backend', run: () => resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, 12000) },
+        { name: 'instagram-direct', run: () => resolveInstagramDirect(inputUrl, env?.INSTAGRAM_SESSION_ID || '') },
+        { name: 'ytdlp-backend', run: () => resolveYtDlpBackend(inputUrl, preset, ytdlpApiUrl, 10000) },
       ]
     : type === 'facebook'
     ? [
