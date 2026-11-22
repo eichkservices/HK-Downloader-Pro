@@ -353,46 +353,63 @@ async function resolveInstagramDirect(link) {
     }
   } catch (e) {}
 
-  // 2. Fetch page HTML / Embed to extract direct mp4 video stream (which includes full muxed audio)
-  try {
-    const embedResp = await fetch(`https://www.instagram.com/p/${shortcode}/embed/captioned/`, {
-      headers,
-      signal: AbortSignal.timeout(4500)
-    });
-    if (embedResp.ok) {
-      const html = await embedResp.text();
-      const videoMatch = html.match(/"video_url"\s*:\s*"([^"]+)"/) ||
-                         html.match(/video_url&quot;:&quot;([^&]+)&quot;/) ||
-                         html.match(/src="([^"]+\.mp4[^"]*)"/);
-      const thumbMatch = html.match(/"display_url"\s*:\s*"([^"]+)"/) ||
-                         html.match(/property="og:image"\s+content="([^"]+)"/);
+  // 2. Fetch page HTML / Embed (try both iPhone Mobile & Desktop UAs, and parse double-escaped contextJSON)
+  const uas = [
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+    headers['User-Agent']
+  ];
+  for (const ua of uas) {
+    if (formats.length > 0) break;
+    try {
+      const embedResp = await fetch(`https://www.instagram.com/p/${shortcode}/embed/captioned/`, {
+        headers: { ...headers, 'User-Agent': ua },
+        signal: AbortSignal.timeout(4500)
+      });
+      if (embedResp.ok) {
+        const html = await embedResp.text();
+        const videoMatch = html.match(/\\?"video_url\\?"\s*:\s*\\?"([^"\\]+(?:\\.[^"\\]*)*)\\?"/) ||
+                           html.match(/video_url&quot;:&quot;([^&]+)&quot;/) ||
+                           html.match(/<video[^>]+src="([^"]+\.mp4[^"]*)"/);
+        const thumbMatch = html.match(/\\?"display_url\\?"\s*:\s*\\?"([^"\\]+(?:\\.[^"\\]*)*)\\?"/) ||
+                           html.match(/property="og:image"\s+content="([^"]+)"/);
 
-      if (thumbMatch && !thumbnail) {
-        thumbnail = thumbMatch[1].replace(/\\u0026/g, '&').replace(/&amp;/g, '&').replace(/\\/g, '');
+        const unescapeIgUrl = (raw) => raw
+          .replace(/\\\\\//g, '/')
+          .replace(/\\\//g, '/')
+          .replace(/\\u0026/g, '&')
+          .replace(/\\\\u0026/g, '&')
+          .replace(/&amp;/g, '&')
+          .replace(/\\/g, '');
+
+        if (thumbMatch && !thumbnail) {
+          thumbnail = unescapeIgUrl(thumbMatch[1]);
+        }
+
+        if (videoMatch) {
+          const videoUrl = unescapeIgUrl(videoMatch[1]);
+          if (videoUrl.startsWith('http')) {
+            formats.push({
+              directUrl: videoUrl,
+              token: videoUrl,
+              url: link,
+              note: '🎬 1080p HD Video (MP4)',
+              ext: 'mp4',
+              height: 1080,
+              hasAudio: true
+            });
+            formats.push({
+              directUrl: videoUrl,
+              token: videoUrl,
+              url: link,
+              note: '🎵 Audio Track (MP3)',
+              ext: 'mp3',
+              isAudio: true
+            });
+          }
+        }
       }
-
-      if (videoMatch) {
-        const videoUrl = videoMatch[1].replace(/\\u0026/g, '&').replace(/&amp;/g, '&').replace(/\\/g, '');
-        formats.push({
-          directUrl: videoUrl,
-          token: videoUrl,
-          note: '🎬 HD Video (with Audio MP4)',
-          ext: 'mp4',
-          height: 1080,
-          hasAudio: true
-        });
-
-        // Dedicated audio track extracted from the video stream
-        formats.push({
-          directUrl: videoUrl,
-          token: videoUrl,
-          note: '🎵 Audio Track (MP3 / Audio)',
-          ext: 'mp3',
-          isAudio: true
-        });
-      }
-    }
-  } catch (e) {}
+    } catch (e) {}
+  }
 
   if (formats.length > 0) {
     return { title, thumbnail, type: 'instagram', formats };
@@ -913,26 +930,52 @@ async function fetchYoutubeWatchSession(vidId) {
   const cookiePairs = ['PREF=hl=en&tz=UTC', 'SOCS=CAI'];
   let visitorData = '';
   let sts = 20746;
+
+  // 1. Fast lightweight /embed/ endpoint (reliably exposes VISITOR_DATA & STS even on datacenter IPs)
   try {
-    const watchRes = await fetch(`https://www.youtube.com/watch?v=${vidId}&bpctr=9999999999&has_verified=1`, {
+    const embedRes = await fetch(`https://www.youtube.com/embed/${vidId}`, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
         'Accept-Language': 'en-US,en;q=0.9',
         'Cookie': 'PREF=hl=en&tz=UTC; SOCS=CAI'
       },
-      signal: AbortSignal.timeout(4500)
+      signal: AbortSignal.timeout(3500)
     });
-    const setCookies = typeof watchRes.headers.getSetCookie === 'function' ? watchRes.headers.getSetCookie() : [];
+    const setCookies = typeof embedRes.headers.getSetCookie === 'function' ? embedRes.headers.getSetCookie() : [];
     for (const sc of setCookies) {
       const pair = sc.split(';')[0]?.trim();
       if (pair) cookiePairs.push(pair);
     }
-    const html = await watchRes.text();
-    const vm = html.match(/"VISITOR_DATA"\s*:\s*"([^"]+)"/);
+    const eHtml = await embedRes.text();
+    const vm = eHtml.match(/"VISITOR_DATA"\s*:\s*"([^"]+)"/) || eHtml.match(/"visitorData"\s*:\s*"([^"]+)"/);
     if (vm) visitorData = vm[1];
-    const sm = html.match(/"STS"\s*:\s*(\d+)/);
+    const sm = eHtml.match(/"STS"\s*:\s*(\d+)/) || eHtml.match(/"signatureTimestamp"\s*:\s*(\d+)/);
     if (sm) sts = parseInt(sm[1], 10);
   } catch (e) {}
+
+  // 2. Fallback to /watch if embed did not yield visitorData
+  if (!visitorData) {
+    try {
+      const watchRes = await fetch(`https://www.youtube.com/watch?v=${vidId}&bpctr=9999999999&has_verified=1`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Cookie': 'PREF=hl=en&tz=UTC; SOCS=CAI'
+        },
+        signal: AbortSignal.timeout(4000)
+      });
+      const setCookies = typeof watchRes.headers.getSetCookie === 'function' ? watchRes.headers.getSetCookie() : [];
+      for (const sc of setCookies) {
+        const pair = sc.split(';')[0]?.trim();
+        if (pair) cookiePairs.push(pair);
+      }
+      const html = await watchRes.text();
+      const vm = html.match(/"VISITOR_DATA"\s*:\s*"([^"]+)"/) || html.match(/"visitorData"\s*:\s*"([^"]+)"/);
+      if (vm) visitorData = vm[1];
+      const sm = html.match(/"STS"\s*:\s*(\d+)/);
+      if (sm) sts = parseInt(sm[1], 10);
+    } catch (e) {}
+  }
   return { visitorData, cookieHeader: [...new Set(cookiePairs)].join('; '), sts };
 }
 
@@ -1001,7 +1044,7 @@ async function resolveYoutubeDirect(link) {
   let title = 'YouTube Video';
   let thumbnail = `https://i.ytimg.com/vi/${vidId}/maxresdefault.jpg`;
   const formats = [];
-  let lazySession = null;
+  const lazySession = await fetchYoutubeWatchSession(vidId);
 
   for (const c of clients) {
     try {
@@ -1014,28 +1057,31 @@ async function resolveYoutubeDirect(link) {
         'Accept-Language': 'en-US,en;q=0.9'
       };
 
+      const clientContext = { ...c.context };
+      if (lazySession?.visitorData) {
+        clientContext.visitorData = lazySession.visitorData;
+        headers['X-Goog-Visitor-Id'] = lazySession.visitorData;
+      }
+
       const payload = {
         videoId: vidId,
-        context: { client: c.context },
+        context: { client: clientContext },
         contentCheckOk: true,
         racyCheckOk: true
       };
 
+      if (lazySession?.sts) {
+        payload.playbackContext = {
+          contentPlaybackContext: {
+            html5Preference: 'HTML5_PREF_WANTS',
+            signatureTimestamp: lazySession.sts
+          }
+        };
+      }
+
       if (!c.isNative) {
-        if (!lazySession) {
-          lazySession = await fetchYoutubeWatchSession(vidId);
-        }
         headers['Origin'] = 'https://www.youtube.com';
         if (lazySession?.cookieHeader) headers['Cookie'] = lazySession.cookieHeader;
-        if (lazySession?.visitorData) headers['X-Goog-Visitor-Id'] = lazySession.visitorData;
-        if (lazySession?.sts) {
-          payload.playbackContext = {
-            contentPlaybackContext: {
-              html5Preference: 'HTML5_PREF_WANTS',
-              signatureTimestamp: lazySession.sts
-            }
-          };
-        }
       }
 
       const resp = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {

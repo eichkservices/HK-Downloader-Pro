@@ -81,25 +81,48 @@ async function fetchYoutubeWatchSession(vidId) {
   let visitorData = '';
   let sts = 20746;
   try {
-    const watchRes = await fetch(`https://www.youtube.com/watch?v=${vidId}&bpctr=9999999999&has_verified=1`, {
+    const embedRes = await fetch(`https://www.youtube.com/embed/${vidId}`, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
         'Accept-Language': 'en-US,en;q=0.9',
         'Cookie': 'PREF=hl=en&tz=UTC; SOCS=CAI'
       },
-      signal: AbortSignal.timeout(4500)
+      signal: AbortSignal.timeout(3500)
     });
-    const setCookies = typeof watchRes.headers.getSetCookie === 'function' ? watchRes.headers.getSetCookie() : [];
+    const setCookies = typeof embedRes.headers.getSetCookie === 'function' ? embedRes.headers.getSetCookie() : [];
     for (const sc of setCookies) {
       const pair = sc.split(';')[0]?.trim();
       if (pair) cookiePairs.push(pair);
     }
-    const html = await watchRes.text();
-    const vm = html.match(/"VISITOR_DATA"\s*:\s*"([^"]+)"/);
+    const eHtml = await embedRes.text();
+    const vm = eHtml.match(/"VISITOR_DATA"\s*:\s*"([^"]+)"/) || eHtml.match(/"visitorData"\s*:\s*"([^"]+)"/);
     if (vm) visitorData = vm[1];
-    const sm = html.match(/"STS"\s*:\s*(\d+)/);
+    const sm = eHtml.match(/"STS"\s*:\s*(\d+)/);
     if (sm) sts = parseInt(sm[1], 10);
   } catch (e) {}
+
+  if (!visitorData) {
+    try {
+      const watchRes = await fetch(`https://www.youtube.com/watch?v=${vidId}&bpctr=9999999999&has_verified=1`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Cookie': 'PREF=hl=en&tz=UTC; SOCS=CAI'
+        },
+        signal: AbortSignal.timeout(4000)
+      });
+      const setCookies = typeof watchRes.headers.getSetCookie === 'function' ? watchRes.headers.getSetCookie() : [];
+      for (const sc of setCookies) {
+        const pair = sc.split(';')[0]?.trim();
+        if (pair) cookiePairs.push(pair);
+      }
+      const html = await watchRes.text();
+      const vm = html.match(/"VISITOR_DATA"\s*:\s*"([^"]+)"/) || html.match(/"visitorData"\s*:\s*"([^"]+)"/);
+      if (vm) visitorData = vm[1];
+      const sm = html.match(/"STS"\s*:\s*(\d+)/);
+      if (sm) sts = parseInt(sm[1], 10);
+    } catch (e) {}
+  }
   return { visitorData, cookieHeader: [...new Set(cookiePairs)].join('; '), sts };
 }
 
@@ -161,7 +184,7 @@ async function resolveYoutubeFreshStream(videoId, targetItag = null, targetQuali
     }
   ];
 
-  let lazySession = null;
+  const lazySession = await fetchYoutubeWatchSession(videoId);
 
   for (const c of clients) {
     try {
@@ -174,28 +197,31 @@ async function resolveYoutubeFreshStream(videoId, targetItag = null, targetQuali
         'Accept-Language': 'en-US,en;q=0.9'
       };
 
+      const clientContext = { ...c.context };
+      if (lazySession?.visitorData) {
+        clientContext.visitorData = lazySession.visitorData;
+        headers['X-Goog-Visitor-Id'] = lazySession.visitorData;
+      }
+
       const payload = {
         videoId: videoId,
-        context: { client: c.context },
+        context: { client: clientContext },
         contentCheckOk: true,
         racyCheckOk: true
       };
 
+      if (lazySession?.sts) {
+        payload.playbackContext = {
+          contentPlaybackContext: {
+            html5Preference: 'HTML5_PREF_WANTS',
+            signatureTimestamp: lazySession.sts
+          }
+        };
+      }
+
       if (!c.isNative) {
-        if (!lazySession) {
-          lazySession = await fetchYoutubeWatchSession(videoId);
-        }
         headers['Origin'] = 'https://www.youtube.com';
         if (lazySession?.cookieHeader) headers['Cookie'] = lazySession.cookieHeader;
-        if (lazySession?.visitorData) headers['X-Goog-Visitor-Id'] = lazySession.visitorData;
-        if (lazySession?.sts) {
-          payload.playbackContext = {
-            contentPlaybackContext: {
-              html5Preference: 'HTML5_PREF_WANTS',
-              signatureTimestamp: lazySession.sts
-            }
-          };
-        }
       }
 
       const resp = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {

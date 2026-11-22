@@ -519,30 +519,36 @@ def fetch_youtube_watch_session(video_id):
     cookie_pairs = ['PREF=hl=en&tz=UTC', 'SOCS=CAI']
     visitor_data = ''
     sts = 20746
-    try:
-        watch_req = urllib.request.Request(
-            f"https://www.youtube.com/watch?v={video_id}&bpctr=9999999999&has_verified=1",
-            headers={
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Cookie': 'PREF=hl=en&tz=UTC; SOCS=CAI'
-            }
-        )
-        with urllib.request.urlopen(watch_req, timeout=5) as r:
-            for k, v in r.headers.items():
-                if k.lower() == 'set-cookie':
-                    pair = v.split(';')[0].strip()
-                    if pair and pair not in cookie_pairs:
-                        cookie_pairs.append(pair)
-            watch_html = r.read().decode('utf-8', errors='ignore')
-        vm = re.search(r'"VISITOR_DATA"\s*:\s*"([^"]+)"', watch_html)
-        if vm:
-            visitor_data = vm.group(1)
-        sm = re.search(r'"STS"\s*:\s*(\d+)', watch_html)
-        if sm:
-            sts = int(sm.group(1))
-    except Exception:
-        pass
+    for ep in [
+        f"https://www.youtube.com/embed/{video_id}",
+        f"https://www.youtube.com/watch?v={video_id}&bpctr=9999999999&has_verified=1"
+    ]:
+        if visitor_data:
+            break
+        try:
+            watch_req = urllib.request.Request(
+                ep,
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Cookie': 'PREF=hl=en&tz=UTC; SOCS=CAI'
+                }
+            )
+            with urllib.request.urlopen(watch_req, timeout=4) as r:
+                for k, v in r.headers.items():
+                    if k.lower() == 'set-cookie':
+                        pair = v.split(';')[0].strip()
+                        if pair and pair not in cookie_pairs:
+                            cookie_pairs.append(pair)
+                watch_html = r.read().decode('utf-8', errors='ignore')
+            vm = re.search(r'"(?:VISITOR_DATA|visitorData)"\s*:\s*"([^"]+)"', watch_html)
+            if vm:
+                visitor_data = vm.group(1)
+            sm = re.search(r'"(?:STS|signatureTimestamp)"\s*:\s*(\d+)', watch_html)
+            if sm:
+                sts = int(sm.group(1))
+        except Exception:
+            pass
     return visitor_data, '; '.join(cookie_pairs), sts
 
 
@@ -617,7 +623,7 @@ def extract_youtube_direct(url):
         thumb = f'https://img.youtube.com/vi/{video_id}/hqdefault.jpg'
         formats = []
         title = 'YouTube Video'
-        lazy_session = None
+        v_data, c_hdr, s_ts = fetch_youtube_watch_session(video_id)
 
         for c in clients:
             try:
@@ -629,29 +635,29 @@ def extract_youtube_direct(url):
                     'Accept': '*/*',
                     'Accept-Language': 'en-US,en;q=0.9'
                 }
+                client_ctx = dict(c['context'])
+                if v_data:
+                    client_ctx['visitorData'] = v_data
+                    headers['X-Goog-Visitor-Id'] = v_data
+
                 payload = {
                     'videoId': video_id,
-                    'context': {'client': c['context']},
+                    'context': {'client': client_ctx},
                     'contentCheckOk': True,
                     'racyCheckOk': True
                 }
+                if s_ts:
+                    payload['playbackContext'] = {
+                        'contentPlaybackContext': {
+                            'html5Preference': 'HTML5_PREF_WANTS',
+                            'signatureTimestamp': s_ts
+                        }
+                    }
 
                 if not c.get('is_native'):
-                    if not lazy_session:
-                        lazy_session = fetch_youtube_watch_session(video_id)
-                    v_data, c_hdr, s_ts = lazy_session
                     headers['Origin'] = 'https://www.youtube.com'
                     if c_hdr:
                         headers['Cookie'] = c_hdr
-                    if v_data:
-                        headers['X-Goog-Visitor-Id'] = v_data
-                    if s_ts:
-                        payload['playbackContext'] = {
-                            'contentPlaybackContext': {
-                                'html5Preference': 'HTML5_PREF_WANTS',
-                                'signatureTimestamp': s_ts
-                            }
-                        }
 
                 req = urllib.request.Request(
                     'https://www.youtube.com/youtubei/v1/player?prettyPrint=false',
