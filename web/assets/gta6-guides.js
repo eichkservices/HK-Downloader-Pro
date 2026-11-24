@@ -233,6 +233,5 @@
     });
 
     initDownloaderCtas();
-    initAdblockFallbacks();
   });
 })();
