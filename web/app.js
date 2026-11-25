@@ -759,9 +759,32 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const footerNavLibrary = document.getElementById('footerNavLibrary');
+  if (footerNavLibrary) {
+    footerNavLibrary.addEventListener('click', (e) => {
+      e.preventDefault();
+      const dlTab = document.getElementById('tabDownloader');
+      const libTab = document.getElementById('tabLibrary');
+      if (dlTab) { dlTab.classList.add('hidden'); dlTab.classList.remove('active'); }
+      if (libTab) {
+        libTab.classList.remove('hidden');
+        libTab.classList.add('active');
+        renderLibraryGrid();
+        libTab.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+  }
+
   if (dockNavPlus) {
-    dockNavPlus.addEventListener('click', () => {
-      if (dockNavDownloader) dockNavDownloader.click();
+    dockNavPlus.addEventListener('click', (e) => {
+      e.preventDefault();
+      const dlTab = document.getElementById('tabDownloader');
+      const libTab = document.getElementById('tabLibrary');
+      if (dlTab && dlTab.classList.contains('hidden')) {
+        dlTab.classList.remove('hidden');
+        dlTab.classList.add('active');
+        if (libTab) { libTab.classList.add('hidden'); libTab.classList.remove('active'); }
+      }
       handlePasteOrAnalyze();
     });
   }
