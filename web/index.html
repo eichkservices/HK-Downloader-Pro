@@ -91,8 +91,8 @@
   <link rel="icon" type="image/png" sizes="192x192" href="logo-192.png">
   <link rel="apple-touch-icon" href="logo-192.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=3.2.0">
-  <link rel="stylesheet" href="hk-theme.css?v=3.2.0">
+  <link rel="stylesheet" href="style.css?v=3.2.1">
+  <link rel="stylesheet" href="hk-theme.css?v=3.2.1">
 </head>
 <body>
   <div id="toastContainer"></div>
@@ -371,36 +371,43 @@
       </div>
     </div>
 
-    <!-- Floating Cyber Bottom Dock: Glowing Action Plus + Dynamic Guides & Blog Ticker -->
+    <!-- Floating Cyber Bottom Dock: Dynamic Guide Badge + Sensible Guides Ticker -->
     <div class="dock" id="bottomDock">
-      <button id="dockNavPlus" class="orb" role="button" title="Paste Link &amp; Download" aria-label="Paste Link and Download">+</button>
+      <!-- Dynamic GTA 6 Guide Badge (Updates with sub-topic under it) -->
+      <a href="/gta-6-guides/" class="dock-guide-badge" id="dockGuideBadge" title="View all GTA 6 Guides">
+        <span class="badge-pulse-dot"></span>
+        <span class="badge-title">GTA 6 GUIDE</span>
+        <span class="badge-sep">·</span>
+        <span class="badge-topic" id="dockBadgeTopic">HOW TO DOWNLOAD</span>
+      </a>
+
       <div class="dock-ticker-container" id="dockTickerContainer" title="Latest Guides &amp; Blog Updates (Click to Read)">
         <div class="dock-ticker-track" id="dockTickerTrack">
-          <!-- Live Moving Tickers for Each Blog & Guide -->
-          <a href="/gta-6-cheats-codes-list/" class="ticker-pill"><span class="ticker-tag hot">🔥 CHEATS</span><span class="ticker-text">GTA 6 All Cheats &amp; Secret Codes</span></a>
-          <a href="/gta-6-download-guide/" class="ticker-pill"><span class="ticker-tag cyan">⚡ DOWNLOAD</span><span class="ticker-text">Where &amp; How to Download Safely</span></a>
-          <a href="/gta-6-system-requirements-specs/" class="ticker-pill"><span class="ticker-tag purple">🎮 SPECS</span><span class="ticker-text">GTA 6 PC &amp; PS5 Pro 60FPS Specs</span></a>
-          <a href="/gta-6-bugs-glitches-fixes/" class="ticker-pill"><span class="ticker-tag green">🐛 FIXES</span><span class="ticker-text">Day-1 Bugs &amp; Crash Solutions</span></a>
-          <a href="/gta-6-24-48-hour-speedrun-world-first-completions/" class="ticker-pill"><span class="ticker-tag hot">⏱️ SPEEDRUN</span><span class="ticker-text">World-First 24–48h Completions</span></a>
-          <a href="/gta-6-story-summary-timeline/" class="ticker-pill"><span class="ticker-tag cyan">📖 STORY</span><span class="ticker-text">Full Story in Short &amp; Endings</span></a>
-          <a href="/gta-6-updates-roadmap-dlc-expansion-timeline/" class="ticker-pill"><span class="ticker-tag purple">🚀 ROADMAP</span><span class="ticker-text">2026–2027 DLC &amp; Online Updates</span></a>
-          <a href="/gta-6-things-to-know-before-buying/" class="ticker-pill"><span class="ticker-tag green">💡 15 TIPS</span><span class="ticker-text">Things to Know Before Buying</span></a>
-          <a href="/where-to-buy-gta-6/" class="ticker-pill"><span class="ticker-tag hot">🛒 BUY</span><span class="ticker-text">Best Deals &amp; Pre-Order Bonuses</span></a>
-          <a href="/is-gta-6-worth-it-review/" class="ticker-pill"><span class="ticker-tag cyan">⭐ REVIEW</span><span class="ticker-text">Is GTA 6 Worth $70–$100?</span></a>
-          <a href="/gta-6-guides/" class="ticker-pill"><span class="ticker-tag purple">📚 ALL GUIDES</span><span class="ticker-text">Explore All 10 GTA 6 Guides &rarr;</span></a>
+          <!-- Live Moving Tickers with Natural Search Queries & Subtopics -->
+          <a href="/gta-6-download-guide/" class="ticker-pill" data-topic="HOW TO DOWNLOAD"><span class="ticker-tag cyan">⚡ GUIDE</span><span class="ticker-text">How to Download GTA 6?</span></a>
+          <a href="/gta-6-cheats-codes-list/" class="ticker-pill" data-topic="CHEATS &amp; CODES"><span class="ticker-tag hot">🔥 CHEATS</span><span class="ticker-text">GTA 6 Cheats &amp; Secret Codes List</span></a>
+          <a href="/gta-6-system-requirements-specs/" class="ticker-pill" data-topic="PC &amp; PS5 SPECS"><span class="ticker-tag purple">🎮 SPECS</span><span class="ticker-text">Can Your PC or PS5 Run GTA 6?</span></a>
+          <a href="/gta-6-bugs-glitches-fixes/" class="ticker-pill" data-topic="BUGS &amp; CRASHES"><span class="ticker-tag green">🐛 FIXES</span><span class="ticker-text">How to Fix GTA 6 Day-1 Bugs &amp; Crashes?</span></a>
+          <a href="/gta-6-24-48-hour-speedrun-world-first-completions/" class="ticker-pill" data-topic="WORLD SPEEDRUN"><span class="ticker-tag hot">⏱️ SPEEDRUN</span><span class="ticker-text">Who Completed GTA 6 in 24–48 Hours?</span></a>
+          <a href="/gta-6-story-summary-timeline/" class="ticker-pill" data-topic="STORY IN SHORT"><span class="ticker-tag cyan">📖 STORY</span><span class="ticker-text">What is the GTA 6 Story in Short?</span></a>
+          <a href="/gta-6-updates-roadmap-dlc-expansion-timeline/" class="ticker-pill" data-topic="DLC &amp; ROADMAP"><span class="ticker-tag purple">🚀 ROADMAP</span><span class="ticker-text">When is the Next GTA 6 Update &amp; DLC?</span></a>
+          <a href="/gta-6-things-to-know-before-buying/" class="ticker-pill" data-topic="15 THINGS TO KNOW"><span class="ticker-tag green">💡 TIPS</span><span class="ticker-text">15 Things to Know Before Playing GTA 6</span></a>
+          <a href="/where-to-buy-gta-6/" class="ticker-pill" data-topic="WHERE TO BUY"><span class="ticker-tag hot">🛒 BUY</span><span class="ticker-text">Where to Buy GTA 6 at the Best Price?</span></a>
+          <a href="/is-gta-6-worth-it-review/" class="ticker-pill" data-topic="IS IT WORTH IT?"><span class="ticker-tag cyan">⭐ REVIEW</span><span class="ticker-text">Is GTA 6 Worth $70 to $100?</span></a>
+          <a href="/gta-6-guides/" class="ticker-pill" data-topic="ALL 10 GUIDES"><span class="ticker-tag purple">📚 ALL GUIDES</span><span class="ticker-text">Browse All 10 GTA 6 Guides &amp; Walkthroughs &rarr;</span></a>
 
           <!-- Duplicated for seamless 100% infinite continuous loop -->
-          <a href="/gta-6-cheats-codes-list/" class="ticker-pill" aria-hidden="true"><span class="ticker-tag hot">🔥 CHEATS</span><span class="ticker-text">GTA 6 All Cheats &amp; Secret Codes</span></a>
-          <a href="/gta-6-download-guide/" class="ticker-pill" aria-hidden="true"><span class="ticker-tag cyan">⚡ DOWNLOAD</span><span class="ticker-text">Where &amp; How to Download Safely</span></a>
-          <a href="/gta-6-system-requirements-specs/" class="ticker-pill" aria-hidden="true"><span class="ticker-tag purple">🎮 SPECS</span><span class="ticker-text">GTA 6 PC &amp; PS5 Pro 60FPS Specs</span></a>
-          <a href="/gta-6-bugs-glitches-fixes/" class="ticker-pill" aria-hidden="true"><span class="ticker-tag green">🐛 FIXES</span><span class="ticker-text">Day-1 Bugs &amp; Crash Solutions</span></a>
-          <a href="/gta-6-24-48-hour-speedrun-world-first-completions/" class="ticker-pill" aria-hidden="true"><span class="ticker-tag hot">⏱️ SPEEDRUN</span><span class="ticker-text">World-First 24–48h Completions</span></a>
-          <a href="/gta-6-story-summary-timeline/" class="ticker-pill" aria-hidden="true"><span class="ticker-tag cyan">📖 STORY</span><span class="ticker-text">Full Story in Short &amp; Endings</span></a>
-          <a href="/gta-6-updates-roadmap-dlc-expansion-timeline/" class="ticker-pill" aria-hidden="true"><span class="ticker-tag purple">🚀 ROADMAP</span><span class="ticker-text">2026–2027 DLC &amp; Online Updates</span></a>
-          <a href="/gta-6-things-to-know-before-buying/" class="ticker-pill" aria-hidden="true"><span class="ticker-tag green">💡 15 TIPS</span><span class="ticker-text">Things to Know Before Buying</span></a>
-          <a href="/where-to-buy-gta-6/" class="ticker-pill" aria-hidden="true"><span class="ticker-tag hot">🛒 BUY</span><span class="ticker-text">Best Deals &amp; Pre-Order Bonuses</span></a>
-          <a href="/is-gta-6-worth-it-review/" class="ticker-pill" aria-hidden="true"><span class="ticker-tag cyan">⭐ REVIEW</span><span class="ticker-text">Is GTA 6 Worth $70–$100?</span></a>
-          <a href="/gta-6-guides/" class="ticker-pill" aria-hidden="true"><span class="ticker-tag purple">📚 ALL GUIDES</span><span class="ticker-text">Explore All 10 GTA 6 Guides &rarr;</span></a>
+          <a href="/gta-6-download-guide/" class="ticker-pill" data-topic="HOW TO DOWNLOAD" aria-hidden="true"><span class="ticker-tag cyan">⚡ GUIDE</span><span class="ticker-text">How to Download GTA 6?</span></a>
+          <a href="/gta-6-cheats-codes-list/" class="ticker-pill" data-topic="CHEATS &amp; CODES" aria-hidden="true"><span class="ticker-tag hot">🔥 CHEATS</span><span class="ticker-text">GTA 6 Cheats &amp; Secret Codes List</span></a>
+          <a href="/gta-6-system-requirements-specs/" class="ticker-pill" data-topic="PC &amp; PS5 SPECS" aria-hidden="true"><span class="ticker-tag purple">🎮 SPECS</span><span class="ticker-text">Can Your PC or PS5 Run GTA 6?</span></a>
+          <a href="/gta-6-bugs-glitches-fixes/" class="ticker-pill" data-topic="BUGS &amp; CRASHES" aria-hidden="true"><span class="ticker-tag green">🐛 FIXES</span><span class="ticker-text">How to Fix GTA 6 Day-1 Bugs &amp; Crashes?</span></a>
+          <a href="/gta-6-24-48-hour-speedrun-world-first-completions/" class="ticker-pill" data-topic="WORLD SPEEDRUN" aria-hidden="true"><span class="ticker-tag hot">⏱️ SPEEDRUN</span><span class="ticker-text">Who Completed GTA 6 in 24–48 Hours?</span></a>
+          <a href="/gta-6-story-summary-timeline/" class="ticker-pill" data-topic="STORY IN SHORT" aria-hidden="true"><span class="ticker-tag cyan">📖 STORY</span><span class="ticker-text">What is the GTA 6 Story in Short?</span></a>
+          <a href="/gta-6-updates-roadmap-dlc-expansion-timeline/" class="ticker-pill" data-topic="DLC &amp; ROADMAP" aria-hidden="true"><span class="ticker-tag purple">🚀 ROADMAP</span><span class="ticker-text">When is the Next GTA 6 Update &amp; DLC?</span></a>
+          <a href="/gta-6-things-to-know-before-buying/" class="ticker-pill" data-topic="15 THINGS TO KNOW" aria-hidden="true"><span class="ticker-tag green">💡 TIPS</span><span class="ticker-text">15 Things to Know Before Playing GTA 6</span></a>
+          <a href="/where-to-buy-gta-6/" class="ticker-pill" data-topic="WHERE TO BUY" aria-hidden="true"><span class="ticker-tag hot">🛒 BUY</span><span class="ticker-text">Where to Buy GTA 6 at the Best Price?</span></a>
+          <a href="/is-gta-6-worth-it-review/" class="ticker-pill" data-topic="IS IT WORTH IT?" aria-hidden="true"><span class="ticker-tag cyan">⭐ REVIEW</span><span class="ticker-text">Is GTA 6 Worth $70 to $100?</span></a>
+          <a href="/gta-6-guides/" class="ticker-pill" data-topic="ALL 10 GUIDES" aria-hidden="true"><span class="ticker-tag purple">📚 ALL GUIDES</span><span class="ticker-text">Browse All 10 GTA 6 Guides &amp; Walkthroughs &rarr;</span></a>
         </div>
       </div>
     </div>
@@ -566,7 +573,7 @@
   <!-- Scripts: i18n, HKUI Controller, and Main App Engine -->
   <script src="i18n.js?v=3.0.0"></script>
   <script src="hk-ui.js?v=3.0.6"></script>
-  <script src="app.js?v=3.2.0"></script>
+  <script src="app.js?v=3.2.1"></script>
 </body>
 </html>
 

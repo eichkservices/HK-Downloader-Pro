@@ -789,6 +789,75 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Dynamic GTA 6 Guide Badge Controller
+  // Synchronizes the top badge with whichever ticker item is currently active / passing under it
+  const dockBadgeTopic = document.getElementById('dockBadgeTopic');
+  const dockGuideBadge = document.getElementById('dockGuideBadge');
+  const dockTickerContainer = document.getElementById('dockTickerContainer');
+
+  if (dockBadgeTopic && dockTickerContainer) {
+    let lastActiveTopic = '';
+
+    function updateBadgeFromTicker() {
+      if (!dockTickerContainer) return;
+      const containerRect = dockTickerContainer.getBoundingClientRect();
+      if (containerRect.width === 0) return;
+
+      // Target area: near the left of the container directly under the badge
+      const targetX = containerRect.left + 70;
+      const pills = dockTickerContainer.querySelectorAll('.ticker-pill');
+      let closestPill = null;
+      let minDistance = Infinity;
+
+      for (let i = 0; i < pills.length; i++) {
+        const pill = pills[i];
+        const rect = pill.getBoundingClientRect();
+        if (rect.right > containerRect.left && rect.left < containerRect.right) {
+          const pillCenter = rect.left + rect.width / 2;
+          const dist = Math.abs(pillCenter - targetX);
+          if (dist < minDistance) {
+            minDistance = dist;
+            closestPill = pill;
+          }
+        }
+      }
+
+      if (closestPill) {
+        const topic = closestPill.getAttribute('data-topic');
+        if (topic && topic !== lastActiveTopic) {
+          lastActiveTopic = topic;
+          dockBadgeTopic.style.opacity = '0';
+          dockBadgeTopic.style.transform = 'translateY(2px)';
+          setTimeout(() => {
+            dockBadgeTopic.textContent = topic;
+            dockBadgeTopic.style.opacity = '1';
+            dockBadgeTopic.style.transform = 'translateY(0)';
+            if (dockGuideBadge) {
+              const href = closestPill.getAttribute('href');
+              if (href) dockGuideBadge.setAttribute('href', href);
+            }
+          }, 120);
+        }
+      }
+    }
+
+    setInterval(updateBadgeFromTicker, 250);
+
+    dockTickerContainer.querySelectorAll('.ticker-pill').forEach(pill => {
+      pill.addEventListener('mouseenter', () => {
+        const topic = pill.getAttribute('data-topic');
+        if (topic && topic !== lastActiveTopic) {
+          lastActiveTopic = topic;
+          dockBadgeTopic.textContent = topic;
+          if (dockGuideBadge) {
+            const href = pill.getAttribute('href');
+            if (href) dockGuideBadge.setAttribute('href', href);
+          }
+        }
+      });
+    });
+  }
+
   // Quality presets -- matches the Android app's QualityPreset values exactly,
   // so both platforms request the same thing from the same Cobalt instance.
   const QUALITY_PRESETS = {
